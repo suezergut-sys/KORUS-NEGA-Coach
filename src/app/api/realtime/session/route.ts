@@ -26,6 +26,8 @@ export async function POST(request: Request) {
 
   const url = new URL(request.url);
   const sdp = await request.text();
+  const requestedVoice = readParam(url, "voice", "marin");
+  const voice = requestedVoice === "cedar" ? "cedar" : "marin";
   const instructions = buildRealtimeInstructions({
     role: readParam(url, "role", "Алексей, руководитель отдела продаж"),
     difficulty: readParam(url, "difficulty", "Средняя"),
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
           interrupt_response: true,
         },
       },
-      output: { voice: "marin" },
+      output: { voice },
     },
   };
 
