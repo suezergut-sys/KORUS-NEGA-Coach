@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 
@@ -274,6 +275,7 @@ export default function VoiceArena() {
       <aside className="nav-rail" aria-label="Разделы приложения">
         <div className="duel-symbol" aria-hidden="true">D</div>
         <button className="rail-button active" aria-label="Переговоры">⌂</button>
+        <Link className="rail-button admin-rail-link" href="/admin" aria-label="Админ-панель">⚙</Link>
         <button className="rail-button" aria-label="Цели" disabled>◎</button>
         <button className="rail-button" aria-label="Статистика" disabled>▥</button>
         <button className="rail-button" aria-label="История" disabled>▤</button>
@@ -334,6 +336,7 @@ export default function VoiceArena() {
           <div><span>Анализ по методике после завершения</span><span className="fake-toggle on" /></div>
         </section>
 
+        <Link className="admin-entry-link" href="/admin"><span>⚙</span><div><strong>АДМИН-ПАНЕЛЬ</strong><small>Методология и настройки</small></div><b>→</b></Link>
         <button className="reset-settings" disabled>↻ &nbsp; СБРОСИТЬ НАСТРОЙКИ</button>
       </aside>
 
