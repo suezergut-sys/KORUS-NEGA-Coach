@@ -2,11 +2,13 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { NegotiationAnalysis } from "@/lib/analysis-types";
 
 type Status = "idle" | "connecting" | "connected" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
 type Line = { id: string; author: Speaker; text: string; time: string };
 type VoiceMode = "female" | "male";
+type AnalysisStatus = "idle" | "loading" | "ready" | "error";
 
 const CASE_CONTEXT =
   "Компания «Альтаир» внедряет новую CRM. Ключевой этап проекта сорван, а заказчик требует назвать ответственного и компенсировать задержку.";
@@ -50,6 +52,9 @@ export default function VoiceArena() {
   const [latency, setLatency] = useState<number | null>(null);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [opponentSpeaking, setOpponentSpeaking] = useState(false);
+  const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
+  const [analysis, setAnalysis] = useState<NegotiationAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState("");
 
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -57,6 +62,7 @@ export default function VoiceArena() {
   const channelRef = useRef<RTCDataChannel | null>(null);
   const responseStartedAtRef = useRef<number | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
+  const startedAtRef = useRef<string | null>(null);
 
   const opponent = OPPONENTS[voiceMode];
   const isLive = status === "connected";
@@ -162,6 +168,10 @@ export default function VoiceArena() {
     setSeconds(0);
     setEventCount(0);
     setLatency(null);
+    setAnalysisStatus("idle");
+    setAnalysis(null);
+    setAnalysisError("");
+    startedAtRef.current = new Date().toISOString();
     setLines([{ id: "connecting", author: "Система", text: "Устанавливаем защищённую голосовую связь…", time: clockTime() }]);
 
     try {
@@ -224,10 +234,39 @@ export default function VoiceArena() {
     }
   }
 
-  function endSession() {
+  async function endSession() {
     if (!isLive) return;
-    setLines((current) => [...current, { id: crypto.randomUUID(), author: "Система", text: "Переговоры завершены пользователем.", time: clockTime() }]);
+    const completedLines = [
+      ...lines,
+      { id: crypto.randomUUID(), author: "Система" as const, text: "Переговоры завершены пользователем.", time: clockTime() },
+    ];
+    setLines(completedLines);
     closeSession();
+    setAnalysisStatus("loading");
+    setAnalysisError("");
+
+    try {
+      const response = await fetch("/api/analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseCode: "missed-project-deadline",
+          caseContext: CASE_CONTEXT,
+          opponentName: opponent.name,
+          opponentVoice: opponent.voice,
+          startedAt: startedAtRef.current,
+          durationSeconds: seconds,
+          turns: completedLines,
+        }),
+      });
+      const payload = (await response.json()) as { analysis?: NegotiationAnalysis; error?: string };
+      if (!response.ok || !payload.analysis) throw new Error(payload.error || "Не удалось получить оценку.");
+      setAnalysis(payload.analysis);
+      setAnalysisStatus("ready");
+    } catch (caught) {
+      setAnalysisStatus("error");
+      setAnalysisError(caught instanceof Error ? caught.message : "Не удалось выполнить анализ.");
+    }
   }
 
   return (
@@ -289,10 +328,10 @@ export default function VoiceArena() {
           <div className="timer-options"><button disabled>10 мин</button><button className="selected" disabled>20 мин</button><button disabled>30 мин</button><button disabled>45 мин</button></div>
         </section>
 
-        <section className="setting-group is-disabled extras">
+        <section className="setting-group extras">
           <div className="setting-label">ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ <i>i</i></div>
-          <div><span>Показывать подсказки</span><span className="fake-toggle" /></div>
-          <div><span>Авто-анализ после завершения</span><span className="fake-toggle on" /></div>
+          <div className="is-disabled"><span>Показывать подсказки</span><span className="fake-toggle" /></div>
+          <div><span>Анализ по методике после завершения</span><span className="fake-toggle on" /></div>
         </section>
 
         <button className="reset-settings" disabled>↻ &nbsp; СБРОСИТЬ НАСТРОЙКИ</button>
@@ -346,6 +385,37 @@ export default function VoiceArena() {
         </div>
 
         {error && <div className="error-banner" role="alert"><strong>Не удалось начать переговоры.</strong><span>{error}</span></div>}
+
+        {analysisStatus !== "idle" && (
+          <section className="analysis-card" aria-live="polite">
+            {analysisStatus === "loading" && (
+              <div className="analysis-loading"><span className="analysis-spinner" /><div><strong>АНАЛИЗИРУЕМ ПОЕДИНОК</strong><p>Ищем релевантные фрагменты книги и сопоставляем их со стенограммой…</p></div></div>
+            )}
+            {analysisStatus === "error" && (
+              <div className="analysis-error"><strong>Анализ пока недоступен</strong><p>{analysisError}</p></div>
+            )}
+            {analysisStatus === "ready" && analysis && (
+              <>
+                <header className="analysis-header">
+                  <div><span>МЕТОДИЧЕСКИЙ РАЗБОР</span><h2>{analysis.summary}</h2></div>
+                  <div className="analysis-score"><strong>{analysis.overallScore}</strong><small>/ 100</small></div>
+                </header>
+                <p className="analysis-disclaimer">{analysis.disclaimer}</p>
+                <div className="analysis-grid">
+                  <AnalysisList title="СИЛЬНЫЕ ХОДЫ" items={analysis.strengths} tone="positive" />
+                  <AnalysisList title="РИСКИ" items={analysis.risks} tone="negative" />
+                </div>
+                {analysis.stratagems.length > 0 && (
+                  <div className="analysis-section"><h3>СТРАТАГЕМЫ И ХОДЫ</h3>{analysis.stratagems.map((item, index) => <article key={`${item.name}-${index}`}><strong>{item.name}</strong><span>{item.status === "observed" ? "Обнаружено" : item.status === "possible" ? "Возможно" : "Упущено"}</span><p>{item.explanation}</p></article>)}</div>
+                )}
+                {analysis.evidence.length > 0 && (
+                  <div className="analysis-section evidence-list"><h3>ДОКАЗАТЕЛЬСТВА ИЗ КНИГИ</h3>{analysis.evidence.slice(0, 4).map((item, index) => <article key={index}><blockquote>«{item.sourceQuote}»</blockquote><p>{item.rationale}</p><small>{item.section} · уверенность {Math.round(item.confidence * 100)}%</small></article>)}</div>
+                )}
+                <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
+              </>
+            )}
+          </section>
+        )}
 
         <footer className="session-actions">
           <button className="start-session" onClick={startSession} disabled={isLive || isBusy}>
@@ -405,4 +475,8 @@ function DisabledSelect({ label, value, icon }: { label: string; value: string; 
 
 function CaseBlock({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
   return <div className="case-block"><h3><span>{icon}</span>{title}</h3><div>{children}</div></div>;
+}
+
+function AnalysisList({ title, items, tone }: { title: string; items: string[]; tone: "positive" | "negative" }) {
+  return <div className={`analysis-list ${tone}`}><h3>{title}</h3><ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul></div>;
 }

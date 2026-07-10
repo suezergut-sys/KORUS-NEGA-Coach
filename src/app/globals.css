@@ -193,6 +193,35 @@ button { color: inherit; }
 .start-session:disabled, .end-session:disabled { opacity: .38; cursor: not-allowed; box-shadow: none; }
 .diagnostics { display: flex; justify-content: center; gap: 16px; color: #496785; font-size: 8px; }
 
+.analysis-card { margin: 14px 4px 0; padding: 18px; border: 1px solid #1764a8; border-radius: 12px; background: linear-gradient(145deg, rgba(7, 29, 56, .98), rgba(3, 15, 31, .98)); box-shadow: inset 0 0 35px rgba(0, 117, 255, .08); }
+.analysis-loading { min-height: 90px; display: flex; align-items: center; justify-content: center; gap: 18px; color: #8fb2d8; }
+.analysis-loading strong { color: #62b8ff; font-size: 12px; letter-spacing: .08em; }
+.analysis-loading p, .analysis-error p { margin: 7px 0 0; font-size: 11px; }
+.analysis-spinner { width: 38px; height: 38px; border: 2px solid #123f68; border-top-color: #1b9cff; border-radius: 50%; animation: analysisSpin 800ms linear infinite; }
+@keyframes analysisSpin { to { transform: rotate(360deg); } }
+.analysis-error { color: #f0b0aa; text-align: center; }
+.analysis-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.analysis-header span { color: #48adff; font-size: 10px; letter-spacing: .1em; }
+.analysis-header h2 { max-width: 650px; margin: 7px 0 0; color: #e5effc; font-size: 16px; line-height: 1.4; }
+.analysis-score { min-width: 82px; text-align: right; color: #6fc2ff; }
+.analysis-score strong { font-size: 35px; }
+.analysis-score small { color: #7892ad; font-size: 10px; }
+.analysis-disclaimer { margin: 13px 0; padding: 9px 11px; border-left: 2px solid #d8a93b; color: #c9b77f; background: rgba(107, 77, 10, .12); font-size: 10px; }
+.analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.analysis-list, .analysis-section { padding: 12px; border: 1px solid #183b5e; border-radius: 9px; background: rgba(5, 21, 40, .72); }
+.analysis-list h3, .analysis-section h3 { margin: 0 0 9px; color: #6abaff; font-size: 10px; letter-spacing: .08em; }
+.analysis-list.positive h3 { color: #58d4a6; }
+.analysis-list.negative h3 { color: #ff9087; }
+.analysis-list ul, .analysis-section ol { margin: 0; padding-left: 17px; color: #b9c8da; font-size: 10px; line-height: 1.55; }
+.analysis-section { margin-top: 12px; }
+.analysis-section article { position: relative; padding: 10px 0; border-top: 1px solid #14314e; }
+.analysis-section article:first-of-type { border-top: 0; }
+.analysis-section article > strong { color: #d7e8fa; font-size: 11px; }
+.analysis-section article > span { float: right; color: #4facf5; font-size: 9px; }
+.analysis-section article p { margin: 5px 0 0; color: #aebfd2; font-size: 10px; line-height: 1.5; }
+.evidence-list blockquote { margin: 0; color: #d6e4f4; font-size: 10px; line-height: 1.5; }
+.evidence-list small { display: block; margin-top: 6px; color: #5e82a7; font-size: 8px; }
+
 .opponent-panel { min-height: calc(100vh - 48px); padding: 16px 14px; overflow: hidden; }
 .opponent-panel > h2 { margin: 4px 4px 14px; }
 .opponent-profile { display: grid; grid-template-columns: 52% 48%; position: relative; min-height: 350px; border: 1px solid #14518a; border-radius: 13px; background: linear-gradient(145deg, #07162c, #061a35); overflow: hidden; }
@@ -265,4 +294,7 @@ button { color: inherit; }
   .mic-orb { width: 46px; height: 46px; }
   .session-actions { grid-template-columns: 1fr; gap: 10px; }
   .opponent-profile { grid-template-columns: 47% 53%; }
+  .analysis-grid { grid-template-columns: 1fr; }
+  .analysis-header h2 { font-size: 13px; }
+  .analysis-score strong { font-size: 28px; }
 }

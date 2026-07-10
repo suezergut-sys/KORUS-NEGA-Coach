@@ -6,10 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src"
+    "lint": "eslint src && node --check scripts/ingest-methodology.mjs",
+    "methodology:ingest": "node scripts/ingest-methodology.mjs",
+    "methodology:extract": "node scripts/ingest-methodology.mjs --extract-atoms"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.2",
     "next": "16.2.10",
+    "openai": "^6.46.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },
@@ -19,6 +23,7 @@
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.2.10",
+    "fast-xml-parser": "^5.9.3",
     "typescript": "^5.9.3"
   },
   "overrides": {
