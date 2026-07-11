@@ -397,6 +397,7 @@ export default function VoiceArena() {
         <button className="rail-button" aria-label="Достижения" disabled>♜</button>
         <div className="rail-spacer" />
         <button className="rail-button" aria-label="Помощь" disabled>?</button>
+        <form action="/api/site/logout" method="post"><button className="rail-button" type="submit" aria-label="Выйти с сайта">⇥</button></form>
         <button className="rail-avatar" aria-label="Профиль пользователя">Д</button>
       </aside>
 

@@ -10,6 +10,7 @@ export default function CasesLayout({ children }: { children: React.ReactNode })
           <Link href="/cases">＋ <span>Создать кейс</span></Link>
           <Link href="/admin">⚙ <span>Админ-панель</span></Link>
         </nav>
+        <form action="/api/site/logout" method="post"><button type="submit">⇥ <span>Выйти с сайта</span></button></form>
       </aside>
       <div className="admin-main">{children}</div>
     </main>

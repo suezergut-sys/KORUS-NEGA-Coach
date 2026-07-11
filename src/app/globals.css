@@ -26,6 +26,20 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 button, select, textarea, input { font: inherit; }
+
+.site-login-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% 20%, rgba(0, 114, 255, .18), transparent 35%), #020b17; }
+.site-login-card { width: min(470px, 100%); padding: 38px; text-align: center; }
+.site-login-brand { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 27px; color: white; text-align: left; text-decoration: none; }
+.site-login-brand > strong { width: 46px; height: 46px; display: grid; place-items: center; clip-path: polygon(0 0, 72% 0, 100% 50%, 72% 100%, 0 100%); background: linear-gradient(135deg, #168fff, #0046c6); font-size: 25px; }
+.site-login-brand > span { display: flex; flex-direction: column; font-size: 24px; font-weight: 800; letter-spacing: .12em; }
+.site-login-brand small { margin-top: 3px; color: #548ab9; font-size: 7px; letter-spacing: .16em; }
+.site-login-card h1 { margin: 9px 0 8px; font-size: 30px; }
+.site-login-card > p { margin: 0 auto 25px; color: #839bb4; font-size: 11px; line-height: 1.6; }
+.site-login-card form { display: grid; gap: 10px; text-align: left; }
+.site-login-card form label { color: #78a8d0; font-size: 9px; letter-spacing: .08em; }
+.site-login-card form input[type="password"] { height: 50px; padding: 0 14px; border: 1px solid #20517d; border-radius: 8px; color: white; background: #06172b; outline: none; }
+.site-login-card form input[type="password"]:focus { border-color: #168fff; box-shadow: 0 0 0 3px rgba(22, 143, 255, .12); }
+.site-login-card form button { height: 50px; margin-top: 5px; border: 1px solid #269cff; border-radius: 8px; color: white; background: linear-gradient(135deg, #0876e8, #064094); font-size: 10px; font-weight: 900; letter-spacing: .07em; cursor: pointer; }
 button { color: inherit; }
 
 .duel-app {
