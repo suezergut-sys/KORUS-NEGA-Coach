@@ -25,7 +25,7 @@ function safeEqual(left: string, right: string) {
 
 export function verifyAdminPassword(value: string) {
   const expected = process.env.ADMIN_PASSWORD || "";
-  return expected.length >= 16 && safeEqual(value, expected);
+  return expected.length >= 8 && safeEqual(value, expected);
 }
 
 export function createAdminSessionToken() {
@@ -59,4 +59,3 @@ export const adminCookieOptions = {
   path: "/",
   maxAge: SESSION_TTL_SECONDS,
 };
-

@@ -1,7 +1,8 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import MethodologyReview from "@/components/MethodologyReview";
 
-export default async function MethodologyReviewPage() {
+export default async function MethodologyReviewPage({ searchParams }: { searchParams: Promise<{ atom?: string }> }) {
+  const { atom: initialAtomId } = await searchParams;
   const supabase = getSupabaseAdmin();
   const [{ data: atoms, error }, { data: source }] = await Promise.all([
     supabase
@@ -39,7 +40,7 @@ export default async function MethodologyReviewPage() {
       }))}
       sourceStatus={source?.verification_status === "verified" ? "verified" : "candidate"}
       sourceVersion={source?.methodology_version || "tarasov-v0-candidate"}
+      initialSelectedId={initialAtomId}
     />
   );
 }
-

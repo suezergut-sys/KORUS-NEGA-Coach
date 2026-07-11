@@ -13,6 +13,13 @@ type AnalysisStatus = "idle" | "loading" | "ready" | "error";
 
 const CASE_CONTEXT =
   "Компания «Альтаир» внедряет новую CRM. Ключевой этап проекта сорван, а заказчик требует назвать ответственного и компенсировать задержку.";
+const CASE_GOAL =
+  "Сохранить рабочие отношения, добиться признания ответственности и согласовать реалистичный план исправления ситуации.";
+const CASE_CONSTRAINTS = [
+  "Нельзя перекладывать ответственность на заказчика",
+  "Срок восстановления — не более 10 рабочих дней",
+  "Ключевого сотрудника желательно сохранить",
+];
 
 const OPPONENTS = {
   female: {
@@ -63,6 +70,7 @@ export default function VoiceArena() {
   const channelRef = useRef<RTCDataChannel | null>(null);
   const responseStartedAtRef = useRef<number | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
+  const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
 
   const opponent = OPPONENTS[voiceMode];
@@ -78,6 +86,10 @@ export default function VoiceArena() {
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [lines]);
+
+  useEffect(() => {
+    if (analysisStatus === "ready") analysisRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [analysisStatus]);
 
   const closeSession = useCallback(() => {
     channelRef.current?.close();
@@ -253,6 +265,8 @@ export default function VoiceArena() {
         body: JSON.stringify({
           caseCode: "missed-project-deadline",
           caseContext: CASE_CONTEXT,
+          caseGoal: CASE_GOAL,
+          caseConstraints: CASE_CONSTRAINTS,
           opponentName: opponent.name,
           opponentVoice: opponent.voice,
           startedAt: startedAtRef.current,
@@ -390,7 +404,7 @@ export default function VoiceArena() {
         {error && <div className="error-banner" role="alert"><strong>Не удалось начать переговоры.</strong><span>{error}</span></div>}
 
         {analysisStatus !== "idle" && (
-          <section className="analysis-card" aria-live="polite">
+          <section className="analysis-card" aria-live="polite" ref={analysisRef}>
             {analysisStatus === "loading" && (
               <div className="analysis-loading"><span className="analysis-spinner" /><div><strong>АНАЛИЗИРУЕМ ПОЕДИНОК</strong><p>Ищем релевантные фрагменты книги и сопоставляем их со стенограммой…</p></div></div>
             )}
@@ -400,21 +414,37 @@ export default function VoiceArena() {
             {analysisStatus === "ready" && analysis && (
               <>
                 <header className="analysis-header">
-                  <div><span>МЕТОДИЧЕСКИЙ РАЗБОР</span><h2>{analysis.summary}</h2></div>
+                  <div><span>ИТОГОВЫЙ ОТЧЁТ ПО ПОЕДИНКУ</span><h2>{analysis.summary}</h2></div>
                   <div className="analysis-score"><strong>{analysis.overallScore}</strong><small>/ 100</small></div>
                 </header>
                 <p className="analysis-disclaimer">{analysis.disclaimer}</p>
+                <section className={`duel-outcome ${analysis.outcome.winner}`}>
+                  <div className="outcome-symbol">{analysis.outcome.winner === "user" ? "★" : analysis.outcome.winner === "opponent" ? "◆" : "="}</div>
+                  <div><span>РЕЗУЛЬТАТ ПОЕДИНКА</span><h3>{analysis.outcome.winner === "user" ? "Победил участник" : analysis.outcome.winner === "opponent" ? `Победил оппонент — ${opponent.name}` : "Ничья — явного победителя нет"}</h3><p>{analysis.outcome.verdict}</p><ul>{analysis.outcome.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>
+                </section>
+
+                <section className="personal-feedback">
+                  <span>ПЕРСОНАЛЬНАЯ ОБРАТНАЯ СВЯЗЬ</span><p>{analysis.personalFeedback}</p>
+                </section>
+
+                {analysis.scoreBreakdown.length > 0 && (
+                  <section className="score-breakdown"><h3>ОЦЕНКА ПО КРИТЕРИЯМ</h3><div>{analysis.scoreBreakdown.map((item, index) => <article key={index}><header><strong>{item.criterion}</strong><span>{item.score} / {item.maxScore}</span></header><i><b style={{ width: `${Math.min(100, (item.score / item.maxScore) * 100)}%` }} /></i><p>{item.explanation}</p></article>)}</div></section>
+                )}
                 <div className="analysis-grid">
                   <AnalysisList title="СИЛЬНЫЕ ХОДЫ" items={analysis.strengths} tone="positive" />
                   <AnalysisList title="РИСКИ" items={analysis.risks} tone="negative" />
                 </div>
-                {analysis.stratagems.length > 0 && (
-                  <div className="analysis-section"><h3>СТРАТАГЕМЫ И ХОДЫ</h3>{analysis.stratagems.map((item, index) => <article key={`${item.name}-${index}`}><strong>{item.name}</strong><span>{item.status === "observed" ? "Обнаружено" : item.status === "possible" ? "Возможно" : "Упущено"}</span><p>{item.explanation}</p></article>)}</div>
+
+                {analysis.techniqueReview.length > 0 && (
+                  <section className="technique-review"><h3>ПРИЁМЫ: ЧТО СРАБОТАЛО И ГДЕ НЕДОРАБОТАЛ</h3>{analysis.techniqueReview.map((item, index) => <article key={index} className={item.status}><header><strong>{item.technique}</strong><span>{item.status === "successful" ? "Успешно" : item.status === "partial" ? "Частично" : "Недоработано"}</span></header><div className="quote-pair"><blockquote><small>ВАША РЕПЛИКА</small>«{item.turnQuote}»</blockquote><blockquote><small>МЕТОДОЛОГИЯ ТАРАСОВА</small>«{item.sourceQuote}»</blockquote></div><p>{item.explanation}</p><footer><span>{item.section}</span>{item.methodologyAtomId && <Link href={`/admin/methodology?atom=${item.methodologyAtomId}`}>Открыть методический атом →</Link>}</footer></article>)}</section>
                 )}
-                {analysis.evidence.length > 0 && (
-                  <div className="analysis-section evidence-list"><h3>ДОКАЗАТЕЛЬСТВА ИЗ КНИГИ</h3>{analysis.evidence.slice(0, 4).map((item, index) => <article key={index}><blockquote>«{item.sourceQuote}»</blockquote><p>{item.rationale}</p><small>{item.section} · уверенность {Math.round(item.confidence * 100)}%</small></article>)}</div>
+
+                {analysis.developmentPlan.length > 0 && (
+                  <section className="development-plan"><h3>ЧТО РАЗВИВАТЬ И ВНЕДРЯТЬ В СВОЙ АРСЕНАЛ</h3><div>{analysis.developmentPlan.map((item, index) => <article key={index}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{item.skill}</strong><p>{item.why}</p><small>Практика: {item.practice}</small></div></article>)}</div></section>
                 )}
+
                 <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
+                <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span><Link href="/admin/methodology">Перейти к базе методологии →</Link></footer>
               </>
             )}
           </section>
@@ -457,9 +487,9 @@ export default function VoiceArena() {
         <h2 className="case-title">ОПИСАНИЕ КЕЙСА</h2>
         <section className="case-description">
           <CaseBlock icon="▤" title="КОНТЕКСТ">{CASE_CONTEXT}</CaseBlock>
-          <CaseBlock icon="◎" title="ЦЕЛЬ">Сохранить рабочие отношения, добиться признания ответственности и согласовать реалистичный план исправления ситуации.</CaseBlock>
+          <CaseBlock icon="◎" title="ЦЕЛЬ">{CASE_GOAL}</CaseBlock>
           <CaseBlock icon="▣" title="ОГРАНИЧЕНИЯ">
-            <ul><li>Нельзя перекладывать ответственность на заказчика</li><li>Срок восстановления — не более 10 рабочих дней</li><li>Ключевого сотрудника желательно сохранить</li></ul>
+            <ul>{CASE_CONSTRAINTS.map((item) => <li key={item}>{item}</li>)}</ul>
           </CaseBlock>
         </section>
       </aside>

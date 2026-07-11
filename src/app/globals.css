@@ -231,6 +231,55 @@ button { color: inherit; }
 .analysis-section article p { margin: 5px 0 0; color: #aebfd2; font-size: 10px; line-height: 1.5; }
 .evidence-list blockquote { margin: 0; color: #d6e4f4; font-size: 10px; line-height: 1.5; }
 .evidence-list small { display: block; margin-top: 6px; color: #5e82a7; font-size: 8px; }
+.duel-outcome { display: grid; grid-template-columns: 62px 1fr; gap: 15px; margin: 14px 0; padding: 16px; border: 1px solid #245276; border-radius: 11px; background: linear-gradient(135deg, rgba(7, 35, 65, .92), rgba(5, 20, 38, .92)); }
+.outcome-symbol { width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid #2986ca; border-radius: 50%; color: #7bc8ff; background: #092a4d; font-size: 25px; box-shadow: 0 0 22px rgba(0, 128, 255, .18); }
+.duel-outcome.user { border-color: #168a69; background: linear-gradient(135deg, rgba(6, 65, 50, .6), rgba(5, 24, 39, .94)); }
+.duel-outcome.user .outcome-symbol { border-color: #28c58d; color: #91ffd4; background: #0a503c; }
+.duel-outcome.opponent { border-color: #8d403f; background: linear-gradient(135deg, rgba(82, 24, 29, .58), rgba(25, 15, 29, .94)); }
+.duel-outcome.opponent .outcome-symbol { border-color: #d65e57; color: #ffaaa5; background: #542126; }
+.duel-outcome span, .personal-feedback span { color: #60baff; font-size: 8px; letter-spacing: .1em; }
+.duel-outcome h3 { margin: 4px 0 5px; color: #f0f6ff; font-size: 15px; }
+.duel-outcome p { margin: 0; color: #b9c9dc; font-size: 10px; line-height: 1.5; }
+.duel-outcome ul { margin: 9px 0 0; padding-left: 16px; color: #94a9c0; font-size: 9px; line-height: 1.55; }
+.personal-feedback { margin: 12px 0; padding: 14px; border: 1px solid #1d4c75; border-radius: 9px; background: rgba(8, 31, 57, .74); }
+.personal-feedback p { margin: 7px 0 0; color: #d0dceb; font-size: 11px; line-height: 1.6; }
+.score-breakdown { margin: 12px 0; }
+.score-breakdown > h3, .technique-review > h3, .development-plan > h3 { margin: 0 0 9px; color: #65baff; font-size: 10px; letter-spacing: .08em; }
+.score-breakdown > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.score-breakdown article { padding: 11px; border: 1px solid #173a59; border-radius: 8px; background: #07172a; }
+.score-breakdown article header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.score-breakdown article strong { color: #bed4e9; font-size: 9px; }
+.score-breakdown article header span { color: #67b9f8; font-size: 9px; font-weight: 700; }
+.score-breakdown article > i { height: 4px; display: block; margin: 8px 0; overflow: hidden; border-radius: 4px; background: #112f49; }
+.score-breakdown article > i b { height: 100%; display: block; background: linear-gradient(90deg, #0878ee, #2bc9ae); }
+.score-breakdown article p { margin: 0; color: #7890aa; font-size: 8px; line-height: 1.45; }
+.technique-review { margin-top: 13px; }
+.technique-review > article { margin-bottom: 9px; padding: 13px; border: 1px solid #1a466d; border-radius: 9px; background: linear-gradient(145deg, #071c34, #061426); }
+.technique-review > article.successful { border-left: 3px solid #24c98d; }
+.technique-review > article.partial { border-left: 3px solid #d2a53a; }
+.technique-review > article.missed { border-left: 3px solid #db5b55; }
+.technique-review article > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.technique-review article > header strong { color: #dceaf8; font-size: 11px; }
+.technique-review article > header span { color: #61d7aa; font-size: 8px; text-transform: uppercase; letter-spacing: .06em; }
+.technique-review article.partial > header span { color: #e3bd61; }
+.technique-review article.missed > header span { color: #ff8c85; }
+.quote-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+.quote-pair blockquote { margin: 0; padding: 10px; border: 1px solid #173c5d; border-radius: 7px; color: #b6c8d9; background: rgba(4, 18, 33, .7); font-size: 9px; line-height: 1.5; }
+.quote-pair blockquote:last-child { border-color: #5e4c20; color: #d5c58e; background: rgba(64, 48, 10, .14); }
+.quote-pair small { display: block; margin-bottom: 5px; color: #4e9bd4; font-size: 7px; letter-spacing: .08em; }
+.quote-pair blockquote:last-child small { color: #c6a54c; }
+.technique-review article > p { margin: 0; color: #9fb2c6; font-size: 9px; line-height: 1.5; }
+.technique-review article > footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 9px; padding-top: 8px; border-top: 1px solid #14334f; color: #58738e; font-size: 8px; }
+.technique-review article > footer a { color: #58b6f9; text-decoration: none; }
+.development-plan { margin-top: 14px; }
+.development-plan > div { display: grid; gap: 8px; }
+.development-plan article { display: grid; grid-template-columns: 35px 1fr; gap: 11px; padding: 11px; border: 1px solid #17405f; border-radius: 8px; background: #07182b; }
+.development-plan article > span { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #1a77b5; border-radius: 8px; color: #5abaff; background: #092845; font-size: 10px; }
+.development-plan strong { color: #d0e0ef; font-size: 10px; }
+.development-plan p { margin: 4px 0; color: #8fa5bb; font-size: 9px; line-height: 1.45; }
+.development-plan small { color: #62a9dc; font-size: 8px; }
+.report-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 13px; padding-top: 11px; border-top: 1px solid #17405f; color: #5e7994; font-size: 8px; }
+.report-footer a { color: #56b6fa; text-decoration: none; }
 
 .opponent-panel { min-height: calc(100vh - 48px); padding: 16px 14px; overflow: hidden; }
 .opponent-panel > h2 { margin: 4px 4px 14px; }
@@ -307,6 +356,9 @@ button { color: inherit; }
   .analysis-grid { grid-template-columns: 1fr; }
   .analysis-header h2 { font-size: 13px; }
   .analysis-score strong { font-size: 28px; }
+  .duel-outcome { grid-template-columns: 1fr; }
+  .score-breakdown > div, .quote-pair { grid-template-columns: 1fr; }
+  .technique-review article > footer, .report-footer { flex-direction: column; }
 }
 
 /* Admin */

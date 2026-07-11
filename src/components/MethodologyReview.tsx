@@ -72,13 +72,16 @@ export default function MethodologyReview({
   initialAtoms,
   sourceStatus,
   sourceVersion,
+  initialSelectedId,
 }: {
   initialAtoms: ReviewAtom[];
   sourceStatus: AtomStatus;
   sourceVersion: string;
+  initialSelectedId?: string;
 }) {
   const [atoms, setAtoms] = useState(initialAtoms);
-  const [selectedId, setSelectedId] = useState(initialAtoms[0]?.id || "");
+  const initialSelection = initialAtoms.find((atom) => atom.id === initialSelectedId) || initialAtoms[0];
+  const [selectedId, setSelectedId] = useState(initialSelection?.id || "");
   const selected = atoms.find((atom) => atom.id === selectedId) || atoms[0];
   const [draft, setDraft] = useState<Draft>(() => selected ? toDraft(selected) : { kind: "principle", title: "", statement: "", reviewerNote: "", signalsText: "", counterexamplesText: "" });
   const [statusFilter, setStatusFilter] = useState<"all" | AtomStatus>("all");
@@ -223,4 +226,3 @@ export default function MethodologyReview({
     </>
   );
 }
-

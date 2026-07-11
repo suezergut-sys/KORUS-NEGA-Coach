@@ -1,5 +1,5 @@
 import { ANALYSIS_MODEL, EMBEDDING_MODEL, getOpenAI } from "@/lib/openai-server";
-import { negotiationAnalysisSchema, type NegotiationAnalysis } from "@/lib/analysis-types";
+import { createNegotiationAnalysisSchema, type NegotiationAnalysis } from "@/lib/analysis-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
@@ -15,6 +15,8 @@ type InputTurn = {
 type AnalysisRequest = {
   caseCode?: string;
   caseContext?: string;
+  caseGoal?: string;
+  caseConstraints?: string[];
   opponentName?: string;
   opponentVoice?: string;
   startedAt?: string;
@@ -67,6 +69,8 @@ export async function POST(request: Request) {
     }
 
     const caseContext = clean(body.caseContext, 5000);
+    const caseGoal = clean(body.caseGoal, 3000);
+    const caseConstraints = (body.caseConstraints || []).map((item) => clean(item, 1000)).filter(Boolean).slice(0, 10);
     const transcript = turns
       .map((turn, index) => `${index + 1}. ${turn.author}: ${turn.text}`)
       .join("\n")
@@ -76,7 +80,7 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin();
     const embeddingResponse = await openai.embeddings.create({
       model: EMBEDDING_MODEL,
-      input: `${caseContext}\n\n${transcript}`.slice(0, 28000),
+      input: `${caseContext}\n${caseGoal}\n${caseConstraints.join("\n")}\n\n${transcript}`.slice(0, 28000),
       encoding_format: "float",
     });
 
@@ -95,14 +99,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const chunkIds = chunks.map((chunk) => chunk.id);
-    const { data: atoms } = await supabase
-      .from("method_atoms")
-      .select("id, chunk_id, kind, title, statement, source_quote, verification_status, methodology_version")
-      .in("chunk_id", chunkIds)
-      .neq("verification_status", "rejected")
-      .limit(30);
-
     const { data: methodSource } = await supabase
       .from("method_sources")
       .select("verification_status, methodology_version")
@@ -110,6 +106,19 @@ export async function POST(request: Request) {
       .single();
     const methodologyStatus = methodSource?.verification_status === "verified" ? "verified" : "candidate";
     const methodologyVersion = String(methodSource?.methodology_version || "tarasov-v0-candidate");
+    const chunkIds = chunks.map((chunk) => chunk.id);
+    const atomSelect = "id, chunk_id, kind, title, statement, source_quote, verification_status, methodology_version";
+    const atomsResult = methodologyStatus === "verified"
+      ? await supabase.from("method_atoms").select(atomSelect).eq("verification_status", "verified").limit(60)
+      : await supabase.from("method_atoms").select(atomSelect).in("chunk_id", chunkIds).neq("verification_status", "rejected").limit(30);
+    if (atomsResult.error) throw new Error(`Методические атомы: ${atomsResult.error.message}`);
+    const atoms = atomsResult.data || [];
+    const atomChunkIds = [...new Set(atoms.map((atom) => atom.chunk_id).filter(Boolean))];
+    const { data: atomChunks } = await supabase
+      .from("document_chunks")
+      .select("id,section_path")
+      .in("id", atomChunkIds);
+    const atomSectionMap = new Map((atomChunks || []).map((chunk) => [chunk.id, chunk.section_path]));
 
     const sources = chunks
       .map(
@@ -117,10 +126,10 @@ export async function POST(request: Request) {
           `[ИСТОЧНИК ${index + 1}] Раздел: ${chunk.section_path}\n${chunk.content}`,
       )
       .join("\n\n");
-    const atomContext = (atoms || [])
+    const atomContext = atoms
       .map(
         (atom) =>
-          `[АТОМ ${atom.verification_status}] ${atom.kind}: ${atom.title}\n${atom.statement}\nЦитата: ${atom.source_quote}`,
+          `[АТОМ ${atom.id}] [${atom.verification_status}] ${atom.kind}: ${atom.title}\nРаздел: ${atomSectionMap.get(atom.chunk_id) || "Не указан"}\n${atom.statement}\nЦитата: ${atom.source_quote}`,
       )
       .join("\n\n");
 
@@ -131,6 +140,10 @@ export async function POST(request: Request) {
 Ты анализируешь русскоязычный управленческий поединок по предоставленным фрагментам книги Владимира Тарасова.
 Не используй память о книге и не придумывай названия стратагем. Каждый методический вывод должен опираться на точную цитату из блока ИСТОЧНИК или АТОМ.
 sourceQuote копируй дословно. turnQuote копируй дословно из стенограммы.
+Определи победителя: user — человек достиг своей цели лучше оппонента; opponent — оппонент сохранил контроль и человек не продвинул цель; draw — стороны пришли к сбалансированному исходу или данных недостаточно. Не объявляй победу только за вежливость или красноречие.
+Дай персональную обратную связь именно человеку. В techniqueReview разбери как успешные, так и частичные/упущенные приёмы; каждый пункт обязан содержать прямую цитату человека из стенограммы и точную цитату методологии.
+methodologyAtomId копируй из метки [АТОМ id]. Если подходящего атома нет, оставь пустую строку, но не выдумывай id.
+developmentPlan должен содержать конкретные упражнения и формулировки, которые пользователь сможет внедрить в свой переговорный арсенал.
 Если материала недостаточно, прямо укажи это и снизь confidence.
 Статус базы: ${methodologyStatus}. Версия: ${methodologyVersion}.
 При статусе candidate оценка предварительная: не называй кандидаты подтверждёнными правилами автора.
@@ -139,6 +152,12 @@ sourceQuote копируй дословно. turnQuote копируй досло
       input: `
 КОНТЕКСТ КЕЙСА:
 ${caseContext}
+
+ЦЕЛЬ ЧЕЛОВЕКА:
+${caseGoal || "Явно не указана; восстанови только из контекста кейса и стенограммы."}
+
+ОГРАНИЧЕНИЯ:
+${caseConstraints.length ? caseConstraints.map((item) => `- ${item}`).join("\n") : "Не указаны."}
 
 СТЕНОГРАММА:
 ${transcript}
@@ -154,7 +173,7 @@ ${sources}
           type: "json_schema",
           name: "negotiation_analysis",
           strict: true,
-          schema: negotiationAnalysisSchema,
+          schema: createNegotiationAnalysisSchema(atoms.map((atom) => atom.id)),
         },
       },
     });
@@ -166,13 +185,25 @@ ${sources}
       ? "Оценка основана на верифицированной версии методической базы."
       : "Предварительный анализ: методические атомы ещё должны быть проверены экспертом.";
 
-    const sourceCorpus = chunks.map((chunk) => normalizeQuote(chunk.content)).join("\n");
+    const sourceCorpus = [
+      ...chunks.map((chunk) => normalizeQuote(chunk.content)),
+      ...atoms.map((atom) => normalizeQuote(atom.source_quote)),
+    ].join("\n");
     const turnCorpus = turns.map((turn) => normalizeQuote(turn.text)).join("\n");
+    const atomIds = new Set(atoms.map((atom) => atom.id));
     analysis.evidence = analysis.evidence.filter(
       (item) =>
         item.sourceQuote.length >= 12 &&
         sourceCorpus.includes(normalizeQuote(item.sourceQuote)) &&
         turnCorpus.includes(normalizeQuote(item.turnQuote)),
+    );
+    analysis.techniqueReview = analysis.techniqueReview.filter(
+      (item) =>
+        item.sourceQuote.length >= 12 &&
+        item.turnQuote.length >= 4 &&
+        sourceCorpus.includes(normalizeQuote(item.sourceQuote)) &&
+        turnCorpus.includes(normalizeQuote(item.turnQuote)) &&
+        (!item.methodologyAtomId || atomIds.has(item.methodologyAtomId)),
     );
 
     const startedAt = body.startedAt && !Number.isNaN(Date.parse(body.startedAt))
