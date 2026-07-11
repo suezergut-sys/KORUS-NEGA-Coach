@@ -2,7 +2,7 @@ import { addWorkspaceFiles, createOrUpdateWorkspace, getWorkspaceMaterials, getW
 import { generateCaseVariants } from "@/lib/case-generator";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   try {
