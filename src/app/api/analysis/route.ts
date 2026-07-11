@@ -13,6 +13,7 @@ type InputTurn = {
 };
 
 type AnalysisRequest = {
+  caseId?: string;
   caseCode?: string;
   caseContext?: string;
   caseGoal?: string;
@@ -212,6 +213,7 @@ ${sources}
     const { data: session, error: sessionError } = await supabase
       .from("training_sessions")
       .insert({
+        case_id: clean(body.caseId, 80) || null,
         case_code: clean(body.caseCode, 120) || "missed-project-deadline",
         case_context: caseContext,
         opponent_name: clean(body.opponentName, 160) || "Виртуальный оппонент",

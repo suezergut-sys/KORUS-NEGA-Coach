@@ -12,6 +12,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
         <nav aria-label="Админ-панель">
           <Link href="/admin">⌂ <span>Обзор</span></Link>
           <Link href="/admin/methodology">▤ <span>Методология</span></Link>
+          <Link href="/cases">＋ <span>Конструктор кейсов</span></Link>
           <a href="https://supabase.com/dashboard/project/byglrikxpipspkycjmkf" target="_blank" rel="noreferrer">◈ <span>Supabase</span></a>
         </nav>
         <form action="/api/admin/logout" method="post"><button type="submit">⇥ <span>Выйти</span></button></form>
@@ -20,4 +21,3 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
     </main>
   );
 }
-

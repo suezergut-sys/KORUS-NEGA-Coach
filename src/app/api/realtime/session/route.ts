@@ -1,4 +1,6 @@
 import { buildRealtimeInstructions } from "@/lib/prompt";
+import { getSupabaseAdmin } from "@/lib/supabase-server";
+import type { CaseRole } from "@/lib/case-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -28,10 +30,28 @@ export async function POST(request: Request) {
   const sdp = await request.text();
   const requestedVoice = readParam(url, "voice", "marin");
   const voice = requestedVoice === "cedar" ? "cedar" : "marin";
+  const caseId = readParam(url, "caseId", "");
+  let caseRow: Record<string, unknown> | null = null;
+  if (caseId && caseId !== "default-missed-project-deadline") {
+    const { data } = await getSupabaseAdmin()
+      .from("negotiation_cases")
+      .select("situation,conflict,user_role,opponent_role,stakes,start_situation")
+      .eq("id", caseId)
+      .eq("status", "published")
+      .maybeSingle();
+    caseRow = data;
+  }
+  const userRole = caseRow?.user_role as CaseRole | undefined;
+  const opponentRole = caseRow?.opponent_role as CaseRole | undefined;
   const instructions = buildRealtimeInstructions({
-    role: readParam(url, "role", "Алексей, руководитель отдела продаж"),
+    role: opponentRole ? `${opponentRole.name}, ${opponentRole.position}` : readParam(url, "role", "Алексей, руководитель отдела продаж"),
     difficulty: readParam(url, "difficulty", "Средняя"),
-    context: readParam(url, "context", ""),
+    context: caseRow ? String(caseRow.situation || "") : readParam(url, "context", ""),
+    conflict: caseRow ? String(caseRow.conflict || "") : "",
+    startSituation: caseRow ? String(caseRow.start_situation || "") : "",
+    stakes: (caseRow?.stakes || []) as string[],
+    userRole,
+    opponentRole,
   });
 
   if (!sdp.startsWith("v=0")) {

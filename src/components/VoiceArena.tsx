@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
+import type { CanonicalCase } from "@/lib/case-types";
 
 type Status = "idle" | "connecting" | "connected" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
@@ -20,6 +21,39 @@ const CASE_CONSTRAINTS = [
   "Срок восстановления — не более 10 рабочих дней",
   "Ключевого сотрудника желательно сохранить",
 ];
+
+const DEFAULT_CASE: CanonicalCase = {
+  id: "default-missed-project-deadline",
+  slug: "missed-project-deadline",
+  title: "Сорванный срок проекта",
+  summary: "Разговор руководителя проекта с сильным сотрудником после срыва ключевого этапа внедрения CRM.",
+  situation: CASE_CONTEXT,
+  conflict: "Нужно восстановить управляемость и добиться принятия ответственности, не потеряв ключевого специалиста и не усилив срыв проекта.",
+  userRole: {
+    name: "Руководитель проекта",
+    position: "Руководитель проекта",
+    publicGoal: CASE_GOAL,
+    interests: ["Восстановить срок проекта", "Сохранить доверие заказчика", "Не потерять ключевого специалиста"],
+    constraints: CASE_CONSTRAINTS,
+    hiddenMotives: [],
+    leverage: ["Распределение ресурсов проекта", "Оценка результатов сотрудника"],
+  },
+  opponentRole: {
+    name: "Алексей, руководитель отдела продаж",
+    position: "Ключевой участник проекта",
+    publicGoal: "Избежать персонального обвинения и сохранить влияние на решения по внедрению.",
+    interests: ["Сохранить репутацию", "Получить дополнительные ресурсы", "Не принимать нереалистичный срок"],
+    constraints: ["Не готов единолично отвечать за системный сбой"],
+    hiddenMotives: ["Опасается ослабления своей позиции в компании"],
+    leverage: ["Уникальная экспертиза", "Поддержка части команды"],
+  },
+  stakes: ["Отношения с заказчиком", "Срок внедрения", "Репутация участников"],
+  startSituation: "Оппонент начинает с отрицания личной ответственности и требует признать системный характер проблемы.",
+  difficultyReason: "Распределение ответственности, ресурсов и репутационных потерь не допускает очевидного взаимовыгодного решения.",
+  evaluationFocus: ["Управление позицией", "Выяснение интересов", "Работа с ответственностью"],
+  methodologyBasis: [],
+  origin: "seed",
+};
 
 const OPPONENTS = {
   female: {
@@ -63,6 +97,13 @@ export default function VoiceArena() {
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
   const [analysis, setAnalysis] = useState<NegotiationAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState("");
+  const [cases, setCases] = useState<CanonicalCase[]>([DEFAULT_CASE]);
+  const [selectedCaseId, setSelectedCaseId] = useState(DEFAULT_CASE.id);
+  const [casesError, setCasesError] = useState("");
+  const [quickUploadOpen, setQuickUploadOpen] = useState(false);
+  const [quickFile, setQuickFile] = useState<File | null>(null);
+  const [quickStatus, setQuickStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [quickError, setQuickError] = useState("");
 
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -73,9 +114,35 @@ export default function VoiceArena() {
   const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
 
-  const opponent = OPPONENTS[voiceMode];
+  const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
+  const voiceProfile = OPPONENTS[voiceMode];
+  const opponent = {
+    ...voiceProfile,
+    name: selectedCase.opponentRole.name,
+    title: selectedCase.opponentRole.position,
+  };
+  const selectedCaseContext = `${selectedCase.situation}\n\nЦентральный конфликт: ${selectedCase.conflict}`;
   const isLive = status === "connected";
   const isBusy = status === "connecting";
+
+  const loadCases = useCallback(async (preferredId?: string) => {
+    try {
+      const response = await fetch("/api/cases", { cache: "no-store" });
+      const payload = (await response.json()) as { cases?: CanonicalCase[]; error?: string };
+      if (!response.ok || !payload.cases?.length) throw new Error(payload.error || "База кейсов пока недоступна.");
+      setCases(payload.cases);
+      const queryId = preferredId || new URLSearchParams(window.location.search).get("case") || "";
+      setSelectedCaseId(payload.cases.some((item) => item.id === queryId) ? queryId : payload.cases[0].id);
+      setCasesError("");
+    } catch (caught) {
+      setCasesError(caught instanceof Error ? caught.message : "Не удалось загрузить кейсы.");
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadCases(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadCases]);
 
   useEffect(() => {
     if (!isLive) return;
@@ -90,6 +157,38 @@ export default function VoiceArena() {
   useEffect(() => {
     if (analysisStatus === "ready") analysisRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [analysisStatus]);
+
+  function chooseCase(caseId: string) {
+    if (isLive || isBusy) return;
+    setSelectedCaseId(caseId);
+    setLines([]);
+    setAnalysis(null);
+    setAnalysisStatus("idle");
+    const url = new URL(window.location.href);
+    url.searchParams.set("case", caseId);
+    window.history.replaceState(null, "", url);
+  }
+
+  async function uploadQuickCase() {
+    if (!quickFile || quickStatus === "loading") return;
+    setQuickStatus("loading");
+    setQuickError("");
+    try {
+      const form = new FormData();
+      form.set("file", quickFile);
+      const response = await fetch("/api/cases/quick-upload", { method: "POST", body: form });
+      const payload = (await response.json()) as { case?: CanonicalCase; error?: string };
+      if (!response.ok || !payload.case) throw new Error(payload.error || "Не удалось подготовить кейс.");
+      await loadCases(payload.case.id);
+      setQuickStatus("idle");
+      setQuickFile(null);
+      setQuickUploadOpen(false);
+      setLines([{ id: crypto.randomUUID(), author: "Система", text: `Кейс «${payload.case.title}» добавлен в базу и выбран.`, time: clockTime() }]);
+    } catch (caught) {
+      setQuickStatus("error");
+      setQuickError(caught instanceof Error ? caught.message : "Не удалось загрузить кейс.");
+    }
+  }
 
   const closeSession = useCallback(() => {
     channelRef.current?.close();
@@ -224,7 +323,8 @@ export default function VoiceArena() {
       const params = new URLSearchParams({
         role: `${opponent.name}, ${opponent.title}`,
         difficulty: "Средняя",
-        context: CASE_CONTEXT,
+        context: selectedCaseContext,
+        caseId: selectedCase.id,
         voice: opponent.voice,
       });
       const response = await fetch(`/api/realtime/session?${params.toString()}`, {
@@ -263,10 +363,11 @@ export default function VoiceArena() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          caseCode: "missed-project-deadline",
-          caseContext: CASE_CONTEXT,
-          caseGoal: CASE_GOAL,
-          caseConstraints: CASE_CONSTRAINTS,
+          caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
+          caseCode: selectedCase.slug,
+          caseContext: selectedCaseContext,
+          caseGoal: selectedCase.userRole.publicGoal,
+          caseConstraints: selectedCase.userRole.constraints,
           opponentName: opponent.name,
           opponentVoice: opponent.voice,
           startedAt: startedAtRef.current,
@@ -306,8 +407,9 @@ export default function VoiceArena() {
         </header>
         <h2><span>⚙</span> НАСТРОЙКИ</h2>
 
-        <DisabledSelect label="КЕЙС" value="Сорванный срок проекта" icon="▣" />
-        <DisabledSelect label="РОЛЬ" value="Руководитель проекта" icon="♙" />
+        <CaseSelect cases={cases} value={selectedCase.id} onChange={chooseCase} disabled={isLive || isBusy} />
+        <DisabledSelect label="РОЛЬ" value={selectedCase.userRole.name} icon="♙" />
+        {casesError && <p className="case-select-error">{casesError}</p>}
 
         <section className="setting-group is-disabled">
           <div className="setting-label">УРОВЕНЬ СЛОЖНОСТИ <i>i</i></div>
@@ -351,6 +453,8 @@ export default function VoiceArena() {
         </section>
 
         <Link className="admin-entry-link" href="/admin"><span>⚙</span><div><strong>АДМИН-ПАНЕЛЬ</strong><small>Методология и настройки</small></div><b>→</b></Link>
+        <button className="admin-entry-link case-action-link" onClick={() => setQuickUploadOpen(true)} disabled={isLive || isBusy}><span>⇧</span><div><strong>ЗАГРУЗИТЬ КЕЙС</strong><small>Один файл — сразу в базу</small></div><b>→</b></button>
+        <Link className="admin-entry-link case-action-link" href="/cases"><span>＋</span><div><strong>СОЗДАТЬ СВОЙ КЕЙС</strong><small>Материалы, анализ и варианты</small></div><b>→</b></Link>
         <button className="reset-settings" disabled>↻ &nbsp; СБРОСИТЬ НАСТРОЙКИ</button>
       </aside>
 
@@ -486,14 +590,37 @@ export default function VoiceArena() {
 
         <h2 className="case-title">ОПИСАНИЕ КЕЙСА</h2>
         <section className="case-description">
-          <CaseBlock icon="▤" title="КОНТЕКСТ">{CASE_CONTEXT}</CaseBlock>
-          <CaseBlock icon="◎" title="ЦЕЛЬ">{CASE_GOAL}</CaseBlock>
-          <CaseBlock icon="▣" title="ОГРАНИЧЕНИЯ">
-            <ul>{CASE_CONSTRAINTS.map((item) => <li key={item}>{item}</li>)}</ul>
+          <CaseBlock icon="▤" title="КОНТЕКСТ">{selectedCase.situation}</CaseBlock>
+          <CaseBlock icon="⚔" title="КОНФЛИКТ">{selectedCase.conflict}</CaseBlock>
+          <CaseBlock icon="◎" title="ВАША ЦЕЛЬ">{selectedCase.userRole.publicGoal}</CaseBlock>
+          <CaseBlock icon="▣" title="ВАШИ ИНТЕРЕСЫ И ОГРАНИЧЕНИЯ">
+            <ul>{[...selectedCase.userRole.interests, ...selectedCase.userRole.constraints].map((item) => <li key={item}>{item}</li>)}</ul>
           </CaseBlock>
         </section>
       </aside>
+
+      {quickUploadOpen && (
+        <div className="case-upload-modal" role="dialog" aria-modal="true" aria-labelledby="quick-case-title">
+          <button className="case-modal-backdrop" aria-label="Закрыть" onClick={() => quickStatus !== "loading" && setQuickUploadOpen(false)} />
+          <section>
+            <header><div><span>БЫСТРОЕ ДОБАВЛЕНИЕ</span><h2 id="quick-case-title">Загрузить кейс</h2></div><button onClick={() => setQuickUploadOpen(false)} disabled={quickStatus === "loading"} aria-label="Закрыть">×</button></header>
+            <p>Выберите один файл. Система сохранит оригинал, извлечёт факты, приведёт ситуацию и роли к каноническому виду и добавит готовый кейс в список.</p>
+            <label className="quick-file-drop"><input type="file" accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" onChange={(event) => setQuickFile(event.target.files?.[0] || null)} /><strong>{quickFile ? quickFile.name : "ВЫБРАТЬ ФАЙЛ"}</strong><small>TXT, MD, CSV, JSON, XML, HTML, RTF, PDF или DOCX · до 3 МБ</small></label>
+            {quickError && <div className="error-banner"><strong>Не удалось загрузить кейс</strong><span>{quickError}</span></div>}
+            <footer><button className="modal-secondary" onClick={() => setQuickUploadOpen(false)} disabled={quickStatus === "loading"}>ОТМЕНА</button><button className="modal-primary" onClick={uploadQuickCase} disabled={!quickFile || quickStatus === "loading"}>{quickStatus === "loading" ? "АНАЛИЗИРУЕМ И СОХРАНЯЕМ…" : "ЗАГРУЗИТЬ И СОЗДАТЬ КЕЙС"}</button></footer>
+          </section>
+        </div>
+      )}
     </main>
+  );
+}
+
+function CaseSelect({ cases, value, onChange, disabled }: { cases: CanonicalCase[]; value: string; onChange: (value: string) => void; disabled: boolean }) {
+  return (
+    <label className="setting-group case-select-control">
+      <span className="setting-label">КЕЙС</span>
+      <span className="case-select-shell"><b>▣</b><select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>{cases.map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}</select><i>⌄</i></span>
+    </label>
   );
 }
 
