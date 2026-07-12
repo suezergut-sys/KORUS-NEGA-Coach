@@ -1,6 +1,5 @@
 import { buildRealtimeInstructions } from "@/lib/prompt";
-import { getSupabaseAdmin } from "@/lib/supabase-server";
-import type { CaseRole } from "@/lib/case-types";
+import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -27,36 +26,26 @@ export async function POST(request: Request) {
   }
 
   const url = new URL(request.url);
-  const sdp = await request.text();
+  const sdp = (await request.text()).slice(0, 100_000);
   const requestedVoice = readParam(url, "voice", "marin");
   const voice = requestedVoice === "cedar" ? "cedar" : "marin";
   const caseId = readParam(url, "caseId", "");
-  const participantRoleSide = readParam(url, "participantRoleSide", "user") === "opponent" ? "opponent" : "user";
-  let caseRow: Record<string, unknown> | null = null;
-  if (caseId && caseId !== "default-missed-project-deadline") {
-    const { data } = await getSupabaseAdmin()
-      .from("negotiation_cases")
-      .select("situation,conflict,user_role,opponent_role,additional_roles,stakes,start_situation")
-      .eq("id", caseId)
-      .eq("status", "published")
-      .maybeSingle();
-    caseRow = data;
-  }
-  const firstRole = caseRow?.user_role as CaseRole | undefined;
-  const secondRole = caseRow?.opponent_role as CaseRole | undefined;
-  const roles = [firstRole, secondRole, ...((caseRow?.additional_roles || []) as CaseRole[])].filter(Boolean) as CaseRole[];
-  const participantRoleIndex = Math.max(0, Math.min(roles.length - 1, Number(readParam(url, "participantRoleIndex", participantRoleSide === "opponent" ? "1" : "0")) || 0));
-  const requestedOpponentIndex = Number(readParam(url, "opponentRoleIndex", participantRoleIndex === 0 ? "1" : "0"));
-  const opponentRoleIndex = requestedOpponentIndex !== participantRoleIndex && roles[requestedOpponentIndex] ? requestedOpponentIndex : roles.findIndex((_, index) => index !== participantRoleIndex);
-  const userRole = roles[participantRoleIndex];
-  const opponentRole = roles[opponentRoleIndex];
+  const negotiationCase = await resolvePublishedCase(caseId, readParam(url, "caseCode", ""));
+  if (!negotiationCase) return Response.json({ error: "Опубликованный кейс не найден." }, { status: 404 });
+  const selected = selectCaseRoles(
+    negotiationCase,
+    Number(readParam(url, "participantRoleIndex", "0")),
+    Number(readParam(url, "opponentRoleIndex", "1")),
+  );
+  const userRole = selected.participantRole;
+  const opponentRole = selected.opponentRole;
   const instructions = buildRealtimeInstructions({
-    role: opponentRole ? `${opponentRole.name}, ${opponentRole.position}` : readParam(url, "role", "Алексей, руководитель отдела продаж"),
+    role: `${opponentRole.name}, ${opponentRole.position}`,
     difficulty: readParam(url, "difficulty", "Средняя"),
-    context: caseRow ? String(caseRow.situation || "") : readParam(url, "context", ""),
-    conflict: caseRow ? String(caseRow.conflict || "") : "",
-    startSituation: caseRow ? String(caseRow.start_situation || "") : "",
-    stakes: (caseRow?.stakes || []) as string[],
+    context: negotiationCase.situation,
+    conflict: negotiationCase.conflict,
+    startSituation: negotiationCase.startSituation,
+    stakes: negotiationCase.stakes,
     userRole,
     opponentRole,
   });

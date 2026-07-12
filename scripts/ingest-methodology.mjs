@@ -31,6 +31,24 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 });
 const openai = new OpenAI({ apiKey: openaiKey });
 
+function decodeXml(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const head = new TextDecoder("windows-1252").decode(bytes.slice(0, 1024));
+  const declared = head.match(/<\?xml[^>]*encoding\s*=\s*["']\s*([^"']+)/i)?.[1]?.toLowerCase() || "";
+  const encoding = /^(windows-1251|cp1251|win-1251)$/.test(declared)
+    ? "windows-1251"
+    : /^(utf-?16le)$/.test(declared)
+      ? "utf-16le"
+      : /^(utf-?16be)$/.test(declared)
+        ? "utf-16be"
+        : "utf-8";
+  const offset = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf ? 3 : bytes[0] === 0xff && bytes[1] === 0xfe ? 2 : bytes[0] === 0xfe && bytes[1] === 0xff ? 2 : 0;
+  const bomEncoding = bytes[0] === 0xff && bytes[1] === 0xfe ? "utf-16le" : bytes[0] === 0xfe && bytes[1] === 0xff ? "utf-16be" : encoding;
+  const text = new TextDecoder(bomEncoding, { fatal: bomEncoding === "utf-8" }).decode(bytes.slice(offset)).normalize("NFC");
+  if (text.includes("\uFFFD")) throw new Error("FB2 содержит повреждённый текст или неверную декларацию кодировки.");
+  return text;
+}
+
 function nodeText(value) {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map(nodeText).join(" ");
@@ -206,7 +224,7 @@ statement формулируй нейтрально и помечай как к�
 const sourceBuffer = await readFile(sourcePath);
 const sha256 = createHash("sha256").update(sourceBuffer).digest("hex").toUpperCase();
 const parser = new XMLParser({ preserveOrder: true, ignoreAttributes: false, trimValues: true, processEntities: true, htmlEntities: true });
-const parsed = parser.parse(sourceBuffer.toString("utf8"));
+const parsed = parser.parse(decodeXml(sourceBuffer));
 const paragraphs = collectParagraphs(parsed);
 const chunks = createChunks(paragraphs);
 
@@ -268,4 +286,3 @@ let atomCount = 0;
 if (extractAtoms) atomCount = await extractCandidateAtoms(source.id, chunks, chunkIdByIndex);
 
 console.log(JSON.stringify({ sourceId: source.id, sha256, paragraphs: paragraphs.length, chunks: chunks.length, candidateAtoms: atomCount }, null, 2));
-

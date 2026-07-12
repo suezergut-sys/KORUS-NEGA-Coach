@@ -1,6 +1,7 @@
 import { approveVariant } from "@/lib/case-db";
 import { after } from "next/server";
 import { generateCaseMedia } from "@/lib/case-media";
+import { toPublicCase } from "@/lib/case-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
     if (!body.variantId) return Response.json({ error: "Не выбран вариант кейса." }, { status: 400 });
     const approved = await approveVariant(body.variantId, "builder");
     after(async () => { try { await generateCaseMedia(approved.id); } catch { /* status is stored */ } });
-    return Response.json({ case: approved, mediaStatus: "pending" });
+    return Response.json({ case: toPublicCase(approved), mediaStatus: "pending" });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Не удалось утвердить кейс." }, { status: 500 });
   }

@@ -1,10 +1,11 @@
-import { addWorkspaceFiles, createOrUpdateWorkspace, getWorkspaceMaterials, getWorkspaceView, saveGeneratedVariants } from "@/lib/case-db";
+import { addWorkspaceFiles, createOrUpdateWorkspace, discardWorkspace, getWorkspaceMaterials, getWorkspaceView, saveGeneratedVariants } from "@/lib/case-db";
 import { generateCaseVariants } from "@/lib/case-generator";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
+  let createdWorkspaceId: string | null = null;
   try {
     const form = await request.formData();
     const workspaceId = String(form.get("workspaceId") || "").trim() || undefined;
@@ -12,6 +13,7 @@ export async function POST(request: Request) {
     const notes = String(form.get("notes") || "").trim().slice(0, 20000);
     const files = form.getAll("files").filter((item): item is File => item instanceof File && item.size > 0);
     const workspace = await createOrUpdateWorkspace({ workspaceId, title, notes });
+    if (!workspaceId) createdWorkspaceId = workspace.id;
     await addWorkspaceFiles(workspace.id, files);
     const materials = await getWorkspaceMaterials(workspace.id);
     if (!materials.length && notes.length < 40) {
@@ -25,6 +27,7 @@ export async function POST(request: Request) {
     await saveGeneratedVariants(workspace.id, variants);
     return Response.json({ workspace: await getWorkspaceView(workspace.id) });
   } catch (error) {
+    if (createdWorkspaceId) await discardWorkspace(createdWorkspaceId);
     return Response.json({ error: error instanceof Error ? error.message : "Не удалось проанализировать материалы." }, { status: 500 });
   }
 }

@@ -35,6 +35,31 @@ export type MethodologyBasis = {
 
 export type GeneratedCaseVariant = Omit<CanonicalCase, "id" | "slug" | "origin">;
 
+const NAME_PART = /^\p{Lu}[\p{Ll}\p{M}]*(?:[-'’ʼ]\p{Lu}[\p{Ll}\p{M}]*)*$/u;
+
+export function normalizePersonName(value: string) {
+  return value.normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
+export function isCanonicalPersonName(value: string) {
+  const parts = normalizePersonName(value).split(" ");
+  return parts.length >= 2 && parts.length <= 3 && parts.every((part) => NAME_PART.test(part));
+}
+
+export function normalizeCaseRole(role: CaseRole): CaseRole {
+  return { ...role, name: normalizePersonName(role.name), position: role.position.normalize("NFC").trim() };
+}
+
+export function toPublicCase(item: CanonicalCase): CanonicalCase {
+  const publicRole = (role: CaseRole): CaseRole => ({ ...role, hiddenMotives: [] });
+  return {
+    ...item,
+    userRole: publicRole(item.userRole),
+    opponentRole: publicRole(item.opponentRole),
+    additionalRoles: item.additionalRoles.map(publicRole),
+  };
+}
+
 export type CaseWorkspaceView = {
   id: string;
   title: string;
@@ -82,7 +107,7 @@ const roleSchema = {
   properties: {
     name: {
       type: "string",
-      pattern: "^[А-ЯЁ][а-яё-]+\\s+[А-ЯЁ][а-яё-]+(?:\\s+[А-ЯЁ][а-яё-]+)?$",
+      minLength: 3,
       description: "Полное личное имя участника: имя и фамилия, при необходимости отчество. Должность хранится отдельно в position.",
     },
     position: { type: "string" },
@@ -104,7 +129,7 @@ export function createCaseVariantsSchema(atomIds: string[]) {
       variants: {
         type: "array",
         minItems: 2,
-        maxItems: 3,
+        maxItems: 2,
         items: {
           type: "object",
           additionalProperties: false,

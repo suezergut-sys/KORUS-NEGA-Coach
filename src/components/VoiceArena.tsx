@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import type { CanonicalCase } from "@/lib/case-types";
 import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
+import { DEFAULT_CASE } from "@/lib/default-case";
 
 type Status = "idle" | "connecting" | "connected" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
@@ -13,52 +14,6 @@ type Line = { id: string; author: Speaker; text: string; time: string };
 type VoiceMode = "female" | "male";
 type AnalysisStatus = "idle" | "loading" | "ready" | "error";
 type NarrationStatus = "idle" | "loading" | "playing" | "error";
-
-const CASE_CONTEXT =
-  "Компания «Альтаир» внедряет новую CRM. Ключевой этап проекта сорван, а заказчик требует назвать ответственного и компенсировать задержку.";
-const CASE_GOAL =
-  "Сохранить рабочие отношения, добиться признания ответственности и согласовать реалистичный план исправления ситуации.";
-const CASE_CONSTRAINTS = [
-  "Нельзя перекладывать ответственность на заказчика",
-  "Срок восстановления — не более 10 рабочих дней",
-  "Ключевого сотрудника желательно сохранить",
-];
-
-const DEFAULT_CASE: CanonicalCase = {
-  id: "default-missed-project-deadline",
-  slug: "missed-project-deadline",
-  title: "Сорванный срок проекта",
-  summary: "Разговор руководителя проекта с сильным сотрудником после срыва ключевого этапа внедрения CRM.",
-  situation: CASE_CONTEXT,
-  conflict: "Нужно восстановить управляемость и добиться принятия ответственности, не потеряв ключевого специалиста и не усилив срыв проекта.",
-  userRole: {
-    name: "Ирина Соколова",
-    position: "Руководитель проекта",
-    voiceGender: "female",
-    publicGoal: CASE_GOAL,
-    interests: ["Восстановить срок проекта", "Сохранить доверие заказчика", "Не потерять ключевого специалиста"],
-    constraints: CASE_CONSTRAINTS,
-    hiddenMotives: [],
-    leverage: ["Распределение ресурсов проекта", "Оценка результатов сотрудника"],
-  },
-  opponentRole: {
-    name: "Алексей Воронцов",
-    position: "Руководитель отдела продаж, ключевой участник проекта",
-    voiceGender: "male",
-    publicGoal: "Избежать персонального обвинения и сохранить влияние на решения по внедрению.",
-    interests: ["Сохранить репутацию", "Получить дополнительные ресурсы", "Не принимать нереалистичный срок"],
-    constraints: ["Не готов единолично отвечать за системный сбой"],
-    hiddenMotives: ["Опасается ослабления своей позиции в компании"],
-    leverage: ["Уникальная экспертиза", "Поддержка части команды"],
-  },
-  additionalRoles: [],
-  stakes: ["Отношения с заказчиком", "Срок внедрения", "Репутация участников"],
-  startSituation: "Оппонент начинает с отрицания личной ответственности и требует признать системный характер проблемы.",
-  difficultyReason: "Распределение ответственности, ресурсов и репутационных потерь не допускает очевидного взаимовыгодного решения.",
-  evaluationFocus: ["Управление позицией", "Выяснение интересов", "Работа с ответственностью"],
-  methodologyBasis: [],
-  origin: "seed",
-};
 
 const OPPONENTS = {
   female: {
@@ -141,6 +96,7 @@ export default function VoiceArena() {
   const narrationAudioRef = useRef<HTMLAudioElement | null>(null);
   const narrationUrlRef = useRef<string | null>(null);
   const comicAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const playNarrationRef = useRef<(panelIndex?: number) => Promise<void>>(async () => undefined);
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
   const allRoles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
@@ -152,7 +108,6 @@ export default function VoiceArena() {
     name: aiRole.name,
     title: aiRole.position,
   };
-  const selectedCaseContext = `${selectedCase.situation}\n\nЦентральный конфликт: ${selectedCase.conflict}`;
   const isLive = status === "connected";
   const isBusy = status === "connecting";
   const comicPanels = remoteComic || getCaseComic(selectedCase);
@@ -199,7 +154,7 @@ export default function VoiceArena() {
           if (preparedIndex < comicPanels.length - 1) {
             const next = preparedIndex + 1;
             setComicPanelIndex(next);
-            void playNarration(next);
+            window.setTimeout(() => void playNarrationRef.current(next), 50);
           }
         };
         audio.onerror = () => {
@@ -214,7 +169,7 @@ export default function VoiceArena() {
       const response = await fetch("/api/cases/narration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId: selectedCase.id, participantRoleSide: selectedRoleIndex === 1 ? "opponent" : "user", voice: opponent.voice, panelIndex }),
+        body: JSON.stringify({ caseId: selectedCase.id, participantRoleIndex: selectedRoleIndex, opponentRoleIndex, voice: opponent.voice, panelIndex }),
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
@@ -229,7 +184,7 @@ export default function VoiceArena() {
         if (typeof panelIndex === "number" && panelIndex < comicPanels.length - 1) {
           const next = panelIndex + 1;
           setComicPanelIndex(next);
-          window.setTimeout(() => void playNarration(next), 250);
+          window.setTimeout(() => void playNarrationRef.current(next), 250);
         }
       };
       audio.onerror = () => {
@@ -244,21 +199,33 @@ export default function VoiceArena() {
       setNarrationStatus("error");
       setNarrationError(caught instanceof Error ? caught.message : "Не удалось озвучить кейс.");
     }
-  }, [comicPanels, narrationStatus, opponent.voice, selectedCase.id, selectedRoleIndex, stopNarration, voiceMode]);
+  }, [comicPanels, narrationStatus, opponent.voice, opponentRoleIndex, selectedCase.id, selectedRoleIndex, stopNarration, voiceMode]);
+
+  useEffect(() => {
+    playNarrationRef.current = playNarration;
+  }, [playNarration]);
 
   useEffect(() => {
     if (selectedCase.id.startsWith("default-")) return;
     let cancelled = false;
+    let timer: number | undefined;
     const load = async () => {
-      const response = await fetch(`/api/cases/${selectedCase.id}/comic`, { cache: "no-store" });
-      const payload = await response.json() as { status?: string; versions?: Record<string, ComicPanel[]> };
-      if (cancelled) return;
-      setComicMediaStatus(payload.status || "pending");
-      setRemoteComic(payload.versions?.[String(selectedRoleIndex)] || null);
-      if (payload.status === "pending" || payload.status === "processing") window.setTimeout(load, 5000);
+      try {
+        const response = await fetch(`/api/cases/${selectedCase.id}/comic`, { cache: "no-store" });
+        const payload = await response.json() as { status?: string; error?: string; versions?: Record<string, ComicPanel[]> };
+        if (!response.ok) throw new Error(payload.error || "Не удалось проверить готовность комикса.");
+        if (cancelled) return;
+        setComicMediaStatus(payload.status || "pending");
+        setRemoteComic(payload.versions?.[String(selectedRoleIndex)] || null);
+        if (payload.status === "pending" || payload.status === "processing") timer = window.setTimeout(load, 5000);
+      } catch (caught) {
+        if (cancelled) return;
+        setComicMediaStatus("failed");
+        setNarrationError(caught instanceof Error ? caught.message : "Не удалось проверить готовность комикса.");
+      }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
   }, [selectedCase.id, selectedRoleIndex]);
 
   const toggleNarration = useCallback(() => {
@@ -506,11 +473,9 @@ export default function VoiceArena() {
       await pc.setLocalDescription(offer);
 
       const params = new URLSearchParams({
-        role: `${opponent.name}, ${opponent.title}`,
         difficulty: "Средняя",
-        context: selectedCaseContext,
         caseId: selectedCase.id,
-        participantRoleSide: selectedRoleIndex === 1 ? "opponent" : "user",
+        caseCode: selectedCase.slug,
         participantRoleIndex: String(selectedRoleIndex),
         opponentRoleIndex: String(opponentRoleIndex),
         voice: opponent.voice,
@@ -553,10 +518,8 @@ export default function VoiceArena() {
         body: JSON.stringify({
           caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
           caseCode: selectedCase.slug,
-          caseContext: selectedCaseContext,
-          caseGoal: participantRole.publicGoal,
-          caseConstraints: participantRole.constraints,
-          opponentName: opponent.name,
+          participantRoleIndex: selectedRoleIndex,
+          opponentRoleIndex,
           opponentVoice: opponent.voice,
           startedAt: startedAtRef.current,
           durationSeconds: seconds,

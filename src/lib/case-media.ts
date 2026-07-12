@@ -25,7 +25,10 @@ function narrationFor(item: CanonicalCase, role: CaseRole, index: number) {
 
 export async function generateCaseMedia(caseId: string) {
   const db = getSupabaseAdmin();
-  await db.from("case_media_jobs").upsert({ case_id: caseId, status: "processing", error: null, started_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+  const { data: generationId, error: claimError } = await db.rpc("claim_case_media_job", { p_case_id: caseId, p_force: false });
+  if (claimError) throw new Error(`Запуск медиаконвейера: ${claimError.message}`);
+  if (!generationId) return;
+  const generatedPaths: string[] = [];
   try {
     const { data, error } = await db.from("negotiation_cases").select("*").eq("id", caseId).single();
     if (error) throw error;
@@ -44,12 +47,12 @@ export async function generateCaseMedia(caseId: string) {
       });
       const encoded = response.data?.[0]?.b64_json;
       if (!encoded) throw new Error(`Изображение ${index + 1} не создано.`);
-      const path = `${caseId}/shared/panel-${index + 1}.webp`;
+      const path = `${caseId}/${generationId}/shared/panel-${index + 1}.webp`;
       const uploaded = await db.storage.from("case-comics").upload(path, Buffer.from(encoded, "base64"), { contentType: "image/webp", upsert: true });
       if (uploaded.error) throw uploaded.error;
+      generatedPaths.push(path);
       imagePaths.push(path);
     }
-    await db.from("case_comic_panels").delete().eq("case_id", caseId);
     const rows = [];
     for (let roleIndex = 0; roleIndex < roles.length; roleIndex++) {
       const role = roles[roleIndex];
@@ -57,17 +60,29 @@ export async function generateCaseMedia(caseId: string) {
         const narration = narrationFor(item, role, panelIndex);
         const voice = role.voiceGender === "male" ? "cedar" : "marin";
         const speech = await getOpenAI().audio.speech.create({ model: process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts", voice, input: narration, instructions: "Говори по-русски естественно и увлекательно, как рассказчик делового комикса. Не добавляй фактов.", response_format: "mp3" });
-        const audioPath = `${caseId}/role-${roleIndex}/panel-${panelIndex + 1}-${voice}.mp3`;
+        const audioPath = `${caseId}/${generationId}/role-${roleIndex}/panel-${panelIndex + 1}-${voice}.mp3`;
         const audioUpload = await db.storage.from("case-comics").upload(audioPath, Buffer.from(await speech.arrayBuffer()), { contentType: "audio/mpeg", upsert: true });
         if (audioUpload.error) throw audioUpload.error;
-        rows.push({ case_id: caseId, role_index: roleIndex, panel_index: panelIndex, eyebrow: beats[panelIndex].eyebrow, title: panelIndex === 3 ? `Ваша роль — ${role.name}` : beats[panelIndex].title, narration, image_path: imagePaths[panelIndex], audio_path: audioPath });
+        generatedPaths.push(audioPath);
+        rows.push({ case_id: caseId, generation_id: generationId, role_index: roleIndex, panel_index: panelIndex, eyebrow: beats[panelIndex].eyebrow, title: panelIndex === 3 ? `Ваша роль — ${role.name}` : beats[panelIndex].title, narration, image_path: imagePaths[panelIndex], audio_path: audioPath });
       }
     }
     const saved = await db.from("case_comic_panels").insert(rows);
     if (saved.error) throw saved.error;
-    await db.from("case_media_jobs").update({ status: "ready", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("case_id", caseId);
+    const { data: completed, error: completeError } = await db.rpc("complete_case_media_job", { p_case_id: caseId, p_generation_id: generationId });
+    if (completeError || !completed) throw new Error(completeError?.message || "Попытка медиаконвейера устарела.");
+
+    const { data: obsoleteRows } = await db.from("case_comic_panels").select("id,generation_id,image_path,audio_path").eq("case_id", caseId);
+    const obsolete = (obsoleteRows || []).filter((row) => row.generation_id !== generationId);
+    if (obsolete.length) {
+      await db.from("case_comic_panels").delete().in("id", obsolete.map((row) => row.id));
+      const obsoletePaths = [...new Set(obsolete.flatMap((row) => [row.image_path, row.audio_path]).filter(Boolean))];
+      if (obsoletePaths.length) await db.storage.from("case-comics").remove(obsoletePaths);
+    }
   } catch (error) {
-    await db.from("case_media_jobs").update({ status: "failed", error: error instanceof Error ? error.message.slice(0, 1000) : "Ошибка медиаконвейера", updated_at: new Date().toISOString() }).eq("case_id", caseId);
+    await db.from("case_comic_panels").delete().eq("case_id", caseId).eq("generation_id", generationId);
+    if (generatedPaths.length) await db.storage.from("case-comics").remove(generatedPaths);
+    await db.from("case_media_jobs").update({ status: "failed", error: error instanceof Error ? error.message.slice(0, 1000) : "Ошибка медиаконвейера", updated_at: new Date().toISOString() }).eq("case_id", caseId).eq("generation_id", generationId);
     throw error;
   }
 }
