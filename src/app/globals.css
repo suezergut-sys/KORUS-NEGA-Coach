@@ -78,19 +78,20 @@ button { color: inherit; }
   border-radius: 16px;
   background: rgba(3, 15, 31, .92);
 }
-.duel-symbol {
-  width: 44px;
-  height: 44px;
+.rail-logo {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  position: relative;
+  overflow: hidden;
   margin: 0 0 8px;
-  display: grid;
-  place-items: center;
-  clip-path: polygon(0 0, 72% 0, 100% 50%, 72% 100%, 0 100%);
-  color: #d9ecff;
-  background: linear-gradient(135deg, #0f91ff, #0047d6);
-  font-size: 24px;
-  font-weight: 900;
-  text-shadow: 0 0 14px #2ab6ff;
+  border: 1px solid #173e66;
+  border-radius: 10px;
+  background: #111039;
+  box-shadow: inset 0 1px 0 rgba(91, 166, 238, .08), 0 5px 14px rgba(0, 0, 0, .2);
 }
+.rail-logo img { object-fit: cover; }
+.rail-logo:hover { border-color: #1686eb; box-shadow: inset 0 0 0 1px rgba(8, 122, 240, .35), 0 0 18px rgba(0, 126, 255, .18); }
 .rail-button {
   width: 48px;
   height: 48px;
@@ -115,6 +116,10 @@ button { color: inherit; }
   box-shadow: 0 0 25px rgba(0, 119, 255, .42), inset 0 0 18px rgba(44, 160, 255, .32);
 }
 .rail-button:disabled { opacity: .68; cursor: not-allowed; }
+.rail-button svg { width: 25px; height: 25px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.rail-button svg path[d^="M5 19"] { fill: currentColor; stroke: none; }
+.rail-logout-form { margin: 0; }
+.rail-admin-spacer { min-height: 66px; flex: 1 1 66px; }
 
 .settings-panel { padding: 22px 18px 18px; overflow: hidden; }
 .settings-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 20px; border-bottom: 1px solid rgba(34, 82, 127, .4); }
@@ -360,9 +365,10 @@ button { color: inherit; }
 
 @media (max-width: 820px) {
   .duel-app { display: block; padding: 10px; }
-  .nav-rail { min-height: 58px; height: 58px; flex-direction: row; padding: 4px 8px; margin-bottom: 10px; }
-  .duel-symbol { margin: 0 8px 0 0; }
+  .nav-rail { min-height: 58px; height: 58px; flex-direction: row; gap: 10px; padding: 4px 8px; margin-bottom: 10px; }
+  .rail-logo { width: 42px; height: 42px; flex-basis: 42px; margin: 0 8px 0 0; }
   .rail-button { width: 42px; height: 42px; }
+  .rail-admin-spacer { min-width: 8px; min-height: 0; }
   .settings-panel, .conversation-panel, .opponent-panel { margin-bottom: 10px; }
   .settings-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
   .settings-header, .settings-panel > h2, .reset-settings { grid-column: 1 / -1; }
@@ -372,6 +378,10 @@ button { color: inherit; }
 }
 
 @media (max-width: 560px) {
+  .nav-rail { gap: 5px; padding-inline: 5px; }
+  .rail-logo { width: 36px; height: 36px; flex-basis: 36px; margin-right: 2px; }
+  .rail-button { width: 36px; height: 36px; }
+  .rail-button svg { width: 21px; height: 21px; }
   .settings-panel { display: block; }
   .conversation-panel { padding: 18px 10px 12px; }
   .conversation-header { display: block; }
@@ -445,7 +455,8 @@ button { color: inherit; }
 .admin-login-card button { height: 49px; margin-top: 6px; border: 1px solid #269cff; border-radius: 8px; background: linear-gradient(135deg, #0867dc, #054196); font-size: 11px; font-weight: 800; cursor: pointer; }
 .admin-login-error { color: #ff8e86; font-size: 11px; }
 
-.admin-shell { min-height: 100vh; display: grid; grid-template-columns: 210px minmax(0, 1fr); background: radial-gradient(circle at 65% 15%, rgba(0, 105, 225, .1), transparent 30%); }
+.admin-shell { min-height: 100vh; display: grid; grid-template-columns: 82px minmax(0, 1fr); background: radial-gradient(circle at 65% 15%, rgba(0, 105, 225, .1), transparent 30%); }
+.admin-shell > .nav-rail { height: calc(100vh - 48px); min-height: 540px; position: sticky; top: 24px; margin: 24px 0 24px 12px; }
 .admin-sidebar { min-height: 100vh; display: flex; flex-direction: column; position: sticky; top: 0; padding: 22px 14px; border-right: 1px solid #123457; background: rgba(3, 14, 29, .96); }
 .admin-logo { display: flex; align-items: center; gap: 10px; padding: 0 7px 24px; color: white; text-decoration: none; }
 .admin-logo > strong { width: 38px; height: 38px; display: grid; place-items: center; clip-path: polygon(0 0, 72% 0, 100% 50%, 72% 100%, 0 100%); background: #0878ee; font-size: 20px; }
@@ -530,7 +541,7 @@ button { color: inherit; }
 .admin-empty { padding: 40px; color: #829ab4; text-align: center; }
 
 @media (max-width: 980px) {
-  .admin-shell { grid-template-columns: 64px minmax(0, 1fr); }
+  .admin-shell { grid-template-columns: 72px minmax(0, 1fr); }
   .admin-logo span, .admin-sidebar nav span, .admin-sidebar form span { display: none; }
   .admin-sidebar nav a, .admin-sidebar form button { justify-content: center; font-size: 18px; }
   .admin-main { padding-inline: 18px; }
@@ -541,6 +552,7 @@ button { color: inherit; }
 
 @media (max-width: 720px) {
   .admin-shell { display: block; }
+  .admin-shell > .nav-rail { width: auto; height: 58px; min-height: 58px; position: static; margin: 10px; }
   .admin-sidebar { min-height: 58px; height: 58px; flex-direction: row; align-items: center; position: static; padding: 6px 10px; border: 0; border-bottom: 1px solid #173750; }
   .admin-logo { padding: 0 10px 0 0; }
   .admin-logo > strong { width: 36px; height: 36px; }

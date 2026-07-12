@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import AppNavRail from "@/components/AppNavRail";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import type { CanonicalCase } from "@/lib/case-types";
 import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
@@ -80,6 +81,15 @@ export default function VoiceArena() {
   const [quickError, setQuickError] = useState("");
   const [caseContentOpen, setCaseContentOpen] = useState(false);
   const [narrationStatus, setNarrationStatus] = useState<NarrationStatus>("idle");
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("quickUpload") !== "1") return;
+    const timer = window.setTimeout(() => setQuickUploadOpen(true), 0);
+    url.searchParams.delete("quickUpload");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    return () => window.clearTimeout(timer);
+  }, []);
   const [narrationError, setNarrationError] = useState("");
   const [comicPanelIndex, setComicPanelIndex] = useState(0);
   const [comicDetailsOpen, setComicDetailsOpen] = useState(false);
@@ -538,15 +548,7 @@ export default function VoiceArena() {
 
   return (
     <main className="duel-app">
-      <aside className="nav-rail" aria-label="Разделы приложения">
-        <div className="duel-symbol" aria-hidden="true">K</div>
-        <Link className="rail-button active" href="/" aria-label="Домой" title="Домой">⌂</Link>
-        <Link className="rail-button" href="/account" aria-label="Личный кабинет" title="Личный кабинет">♙</Link>
-        <Link className="rail-button" href="/rating" aria-label="Рейтинг" title="Рейтинг">▤</Link>
-        <Link className="rail-button admin-rail-link" href="/admin" aria-label="Админ-панель" title="Админ-панель">⚙</Link>
-        <button className="rail-button case-upload-rail" onClick={() => setQuickUploadOpen(true)} disabled={isLive || isBusy} aria-label="Загрузить кейс" title="Загрузить кейс">↑</button>
-        <Link className="rail-button case-create-rail" href="/cases" aria-label="Создать свой кейс" title="Создать свой кейс">＋</Link>
-      </aside>
+      <AppNavRail onQuickUpload={() => setQuickUploadOpen(true)} quickUploadDisabled={isLive || isBusy} />
 
       <aside className="settings-panel neon-panel">
         <header className="settings-header">
