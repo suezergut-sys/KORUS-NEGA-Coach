@@ -2,6 +2,7 @@ import { ANALYSIS_MODEL, EMBEDDING_MODEL, getOpenAI } from "@/lib/openai-server"
 import { createNegotiationAnalysisSchema, type NegotiationAnalysis } from "@/lib/analysis-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
+import { getCurrentUserSession } from "@/lib/user-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -49,6 +50,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const userSession = await getCurrentUserSession();
+  if (!userSession) return Response.json({ error: "Требуется авторизация." }, { status: 401 });
   let persistedSessionId: string | null = null;
   try {
     const body = (await request.json()) as AnalysisRequest;
@@ -221,6 +224,7 @@ ${sources}
     const { data: session, error: sessionError } = await supabase
       .from("training_sessions")
       .insert({
+        user_id: userSession.userId,
         case_id: negotiationCase.id.startsWith("default-") ? null : negotiationCase.id,
         case_code: negotiationCase.slug,
         case_context: caseContext,

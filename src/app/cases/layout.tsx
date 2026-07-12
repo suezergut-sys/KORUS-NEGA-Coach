@@ -7,6 +7,8 @@ export default function CasesLayout({ children }: { children: React.ReactNode })
         <Link className="admin-logo" href="/"><strong>K</strong><span>KORUS NEGA AI<small>КЕЙСЫ</small></span></Link>
         <nav aria-label="Раздел кейсов">
           <Link href="/">⌂ <span>Переговоры</span></Link>
+          <Link href="/account">♙ <span>Личный кабинет</span></Link>
+          <Link href="/rating">▤ <span>Рейтинг</span></Link>
           <Link href="/cases">＋ <span>Создать кейс</span></Link>
           <Link href="/admin">⚙ <span>Админ-панель</span></Link>
         </nav>

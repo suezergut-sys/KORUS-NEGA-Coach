@@ -541,6 +541,8 @@ export default function VoiceArena() {
       <aside className="nav-rail" aria-label="Разделы приложения">
         <div className="duel-symbol" aria-hidden="true">K</div>
         <Link className="rail-button active" href="/" aria-label="Домой" title="Домой">⌂</Link>
+        <Link className="rail-button" href="/account" aria-label="Личный кабинет" title="Личный кабинет">♙</Link>
+        <Link className="rail-button" href="/rating" aria-label="Рейтинг" title="Рейтинг">▤</Link>
         <Link className="rail-button admin-rail-link" href="/admin" aria-label="Админ-панель" title="Админ-панель">⚙</Link>
         <button className="rail-button case-upload-rail" onClick={() => setQuickUploadOpen(true)} disabled={isLive || isBusy} aria-label="Загрузить кейс" title="Загрузить кейс">↑</button>
         <Link className="rail-button case-create-rail" href="/cases" aria-label="Создать свой кейс" title="Создать свой кейс">＋</Link>
