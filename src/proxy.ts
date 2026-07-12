@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SITE_COOKIE, verifySiteSessionToken } from "@/lib/site-session";
 
-const PUBLIC_PATHS = new Set(["/login", "/api/site/login", "/api/site/logout"]);
+const PUBLIC_PATHS = new Set(["/login", "/register", "/api/site/login", "/api/site/register", "/api/site/logout"]);
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -11,7 +11,7 @@ export function proxy(request: NextRequest) {
   if (authenticated) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
-    return Response.json({ error: "Требуется пароль сайта." }, { status: 401 });
+    return Response.json({ error: "Требуется авторизация." }, { status: 401 });
   }
 
   const loginUrl = new URL("/login", request.url);

@@ -6,7 +6,6 @@ import { getCaseComic } from "@/lib/case-comic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-type RoleSide = "user" | "opponent";
 type NarrationVoice = "marin" | "cedar";
 
 function list(items: string[]) {
@@ -24,9 +23,8 @@ function describeRole(role: CaseRole, number: number) {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { caseId?: unknown; participantRoleSide?: unknown; voice?: unknown; panelIndex?: unknown };
+    const body = (await request.json()) as { caseId?: unknown; participantRoleIndex?: unknown; opponentRoleIndex?: unknown; voice?: unknown; panelIndex?: unknown };
     const caseId = typeof body.caseId === "string" ? body.caseId : "";
-    const participantRoleSide: RoleSide = body.participantRoleSide === "opponent" ? "opponent" : "user";
     const voice: NarrationVoice = body.voice === "cedar" ? "cedar" : "marin";
     if (!caseId) return Response.json({ error: "Не выбран кейс." }, { status: 400 });
 
@@ -39,15 +37,21 @@ export async function POST(request: Request) {
     if (error || !data) return Response.json({ error: "Опубликованный кейс не найден." }, { status: 404 });
 
     const negotiationCase = mapCaseRow(data);
-    const participantRole = participantRoleSide === "user" ? negotiationCase.userRole : negotiationCase.opponentRole;
-    const opponentRole = participantRoleSide === "user" ? negotiationCase.opponentRole : negotiationCase.userRole;
+    const roles = [negotiationCase.userRole, negotiationCase.opponentRole, ...negotiationCase.additionalRoles];
+    const requestedParticipant = Number(body.participantRoleIndex);
+    const participantRoleIndex = Number.isInteger(requestedParticipant) && roles[requestedParticipant] ? requestedParticipant : 0;
+    const requestedOpponent = Number(body.opponentRoleIndex);
+    const opponentRoleIndex = Number.isInteger(requestedOpponent) && requestedOpponent !== participantRoleIndex && roles[requestedOpponent]
+      ? requestedOpponent
+      : roles.findIndex((_, index) => index !== participantRoleIndex);
+    const participantRole = roles[participantRoleIndex];
+    const opponentRole = roles[opponentRoleIndex];
     const fullNarration = [
       `Тренировочный кейс «${negotiationCase.title}».`,
       negotiationCase.summary,
       `Ситуация. ${negotiationCase.situation}`,
       `Центральный конфликт. ${negotiationCase.conflict}`,
-      describeRole(negotiationCase.userRole, 1),
-      describeRole(negotiationCase.opponentRole, 2),
+      ...roles.map((role, index) => describeRole(role, index + 1)),
       `Ставки: ${list(negotiationCase.stakes)}.`,
       `Начальная ситуация. ${negotiationCase.startSituation}`,
       `Ваша выбранная роль: ${participantRole.name}. Искусственный интеллект играет роль: ${opponentRole.name}.`,

@@ -2,6 +2,7 @@ import "server-only";
 
 import mammoth from "mammoth";
 import { extractText as extractPdfText } from "unpdf";
+import { asciiStorageBase, decodeRtfEscapes, decodeTextBytes, displayFileName } from "@/lib/file-text";
 
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
 export const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
@@ -11,19 +12,24 @@ const TEXT_EXTENSIONS = new Set(["txt", "md", "markdown", "csv", "json", "xml", 
 const ALLOWED_EXTENSIONS = new Set([...TEXT_EXTENSIONS, "pdf", "docx"]);
 
 function extension(name: string) {
-  return name.toLocaleLowerCase().split(".").pop() || "";
+  return displayFileName(name).toLowerCase().split(".").pop() || "";
 }
 
 export function safeFileName(name: string) {
   const ext = extension(name).replace(/[^a-z0-9]/g, "").slice(0, 12) || "bin";
-  const base = name
-    .replace(/\.[^.]+$/, "")
-    .normalize("NFKD")
-    .replace(/[^a-zA-Z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-+/g, "-")
-    .slice(0, 80) || "material";
+  const base = asciiStorageBase(displayFileName(name).replace(/\.[^.]+$/, ""));
   return `${base}.${ext}`;
+}
+
+const MIME_BY_EXTENSION: Record<string, string> = {
+  txt: "text/plain", log: "text/plain", md: "text/markdown", markdown: "text/markdown", csv: "text/csv",
+  json: "application/json", xml: "application/xml", html: "text/html", htm: "text/html", rtf: "application/rtf",
+  pdf: "application/pdf", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
+function assertFileSignature(ext: string, bytes: Buffer) {
+  if (ext === "pdf" && bytes.subarray(0, 5).toString("ascii") !== "%PDF-") throw new Error("Расширение PDF не соответствует содержимому файла.");
+  if (ext === "docx" && !(bytes[0] === 0x50 && bytes[1] === 0x4b)) throw new Error("Расширение DOCX не соответствует содержимому файла.");
 }
 
 function normalizeText(value: string) {
@@ -49,9 +55,11 @@ export async function extractUploadedFile(file: File) {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
+  assertFileSignature(ext, bytes);
   let text = "";
   if (TEXT_EXTENSIONS.has(ext)) {
-    text = bytes.toString("utf8");
+    text = decodeTextBytes(bytes);
+    if (ext === "rtf") text = decodeRtfEscapes(text);
   } else if (ext === "docx") {
     text = (await mammoth.extractRawText({ buffer: bytes })).value;
   } else if (ext === "pdf") {
@@ -60,7 +68,7 @@ export async function extractUploadedFile(file: File) {
 
   text = normalizeText(text).slice(0, 50000);
   if (text.length < 40) throw new Error(`В файле «${file.name}» не удалось найти достаточно текста.`);
-  return { bytes, text, safeName: safeFileName(file.name), mimeType: file.type || "application/octet-stream" };
+  return { bytes, text, safeName: safeFileName(file.name), displayName: displayFileName(file.name), mimeType: MIME_BY_EXTENSION[ext] || "application/octet-stream" };
 }
 
 export function validateFiles(files: File[]) {

@@ -1,4 +1,4 @@
-import { mapCaseRow } from "@/lib/case-types";
+import { mapCaseRow, toPublicCase } from "@/lib/case-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
@@ -14,12 +14,7 @@ export async function GET() {
     if (error) throw error;
     return Response.json({
       cases: (data || []).map((row) => {
-        const item = mapCaseRow(row);
-        return {
-          ...item,
-          userRole: { ...item.userRole, hiddenMotives: [] },
-          opponentRole: { ...item.opponentRole, hiddenMotives: [] },
-        };
+        return toPublicCase(mapCaseRow(row));
       }),
     });
   } catch (error) {

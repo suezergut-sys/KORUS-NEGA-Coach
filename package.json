@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src && node --check scripts/ingest-methodology.mjs",
+    "lint": "eslint src tests && node --check scripts/ingest-methodology.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run lint && npm run typecheck && npm test",
     "methodology:ingest": "node scripts/ingest-methodology.mjs",
     "methodology:extract": "node scripts/ingest-methodology.mjs --extract-atoms"
   },
@@ -26,7 +29,8 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "16.2.10",
     "fast-xml-parser": "^5.9.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "postcss": "8.5.10"

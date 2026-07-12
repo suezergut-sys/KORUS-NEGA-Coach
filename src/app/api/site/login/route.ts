@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { createSiteSessionToken, SITE_COOKIE, siteCookieOptions, verifySitePassword } from "@/lib/site-session";
+import { createSupabaseAuthClient } from "@/lib/supabase-server";
+import { createSiteSessionToken, SITE_COOKIE, siteCookieOptions } from "@/lib/site-session";
+import { normalizeEmail } from "@/lib/user-auth";
 
 function safeDestination(value: FormDataEntryValue | null) {
   const next = typeof value === "string" ? value : "/";
@@ -9,14 +11,17 @@ function safeDestination(value: FormDataEntryValue | null) {
 export async function POST(request: Request) {
   const form = await request.formData();
   const next = safeDestination(form.get("next"));
-  if (!verifySitePassword(String(form.get("password") || ""))) {
+  const { data, error } = await createSupabaseAuthClient().auth.signInWithPassword({
+    email: normalizeEmail(form.get("email")),
+    password: String(form.get("password") || ""),
+  });
+  if (error || !data.user) {
     const url = new URL("/login", request.url);
-    url.searchParams.set("error", "1");
+    url.searchParams.set("error", "credentials");
     url.searchParams.set("next", next);
     return NextResponse.redirect(url, 303);
   }
-
   const response = NextResponse.redirect(new URL(next, request.url), 303);
-  response.cookies.set(SITE_COOKIE, createSiteSessionToken(), siteCookieOptions);
+  response.cookies.set(SITE_COOKIE, createSiteSessionToken(data.user), siteCookieOptions);
   return response;
 }
