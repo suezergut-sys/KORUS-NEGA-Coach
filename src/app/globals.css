@@ -534,6 +534,9 @@ button { color: inherit; }
 .case-content-modal header > button { width: 34px; height: 34px; border: 1px solid #234e73; border-radius: 8px; color: #9fb7ce; background: #07162a; font-size: 20px; cursor: pointer; }
 .case-content-copy { overflow-y: auto; padding: 16px 5px 4px 0; scrollbar-width: thin; scrollbar-color: #1768aa transparent; }
 .comic-prologue { min-height: 0; overflow-y: auto; padding: 15px 0 4px; }
+.comic-preparing { min-height: 440px; display: grid; place-items: center; align-content: center; gap: 12px; color: #8fa8c1; text-align: center; }
+.comic-preparing h3 { margin: 0; color: #e7f4ff; font-size: 18px; }
+.comic-preparing p { max-width: 520px; margin: 0; font-size: 11px; line-height: 1.6; }
 .comic-stage { aspect-ratio: 16 / 9; position: relative; overflow: hidden; border: 1px solid #205985; border-radius: 12px; background: #020914; }
 .comic-stage > img { object-fit: cover; }
 .comic-caption { position: absolute; inset: auto 0 0; z-index: 2; min-height: 31%; padding: 23px 70px 20px; background: linear-gradient(transparent, rgba(2, 8, 17, .96) 28%); }

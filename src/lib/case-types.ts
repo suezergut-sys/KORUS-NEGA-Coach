@@ -18,6 +18,7 @@ export type CanonicalCase = {
   conflict: string;
   userRole: CaseRole;
   opponentRole: CaseRole;
+  additionalRoles: CaseRole[];
   stakes: string[];
   startSituation: string;
   difficultyReason: string;
@@ -58,6 +59,7 @@ export function mapCaseRow(row: Record<string, unknown>): CanonicalCase {
     conflict: String(row.conflict),
     userRole: row.user_role as CaseRole,
     opponentRole: row.opponent_role as CaseRole,
+    additionalRoles: (row.additional_roles || []) as CaseRole[],
     stakes: (row.stakes || []) as string[],
     startSituation: String(row.start_situation),
     difficultyReason: String(row.difficulty_reason),
@@ -113,6 +115,7 @@ export function createCaseVariantsSchema(atomIds: string[]) {
             conflict: { type: "string" },
             userRole: roleSchema,
             opponentRole: roleSchema,
+            additionalRoles: { type: "array", minItems: 0, maxItems: 2, items: roleSchema },
             stakes: stringArray,
             startSituation: { type: "string" },
             difficultyReason: { type: "string" },
@@ -135,7 +138,7 @@ export function createCaseVariantsSchema(atomIds: string[]) {
           },
           required: [
             "title", "summary", "situation", "conflict", "userRole", "opponentRole",
-            "stakes", "startSituation", "difficultyReason", "evaluationFocus", "methodologyBasis",
+            "additionalRoles", "stakes", "startSituation", "difficultyReason", "evaluationFocus", "methodologyBasis",
           ],
         },
       },

@@ -7,8 +7,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 const FULL_PERSON_NAME = /^[А-ЯЁ][а-яё-]+\s+[А-ЯЁ][а-яё-]+(?:\s+[А-ЯЁ][а-яё-]+)?$/;
 
-function assertCanonicalRoleNames(userRole: { name?: string }, opponentRole: { name?: string }) {
-  if (!FULL_PERSON_NAME.test(userRole.name || "") || !FULL_PERSON_NAME.test(opponentRole.name || "")) {
+function assertCanonicalRoleNames(...roles: Array<{ name?: string }>) {
+  if (roles.some((role) => !FULL_PERSON_NAME.test(role.name || ""))) {
     throw new Error("Канонический кейс должен содержать имя и фамилию каждой стороны; должность указывается отдельно.");
   }
 }
@@ -85,6 +85,7 @@ export async function saveGeneratedVariants(workspaceId: string, variants: Gener
       conflict: variant.conflict,
       user_role: variant.userRole,
       opponent_role: variant.opponentRole,
+      additional_roles: variant.additionalRoles,
       stakes: variant.stakes,
       start_situation: variant.startSituation,
       difficulty_reason: variant.difficultyReason,
@@ -112,7 +113,7 @@ export async function approveVariant(variantId: string, origin: CanonicalCase["o
     .eq("id", variantId)
     .single();
   if (variantError) throw new Error(`Вариант кейса: ${variantError.message}`);
-  assertCanonicalRoleNames(variant.user_role, variant.opponent_role);
+  assertCanonicalRoleNames(variant.user_role, variant.opponent_role, ...(variant.additional_roles || []));
   const slug = `case-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
   const { data: approved, error: insertError } = await supabase
     .from("negotiation_cases")
@@ -126,6 +127,7 @@ export async function approveVariant(variantId: string, origin: CanonicalCase["o
       conflict: variant.conflict,
       user_role: variant.user_role,
       opponent_role: variant.opponent_role,
+      additional_roles: variant.additional_roles,
       stakes: variant.stakes,
       start_situation: variant.start_situation,
       difficulty_reason: variant.difficulty_reason,
@@ -167,6 +169,7 @@ export async function getWorkspaceView(workspaceId: string): Promise<CaseWorkspa
       conflict: item.conflict,
       userRole: item.user_role,
       opponentRole: item.opponent_role,
+      additionalRoles: item.additional_roles || [],
       stakes: item.stakes,
       startSituation: item.start_situation,
       difficultyReason: item.difficulty_reason,

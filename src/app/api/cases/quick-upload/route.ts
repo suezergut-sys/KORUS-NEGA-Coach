@@ -1,8 +1,10 @@
 import { addWorkspaceFiles, approveVariant, createOrUpdateWorkspace, getWorkspaceMaterials, saveGeneratedVariants } from "@/lib/case-db";
 import { generateCaseVariants } from "@/lib/case-generator";
+import { after } from "next/server";
+import { generateCaseMedia } from "@/lib/case-media";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +22,7 @@ export async function POST(request: Request) {
     });
     const saved = await saveGeneratedVariants(workspace.id, variants);
     const approved = await approveVariant(saved[0].id, "quick_upload");
+    after(async () => { try { await generateCaseMedia(approved.id); } catch { /* status is stored */ } });
     return Response.json({
       case: {
         ...approved,

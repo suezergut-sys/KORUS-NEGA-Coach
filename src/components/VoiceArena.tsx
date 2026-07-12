@@ -5,14 +5,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import type { CanonicalCase } from "@/lib/case-types";
-import { getCaseComic } from "@/lib/case-comic";
+import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
 
 type Status = "idle" | "connecting" | "connected" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
 type Line = { id: string; author: Speaker; text: string; time: string };
 type VoiceMode = "female" | "male";
 type AnalysisStatus = "idle" | "loading" | "ready" | "error";
-type RoleSide = "user" | "opponent";
 type NarrationStatus = "idle" | "loading" | "playing" | "error";
 
 const CASE_CONTEXT =
@@ -52,6 +51,7 @@ const DEFAULT_CASE: CanonicalCase = {
     hiddenMotives: ["Опасается ослабления своей позиции в компании"],
     leverage: ["Уникальная экспертиза", "Поддержка части команды"],
   },
+  additionalRoles: [],
   stakes: ["Отношения с заказчиком", "Срок внедрения", "Репутация участников"],
   startSituation: "Оппонент начинает с отрицания личной ответственности и требует признать системный характер проблемы.",
   difficultyReason: "Распределение ответственности, ресурсов и репутационных потерь не допускает очевидного взаимовыгодного решения.",
@@ -85,6 +85,10 @@ function roleVoiceGender(role: CanonicalCase["userRole"]): VoiceMode {
   return /[ая]$/.test(firstName) ? "female" : "male";
 }
 
+function panelAudio(panel: ComicPanel, voiceMode: VoiceMode) {
+  return typeof panel.audio === "string" ? panel.audio : panel.audio[voiceMode];
+}
+
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
@@ -110,7 +114,10 @@ export default function VoiceArena() {
   const [analysisError, setAnalysisError] = useState("");
   const [cases, setCases] = useState<CanonicalCase[]>([DEFAULT_CASE]);
   const [selectedCaseId, setSelectedCaseId] = useState(DEFAULT_CASE.id);
-  const [selectedRoleSide, setSelectedRoleSide] = useState<RoleSide>("user");
+  const [selectedRoleIndex, setSelectedRoleIndex] = useState(0);
+  const [opponentRoleIndex, setOpponentRoleIndex] = useState(1);
+  const [remoteComic, setRemoteComic] = useState<ComicPanel[] | null>(null);
+  const [comicMediaStatus, setComicMediaStatus] = useState("ready");
   const [casesError, setCasesError] = useState("");
   const [quickUploadOpen, setQuickUploadOpen] = useState(false);
   const [quickFile, setQuickFile] = useState<File | null>(null);
@@ -136,8 +143,9 @@ export default function VoiceArena() {
   const comicAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
-  const participantRole = selectedRoleSide === "user" ? selectedCase.userRole : selectedCase.opponentRole;
-  const aiRole = selectedRoleSide === "user" ? selectedCase.opponentRole : selectedCase.userRole;
+  const allRoles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
+  const participantRole = allRoles[selectedRoleIndex] || allRoles[0];
+  const aiRole = allRoles[opponentRoleIndex] || allRoles.find((_, index) => index !== selectedRoleIndex) || allRoles[0];
   const voiceProfile = OPPONENTS[voiceMode];
   const opponent = {
     ...voiceProfile,
@@ -147,13 +155,13 @@ export default function VoiceArena() {
   const selectedCaseContext = `${selectedCase.situation}\n\nЦентральный конфликт: ${selectedCase.conflict}`;
   const isLive = status === "connected";
   const isBusy = status === "connecting";
-  const comicPanels = getCaseComic(selectedCase);
+  const comicPanels = remoteComic || getCaseComic(selectedCase);
   const activeComicPanel = comicPanels[comicPanelIndex];
 
   useEffect(() => {
     if (!caseContentOpen || !comicPanels.length) return;
     comicPanels.forEach((panel) => {
-      const source = panel.audio[voiceMode];
+      const source = panelAudio(panel, voiceMode);
       if (comicAudioCacheRef.current.has(source)) return;
       const audio = new Audio();
       audio.preload = "auto";
@@ -182,7 +190,7 @@ export default function VoiceArena() {
       const preparedIndex = typeof panelIndex === "number" ? panelIndex : -1;
       const preparedPanel = preparedIndex >= 0 ? comicPanels[preparedIndex] : undefined;
       if (preparedPanel) {
-        const source = preparedPanel.audio[voiceMode];
+        const source = panelAudio(preparedPanel, voiceMode);
         const audio = comicAudioCacheRef.current.get(source) || new Audio(source);
         audio.currentTime = 0;
         narrationAudioRef.current = audio;
@@ -206,7 +214,7 @@ export default function VoiceArena() {
       const response = await fetch("/api/cases/narration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId: selectedCase.id, participantRoleSide: selectedRoleSide, voice: opponent.voice, panelIndex }),
+        body: JSON.stringify({ caseId: selectedCase.id, participantRoleSide: selectedRoleIndex === 1 ? "opponent" : "user", voice: opponent.voice, panelIndex }),
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
@@ -236,7 +244,22 @@ export default function VoiceArena() {
       setNarrationStatus("error");
       setNarrationError(caught instanceof Error ? caught.message : "Не удалось озвучить кейс.");
     }
-  }, [comicPanels, narrationStatus, opponent.voice, selectedCase.id, selectedRoleSide, stopNarration, voiceMode]);
+  }, [comicPanels, narrationStatus, opponent.voice, selectedCase.id, selectedRoleIndex, stopNarration, voiceMode]);
+
+  useEffect(() => {
+    if (selectedCase.id.startsWith("default-")) return;
+    let cancelled = false;
+    const load = async () => {
+      const response = await fetch(`/api/cases/${selectedCase.id}/comic`, { cache: "no-store" });
+      const payload = await response.json() as { status?: string; versions?: Record<string, ComicPanel[]> };
+      if (cancelled) return;
+      setComicMediaStatus(payload.status || "pending");
+      setRemoteComic(payload.versions?.[String(selectedRoleIndex)] || null);
+      if (payload.status === "pending" || payload.status === "processing") window.setTimeout(load, 5000);
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [selectedCase.id, selectedRoleIndex]);
 
   const toggleNarration = useCallback(() => {
     if (narrationStatus === "loading" || narrationStatus === "playing") return stopNarration();
@@ -252,8 +275,12 @@ export default function VoiceArena() {
       const queryId = preferredId || new URLSearchParams(window.location.search).get("case") || "";
       const nextCase = payload.cases.find((item) => item.id === queryId) || payload.cases[0];
       setSelectedCaseId(nextCase.id);
-      setVoiceMode(voiceOverridesRef.current.get(nextCase.opponentRole.name) || roleVoiceGender(nextCase.opponentRole));
-      if (preferredId) setSelectedRoleSide("user");
+      const nextRoles = [nextCase.userRole, nextCase.opponentRole, ...(nextCase.additionalRoles || [])];
+      const randomOpponent = 1 + Math.floor(Math.random() * Math.max(1, nextRoles.length - 1));
+      setOpponentRoleIndex(Math.min(randomOpponent, nextRoles.length - 1));
+      const nextAiRole = nextRoles[Math.min(randomOpponent, nextRoles.length - 1)];
+      setVoiceMode(voiceOverridesRef.current.get(nextAiRole.name) || roleVoiceGender(nextAiRole));
+      if (preferredId) setSelectedRoleIndex(0);
       setCasesError("");
     } catch (caught) {
       setCasesError(caught instanceof Error ? caught.message : "Не удалось загрузить кейсы.");
@@ -285,9 +312,16 @@ export default function VoiceArena() {
     setSelectedCaseId(caseId);
     setComicPanelIndex(0);
     setComicDetailsOpen(false);
-    setSelectedRoleSide("user");
+    setSelectedRoleIndex(0);
+    const nextRoles = nextCase ? [nextCase.userRole, nextCase.opponentRole, ...(nextCase.additionalRoles || [])] : [];
+    const randomOpponent = nextRoles.length > 1 ? 1 + Math.floor(Math.random() * (nextRoles.length - 1)) : 0;
+    setOpponentRoleIndex(randomOpponent);
+    setRemoteComic(null);
     const nextCase = cases.find((item) => item.id === caseId);
-    if (nextCase) setVoiceMode(voiceOverridesRef.current.get(nextCase.opponentRole.name) || roleVoiceGender(nextCase.opponentRole));
+    if (nextCase) {
+      const nextAiRole = nextRoles[randomOpponent];
+      setVoiceMode(voiceOverridesRef.current.get(nextAiRole.name) || roleVoiceGender(nextAiRole));
+    }
     setLines([]);
     setAnalysis(null);
     setAnalysisStatus("idle");
@@ -296,11 +330,14 @@ export default function VoiceArena() {
     window.history.replaceState(null, "", url);
   }
 
-  function chooseRole(side: RoleSide) {
+  function chooseRole(index: number) {
     if (isLive || isBusy) return;
     stopNarration();
-    setSelectedRoleSide(side);
-    const nextAiRole = side === "user" ? selectedCase.opponentRole : selectedCase.userRole;
+    setSelectedRoleIndex(index);
+    const candidates = allRoles.map((_, roleIndex) => roleIndex).filter((roleIndex) => roleIndex !== index);
+    const nextOpponentIndex = candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
+    setOpponentRoleIndex(nextOpponentIndex);
+    const nextAiRole = allRoles[nextOpponentIndex];
     setVoiceMode(voiceOverridesRef.current.get(nextAiRole.name) || roleVoiceGender(nextAiRole));
     setLines([]);
     setAnalysis(null);
@@ -473,7 +510,9 @@ export default function VoiceArena() {
         difficulty: "Средняя",
         context: selectedCaseContext,
         caseId: selectedCase.id,
-        participantRoleSide: selectedRoleSide,
+        participantRoleSide: selectedRoleIndex === 1 ? "opponent" : "user",
+        participantRoleIndex: String(selectedRoleIndex),
+        opponentRoleIndex: String(opponentRoleIndex),
         voice: opponent.voice,
       });
       const response = await fetch(`/api/realtime/session?${params.toString()}`, {
@@ -552,7 +591,7 @@ export default function VoiceArena() {
         <h2><span>⚙</span> НАСТРОЙКИ</h2>
 
         <CaseSelect cases={cases} value={selectedCase.id} onChange={chooseCase} disabled={isLive || isBusy} />
-        <RoleSelect selectedCase={selectedCase} value={selectedRoleSide} onChange={chooseRole} disabled={isLive || isBusy} />
+        <RoleSelect selectedCase={selectedCase} value={selectedRoleIndex} onChange={chooseRole} disabled={isLive || isBusy} />
         {casesError && <p className="case-select-error">{casesError}</p>}
 
         <section className="setting-group is-disabled">
@@ -735,8 +774,7 @@ export default function VoiceArena() {
           <CaseBlock icon="◇" title="КРАТКОЕ ОПИСАНИЕ">{selectedCase.summary}</CaseBlock>
           <CaseBlock icon="▤" title="КОНТЕКСТ">{selectedCase.situation}</CaseBlock>
           <CaseBlock icon="⚔" title="КОНФЛИКТ">{selectedCase.conflict}</CaseBlock>
-          <RoleCaseBlock title="РОЛЬ 1" role={selectedCase.userRole} selected={selectedRoleSide === "user"} />
-          <RoleCaseBlock title="РОЛЬ 2" role={selectedCase.opponentRole} selected={selectedRoleSide === "opponent"} />
+          {allRoles.map((role, index) => <RoleCaseBlock key={role.name} title={`РОЛЬ ${index + 1}`} role={role} selected={selectedRoleIndex === index} />)}
         </section>
       </aside>
 
@@ -760,7 +798,9 @@ export default function VoiceArena() {
               <div><span>ПЕРЕД НАЧАЛОМ ПОЕДИНКА</span><h2 id="case-content-title">{selectedCase.title}</h2></div>
               <button onClick={() => { stopNarration(); setCaseContentOpen(false); }} aria-label="Закрыть">×</button>
             </header>
-            {activeComicPanel && !comicDetailsOpen ? (
+            {!activeComicPanel && !comicDetailsOpen && (comicMediaStatus === "pending" || comicMediaStatus === "processing") ? (
+              <div className="comic-preparing"><span className="analysis-spinner" /><h3>Готовим персональный комикс</h3><p>Раскадровка, изображения и аудиоверсия для роли «{participantRole.name}» создаются в фоне. Полное текстовое содержание уже доступно.</p><button className="comic-details-link" onClick={() => setComicDetailsOpen(true)}>Открыть текстовое содержание</button></div>
+            ) : activeComicPanel && !comicDetailsOpen ? (
               <div className="comic-prologue">
                 <div className="comic-stage">
                   <Image src={activeComicPanel.image} alt={activeComicPanel.title} fill sizes="(max-width: 900px) 100vw, 900px" priority />
@@ -776,8 +816,7 @@ export default function VoiceArena() {
               <CaseBlock icon="▤" title="СИТУАЦИЯ">{selectedCase.situation}</CaseBlock>
               <CaseBlock icon="⚔" title="ЦЕНТРАЛЬНЫЙ КОНФЛИКТ">{selectedCase.conflict}</CaseBlock>
               <div className="case-content-roles">
-                <RoleCaseBlock title="РОЛЬ 1" role={selectedCase.userRole} selected={selectedRoleSide === "user"} />
-                <RoleCaseBlock title="РОЛЬ 2" role={selectedCase.opponentRole} selected={selectedRoleSide === "opponent"} />
+                {allRoles.map((role, index) => <RoleCaseBlock key={role.name} title={`РОЛЬ ${index + 1}`} role={role} selected={selectedRoleIndex === index} />)}
               </div>
               {selectedCase.stakes.length > 0 && <CaseBlock icon="◆" title="СТАВКИ"><ul>{selectedCase.stakes.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock>}
               <CaseBlock icon="▶" title="НАЧАЛЬНАЯ СИТУАЦИЯ">{selectedCase.startSituation}</CaseBlock>
@@ -806,11 +845,12 @@ function CaseSelect({ cases, value, onChange, disabled }: { cases: CanonicalCase
   );
 }
 
-function RoleSelect({ selectedCase, value, onChange, disabled }: { selectedCase: CanonicalCase; value: RoleSide; onChange: (value: RoleSide) => void; disabled: boolean }) {
+function RoleSelect({ selectedCase, value, onChange, disabled }: { selectedCase: CanonicalCase; value: number; onChange: (value: number) => void; disabled: boolean }) {
+  const roles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
   return (
     <label className="setting-group case-select-control">
       <span className="setting-label">ВАША РОЛЬ</span>
-      <span className="case-select-shell"><b>♙</b><select value={value} onChange={(event) => onChange(event.target.value as RoleSide)} disabled={disabled} aria-label="Ваша роль"><option value="user">{selectedCase.userRole.name}</option><option value="opponent">{selectedCase.opponentRole.name}</option></select><i>⌄</i></span>
+      <span className="case-select-shell"><b>♙</b><select value={value} onChange={(event) => onChange(Number(event.target.value))} disabled={disabled} aria-label="Ваша роль">{roles.map((role, index) => <option value={index} key={role.name}>{role.name}</option>)}</select><i>⌄</i></span>
     </label>
   );
 }

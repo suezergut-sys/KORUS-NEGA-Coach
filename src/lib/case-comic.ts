@@ -2,7 +2,7 @@ import type { CanonicalCase } from "@/lib/case-types";
 
 export type ComicPanel = {
   image: string;
-  audio: { female: string; male: string };
+  audio: { female: string; male: string } | string;
   eyebrow: string;
   title: string;
   narration: string;

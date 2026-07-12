@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   if (caseId && caseId !== "default-missed-project-deadline") {
     const { data } = await getSupabaseAdmin()
       .from("negotiation_cases")
-      .select("situation,conflict,user_role,opponent_role,stakes,start_situation")
+      .select("situation,conflict,user_role,opponent_role,additional_roles,stakes,start_situation")
       .eq("id", caseId)
       .eq("status", "published")
       .maybeSingle();
@@ -44,8 +44,12 @@ export async function POST(request: Request) {
   }
   const firstRole = caseRow?.user_role as CaseRole | undefined;
   const secondRole = caseRow?.opponent_role as CaseRole | undefined;
-  const userRole = participantRoleSide === "opponent" ? secondRole : firstRole;
-  const opponentRole = participantRoleSide === "opponent" ? firstRole : secondRole;
+  const roles = [firstRole, secondRole, ...((caseRow?.additional_roles || []) as CaseRole[])].filter(Boolean) as CaseRole[];
+  const participantRoleIndex = Math.max(0, Math.min(roles.length - 1, Number(readParam(url, "participantRoleIndex", participantRoleSide === "opponent" ? "1" : "0")) || 0));
+  const requestedOpponentIndex = Number(readParam(url, "opponentRoleIndex", participantRoleIndex === 0 ? "1" : "0"));
+  const opponentRoleIndex = requestedOpponentIndex !== participantRoleIndex && roles[requestedOpponentIndex] ? requestedOpponentIndex : roles.findIndex((_, index) => index !== participantRoleIndex);
+  const userRole = roles[participantRoleIndex];
+  const opponentRole = roles[opponentRoleIndex];
   const instructions = buildRealtimeInstructions({
     role: opponentRole ? `${opponentRole.name}, ${opponentRole.position}` : readParam(url, "role", "Алексей, руководитель отдела продаж"),
     difficulty: readParam(url, "difficulty", "Средняя"),
