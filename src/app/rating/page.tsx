@@ -10,7 +10,7 @@ export default async function RatingPage() {
     <main className="admin-shell user-area-shell">
       <UserSidebar />
       <div className="admin-main rating-page">
-        <header className="admin-page-header"><div><span className="admin-eyebrow">ОБЩИЙ РЕЙТИНГ</span><h1>Рейтинг участников</h1><p>Сравните количество поединков и побед. Нажмите на заголовок столбца, чтобы изменить сортировку.</p></div></header>
+        <header className="admin-page-header"><div><span className="admin-eyebrow">ОБЩИЙ РЕЙТИНГ</span><h1>Рейтинг участников</h1><p>Сравните результаты и средний балл за последние 10 поединков. Нажмите на заголовок столбца, чтобы изменить сортировку.</p></div></header>
         <RatingTable users={users} />
       </div>
     </main>

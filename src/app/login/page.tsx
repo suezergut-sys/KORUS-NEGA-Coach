@@ -7,7 +7,7 @@ export default async function SiteLoginPage({ searchParams }: { searchParams: Pr
   return (
     <main className="site-login-shell">
       <section className="site-login-card neon-panel">
-        <Link className="site-login-brand" href="/login"><Image className="site-login-logo" src="/korus_sign_color.jpg" alt="KORUS Consulting" width={46} height={46} priority /><span>KORUS NEGA AI<small>ТРЕНАЖЁР ПЕРЕГОВОРОВ</small></span></Link>
+        <Link className="site-login-brand" href="/login"><Image className="site-login-logo" src="/korus_sign_color.jpg" alt="KORUS Consulting" width={46} height={46} priority /><span>KORUS NEGA AI 2.0<small>ТРЕНАЖЁР ПЕРЕГОВОРОВ</small></span></Link>
         <span className="admin-eyebrow">ВХОД ДЛЯ УЧАСТНИКОВ</span>
         <h1>Рады видеть вас снова</h1>
         <p>Войдите с корпоративной почтой и паролем, чтобы продолжить тренировки.</p>

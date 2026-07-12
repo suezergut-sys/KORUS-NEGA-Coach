@@ -684,8 +684,7 @@ export default function VoiceArena() {
 
       <aside className="settings-panel neon-panel">
         <header className="settings-header">
-          <div className="brand-lockup"><strong>KORUS NEGA AI</strong><span>ТРЕНАЖЁР ПЕРЕГОВОРОВ</span></div>
-          <span className="prototype-badge">ПРОТОТИП</span>
+          <div className="brand-lockup"><strong>KORUS NEGA AI 2.0</strong><span>ТРЕНАЖЁР ПЕРЕГОВОРОВ</span></div>
         </header>
         <h2><span>⚙</span> НАСТРОЙКИ</h2>
 
@@ -730,13 +729,6 @@ export default function VoiceArena() {
           </div>
         </section>
 
-        <section className="setting-group extras">
-          <div className="setting-label">ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ <i>i</i></div>
-          <div className="is-disabled"><span>Показывать подсказки</span><span className="fake-toggle" /></div>
-          <div><span>Анализ по методике после завершения</span><span className="fake-toggle on" /></div>
-        </section>
-
-        <button className="reset-settings" disabled>↻ &nbsp; СБРОСИТЬ НАСТРОЙКИ</button>
       </aside>
 
       <section className="conversation-panel neon-panel" aria-label="Переговоры">
