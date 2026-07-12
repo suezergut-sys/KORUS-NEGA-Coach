@@ -11,6 +11,7 @@ type Speaker = "Вы" | "Оппонент" | "Система";
 type Line = { id: string; author: Speaker; text: string; time: string };
 type VoiceMode = "female" | "male";
 type AnalysisStatus = "idle" | "loading" | "ready" | "error";
+type RoleSide = "user" | "opponent";
 
 const CASE_CONTEXT =
   "Компания «Альтаир» внедряет новую CRM. Ключевой этап проекта сорван, а заказчик требует назвать ответственного и компенсировать задержку.";
@@ -99,6 +100,7 @@ export default function VoiceArena() {
   const [analysisError, setAnalysisError] = useState("");
   const [cases, setCases] = useState<CanonicalCase[]>([DEFAULT_CASE]);
   const [selectedCaseId, setSelectedCaseId] = useState(DEFAULT_CASE.id);
+  const [selectedRoleSide, setSelectedRoleSide] = useState<RoleSide>("user");
   const [casesError, setCasesError] = useState("");
   const [quickUploadOpen, setQuickUploadOpen] = useState(false);
   const [quickFile, setQuickFile] = useState<File | null>(null);
@@ -115,11 +117,13 @@ export default function VoiceArena() {
   const startedAtRef = useRef<string | null>(null);
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
+  const participantRole = selectedRoleSide === "user" ? selectedCase.userRole : selectedCase.opponentRole;
+  const aiRole = selectedRoleSide === "user" ? selectedCase.opponentRole : selectedCase.userRole;
   const voiceProfile = OPPONENTS[voiceMode];
   const opponent = {
     ...voiceProfile,
-    name: selectedCase.opponentRole.name,
-    title: selectedCase.opponentRole.position,
+    name: aiRole.name,
+    title: aiRole.position,
   };
   const selectedCaseContext = `${selectedCase.situation}\n\nЦентральный конфликт: ${selectedCase.conflict}`;
   const isLive = status === "connected";
@@ -133,6 +137,7 @@ export default function VoiceArena() {
       setCases(payload.cases);
       const queryId = preferredId || new URLSearchParams(window.location.search).get("case") || "";
       setSelectedCaseId(payload.cases.some((item) => item.id === queryId) ? queryId : payload.cases[0].id);
+      if (preferredId) setSelectedRoleSide("user");
       setCasesError("");
     } catch (caught) {
       setCasesError(caught instanceof Error ? caught.message : "Не удалось загрузить кейсы.");
@@ -161,12 +166,21 @@ export default function VoiceArena() {
   function chooseCase(caseId: string) {
     if (isLive || isBusy) return;
     setSelectedCaseId(caseId);
+    setSelectedRoleSide("user");
     setLines([]);
     setAnalysis(null);
     setAnalysisStatus("idle");
     const url = new URL(window.location.href);
     url.searchParams.set("case", caseId);
     window.history.replaceState(null, "", url);
+  }
+
+  function chooseRole(side: RoleSide) {
+    if (isLive || isBusy) return;
+    setSelectedRoleSide(side);
+    setLines([]);
+    setAnalysis(null);
+    setAnalysisStatus("idle");
   }
 
   async function uploadQuickCase() {
@@ -325,6 +339,7 @@ export default function VoiceArena() {
         difficulty: "Средняя",
         context: selectedCaseContext,
         caseId: selectedCase.id,
+        participantRoleSide: selectedRoleSide,
         voice: opponent.voice,
       });
       const response = await fetch(`/api/realtime/session?${params.toString()}`, {
@@ -366,8 +381,8 @@ export default function VoiceArena() {
           caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
           caseCode: selectedCase.slug,
           caseContext: selectedCaseContext,
-          caseGoal: selectedCase.userRole.publicGoal,
-          caseConstraints: selectedCase.userRole.constraints,
+          caseGoal: participantRole.publicGoal,
+          caseConstraints: participantRole.constraints,
           opponentName: opponent.name,
           opponentVoice: opponent.voice,
           startedAt: startedAtRef.current,
@@ -403,7 +418,7 @@ export default function VoiceArena() {
         <h2><span>⚙</span> НАСТРОЙКИ</h2>
 
         <CaseSelect cases={cases} value={selectedCase.id} onChange={chooseCase} disabled={isLive || isBusy} />
-        <DisabledSelect label="РОЛЬ" value={selectedCase.userRole.name} icon="♙" />
+        <RoleSelect selectedCase={selectedCase} value={selectedRoleSide} onChange={chooseRole} disabled={isLive || isBusy} />
         {casesError && <p className="case-select-error">{casesError}</p>}
 
         <section className="setting-group is-disabled">
@@ -582,12 +597,11 @@ export default function VoiceArena() {
 
         <h2 className="case-title">ОПИСАНИЕ КЕЙСА</h2>
         <section className="case-description">
+          <CaseBlock icon="◇" title="КРАТКОЕ ОПИСАНИЕ">{selectedCase.summary}</CaseBlock>
           <CaseBlock icon="▤" title="КОНТЕКСТ">{selectedCase.situation}</CaseBlock>
           <CaseBlock icon="⚔" title="КОНФЛИКТ">{selectedCase.conflict}</CaseBlock>
-          <CaseBlock icon="◎" title="ВАША ЦЕЛЬ">{selectedCase.userRole.publicGoal}</CaseBlock>
-          <CaseBlock icon="▣" title="ВАШИ ИНТЕРЕСЫ И ОГРАНИЧЕНИЯ">
-            <ul>{[...selectedCase.userRole.interests, ...selectedCase.userRole.constraints].map((item) => <li key={item}>{item}</li>)}</ul>
-          </CaseBlock>
+          <RoleCaseBlock title="РОЛЬ 1" role={selectedCase.userRole} selected={selectedRoleSide === "user"} />
+          <RoleCaseBlock title="РОЛЬ 2" role={selectedCase.opponentRole} selected={selectedRoleSide === "opponent"} />
         </section>
       </aside>
 
@@ -616,6 +630,15 @@ function CaseSelect({ cases, value, onChange, disabled }: { cases: CanonicalCase
   );
 }
 
+function RoleSelect({ selectedCase, value, onChange, disabled }: { selectedCase: CanonicalCase; value: RoleSide; onChange: (value: RoleSide) => void; disabled: boolean }) {
+  return (
+    <label className="setting-group case-select-control">
+      <span className="setting-label">ВАША РОЛЬ</span>
+      <span className="case-select-shell"><b>♙</b><select value={value} onChange={(event) => onChange(event.target.value as RoleSide)} disabled={disabled} aria-label="Ваша роль"><option value="user">{selectedCase.userRole.name}</option><option value="opponent">{selectedCase.opponentRole.name}</option></select><i>⌄</i></span>
+    </label>
+  );
+}
+
 function DisabledSelect({ label, value, icon }: { label: string; value: string; icon: string }) {
   return (
     <label className="setting-group disabled-select">
@@ -627,6 +650,15 @@ function DisabledSelect({ label, value, icon }: { label: string; value: string; 
 
 function CaseBlock({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
   return <div className="case-block"><h3><span>{icon}</span>{title}</h3><div>{children}</div></div>;
+}
+
+function RoleCaseBlock({ title, role, selected }: { title: string; role: CanonicalCase["userRole"]; selected: boolean }) {
+  return (
+    <div className={`case-block canonical-role ${selected ? "selected" : ""}`}>
+      <h3><span>♙</span>{title}{selected && <b>ВЫ В ЭТОЙ РОЛИ</b>}</h3>
+      <div><strong>{role.name}</strong><small>{role.position}</small><p><b>Цель:</b> {role.publicGoal}</p><h4>Интересы</h4><ul>{role.interests.map((item) => <li key={item}>{item}</li>)}</ul><h4>Ограничения</h4><ul>{role.constraints.map((item) => <li key={item}>{item}</li>)}</ul></div>
+    </div>
+  );
 }
 
 function AnalysisList({ title, items, tone }: { title: string; items: string[]; tone: "positive" | "negative" }) {

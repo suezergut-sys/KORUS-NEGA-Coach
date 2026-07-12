@@ -319,6 +319,17 @@ button { color: inherit; }
 .case-block h3 { display: flex; gap: 10px; margin: 0 0 10px; color: #56b5ff; font-size: 11px; letter-spacing: .06em; }
 .case-block > div { color: #b1c0d3; font-size: 10px; line-height: 1.55; }
 .case-block ul { margin: 0; padding-left: 15px; }
+.canonical-role { position: relative; transition: border-color .2s ease, background .2s ease; }
+.canonical-role.selected { background: linear-gradient(135deg, rgba(8, 92, 176, .2), rgba(4, 25, 48, .25)); box-shadow: inset 3px 0 #168fff; }
+.canonical-role h3 { align-items: center; }
+.canonical-role h3 > b { margin-left: auto; padding: 4px 6px; border: 1px solid #168fff; border-radius: 5px; color: #9dd5ff; background: #082b50; font-size: 7px; letter-spacing: .05em; }
+.canonical-role > div > strong, .canonical-role > div > small { display: block; }
+.canonical-role > div > strong { color: #e0f1ff; font-size: 12px; }
+.canonical-role > div > small { margin-top: 3px; color: #6688a7; font-size: 8px; }
+.canonical-role p { margin: 10px 0; color: #afc0d2; }
+.canonical-role p > b { color: #65baff; }
+.canonical-role h4 { margin: 10px 0 5px; color: #6aaee5; font-size: 8px; text-transform: uppercase; letter-spacing: .07em; }
+.canonical-role ul + h4 { margin-top: 12px; }
 
 @media (max-width: 1360px) {
   .duel-app { grid-template-columns: 58px 310px minmax(460px, 1fr) 330px; padding: 14px 14px 14px 8px; gap: 10px; }

@@ -31,6 +31,7 @@ export async function POST(request: Request) {
   const requestedVoice = readParam(url, "voice", "marin");
   const voice = requestedVoice === "cedar" ? "cedar" : "marin";
   const caseId = readParam(url, "caseId", "");
+  const participantRoleSide = readParam(url, "participantRoleSide", "user") === "opponent" ? "opponent" : "user";
   let caseRow: Record<string, unknown> | null = null;
   if (caseId && caseId !== "default-missed-project-deadline") {
     const { data } = await getSupabaseAdmin()
@@ -41,8 +42,10 @@ export async function POST(request: Request) {
       .maybeSingle();
     caseRow = data;
   }
-  const userRole = caseRow?.user_role as CaseRole | undefined;
-  const opponentRole = caseRow?.opponent_role as CaseRole | undefined;
+  const firstRole = caseRow?.user_role as CaseRole | undefined;
+  const secondRole = caseRow?.opponent_role as CaseRole | undefined;
+  const userRole = participantRoleSide === "opponent" ? secondRole : firstRole;
+  const opponentRole = participantRoleSide === "opponent" ? firstRole : secondRole;
   const instructions = buildRealtimeInstructions({
     role: opponentRole ? `${opponentRole.name}, ${opponentRole.position}` : readParam(url, "role", "Алексей, руководитель отдела продаж"),
     difficulty: readParam(url, "difficulty", "Средняя"),

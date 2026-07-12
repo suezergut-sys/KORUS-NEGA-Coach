@@ -15,7 +15,11 @@ export async function GET() {
     return Response.json({
       cases: (data || []).map((row) => {
         const item = mapCaseRow(row);
-        return { ...item, opponentRole: { ...item.opponentRole, hiddenMotives: [] } };
+        return {
+          ...item,
+          userRole: { ...item.userRole, hiddenMotives: [] },
+          opponentRole: { ...item.opponentRole, hiddenMotives: [] },
+        };
       }),
     });
   } catch (error) {

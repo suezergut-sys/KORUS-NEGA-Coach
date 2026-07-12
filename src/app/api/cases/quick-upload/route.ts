@@ -20,7 +20,14 @@ export async function POST(request: Request) {
     });
     const saved = await saveGeneratedVariants(workspace.id, variants);
     const approved = await approveVariant(saved[0].id, "quick_upload");
-    return Response.json({ case: { ...approved, opponentRole: { ...approved.opponentRole, hiddenMotives: [] } }, alternativesCreated: saved.length - 1 });
+    return Response.json({
+      case: {
+        ...approved,
+        userRole: { ...approved.userRole, hiddenMotives: [] },
+        opponentRole: { ...approved.opponentRole, hiddenMotives: [] },
+      },
+      alternativesCreated: saved.length - 1,
+    });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Не удалось загрузить и подготовить кейс." }, { status: 500 });
   }
