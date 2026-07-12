@@ -1,6 +1,7 @@
 import { getOpenAI } from "@/lib/openai-server";
 import { mapCaseRow, type CaseRole } from "@/lib/case-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { getCaseComic } from "@/lib/case-comic";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -23,7 +24,7 @@ function describeRole(role: CaseRole, number: number) {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { caseId?: unknown; participantRoleSide?: unknown; voice?: unknown };
+    const body = (await request.json()) as { caseId?: unknown; participantRoleSide?: unknown; voice?: unknown; panelIndex?: unknown };
     const caseId = typeof body.caseId === "string" ? body.caseId : "";
     const participantRoleSide: RoleSide = body.participantRoleSide === "opponent" ? "opponent" : "user";
     const voice: NarrationVoice = body.voice === "cedar" ? "cedar" : "marin";
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     const negotiationCase = mapCaseRow(data);
     const participantRole = participantRoleSide === "user" ? negotiationCase.userRole : negotiationCase.opponentRole;
     const opponentRole = participantRoleSide === "user" ? negotiationCase.opponentRole : negotiationCase.userRole;
-    const narration = [
+    const fullNarration = [
       `Тренировочный кейс «${negotiationCase.title}».`,
       negotiationCase.summary,
       `Ситуация. ${negotiationCase.situation}`,
@@ -51,6 +52,9 @@ export async function POST(request: Request) {
       `Начальная ситуация. ${negotiationCase.startSituation}`,
       `Ваша выбранная роль: ${participantRole.name}. Искусственный интеллект играет роль: ${opponentRole.name}.`,
     ].join("\n\n").slice(0, 9000);
+    const panelIndex = typeof body.panelIndex === "number" ? body.panelIndex : -1;
+    const comicPanel = getCaseComic(negotiationCase)[panelIndex];
+    const narration = comicPanel?.narration || fullNarration;
 
     const speech = await getOpenAI().audio.speech.create({
       model: process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts",

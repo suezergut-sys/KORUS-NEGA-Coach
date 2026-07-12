@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import type { CanonicalCase } from "@/lib/case-types";
+import { getCaseComic } from "@/lib/case-comic";
 
 type Status = "idle" | "connecting" | "connected" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
@@ -110,6 +111,8 @@ export default function VoiceArena() {
   const [caseContentOpen, setCaseContentOpen] = useState(false);
   const [narrationStatus, setNarrationStatus] = useState<NarrationStatus>("idle");
   const [narrationError, setNarrationError] = useState("");
+  const [comicPanelIndex, setComicPanelIndex] = useState(0);
+  const [comicDetailsOpen, setComicDetailsOpen] = useState(false);
 
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -134,6 +137,8 @@ export default function VoiceArena() {
   const selectedCaseContext = `${selectedCase.situation}\n\nЦентральный конфликт: ${selectedCase.conflict}`;
   const isLive = status === "connected";
   const isBusy = status === "connecting";
+  const comicPanels = getCaseComic(selectedCase);
+  const activeComicPanel = comicPanels[comicPanelIndex];
 
   const stopNarration = useCallback(() => {
     narrationAudioRef.current?.pause();
@@ -143,7 +148,7 @@ export default function VoiceArena() {
     setNarrationStatus("idle");
   }, []);
 
-  const toggleNarration = useCallback(async () => {
+  const playNarration = useCallback(async (panelIndex?: number) => {
     if (narrationStatus === "loading" || narrationStatus === "playing") {
       stopNarration();
       return;
@@ -154,7 +159,7 @@ export default function VoiceArena() {
       const response = await fetch("/api/cases/narration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId: selectedCase.id, participantRoleSide: selectedRoleSide, voice: opponent.voice }),
+        body: JSON.stringify({ caseId: selectedCase.id, participantRoleSide: selectedRoleSide, voice: opponent.voice, panelIndex }),
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
@@ -164,7 +169,14 @@ export default function VoiceArena() {
       const audio = new Audio(url);
       narrationUrlRef.current = url;
       narrationAudioRef.current = audio;
-      audio.onended = stopNarration;
+      audio.onended = () => {
+        stopNarration();
+        if (typeof panelIndex === "number" && panelIndex < comicPanels.length - 1) {
+          const next = panelIndex + 1;
+          setComicPanelIndex(next);
+          window.setTimeout(() => void playNarration(next), 250);
+        }
+      };
       audio.onerror = () => {
         stopNarration();
         setNarrationStatus("error");
@@ -177,7 +189,12 @@ export default function VoiceArena() {
       setNarrationStatus("error");
       setNarrationError(caught instanceof Error ? caught.message : "Не удалось озвучить кейс.");
     }
-  }, [narrationStatus, opponent.voice, selectedCase.id, selectedRoleSide, stopNarration]);
+  }, [comicPanels.length, narrationStatus, opponent.voice, selectedCase.id, selectedRoleSide, stopNarration]);
+
+  const toggleNarration = useCallback(() => {
+    if (narrationStatus === "loading" || narrationStatus === "playing") return stopNarration();
+    return playNarration(comicPanels.length ? comicPanelIndex : undefined);
+  }, [comicPanelIndex, comicPanels.length, narrationStatus, playNarration, stopNarration]);
 
   const loadCases = useCallback(async (preferredId?: string) => {
     try {
@@ -217,6 +234,8 @@ export default function VoiceArena() {
     if (isLive || isBusy) return;
     stopNarration();
     setSelectedCaseId(caseId);
+    setComicPanelIndex(0);
+    setComicDetailsOpen(false);
     setSelectedRoleSide("user");
     setLines([]);
     setAnalysis(null);
@@ -540,7 +559,7 @@ export default function VoiceArena() {
               <div className="empty-rings"><span>◉</span></div>
               <h3>Переговоры ещё не начались</h3>
               <p>Выберите голос оппонента и нажмите «Начать переговоры».</p>
-              <button className="case-content-trigger" onClick={() => setCaseContentOpen(true)}>Содержание кейса</button>
+              <button className="case-content-trigger" onClick={() => { setComicPanelIndex(0); setComicDetailsOpen(false); setCaseContentOpen(true); }}>Содержание кейса</button>
             </div>
           ) : (
             <div className="dialogue-list" aria-live="polite">
@@ -681,7 +700,18 @@ export default function VoiceArena() {
               <div><span>ПЕРЕД НАЧАЛОМ ПОЕДИНКА</span><h2 id="case-content-title">{selectedCase.title}</h2></div>
               <button onClick={() => { stopNarration(); setCaseContentOpen(false); }} aria-label="Закрыть">×</button>
             </header>
-            <div className="case-content-copy">
+            {activeComicPanel && !comicDetailsOpen ? (
+              <div className="comic-prologue">
+                <div className="comic-stage">
+                  <Image src={activeComicPanel.image} alt={activeComicPanel.title} fill sizes="(max-width: 900px) 100vw, 900px" priority />
+                  <div className="comic-caption"><span>{activeComicPanel.eyebrow}</span><h3>{activeComicPanel.title}</h3><p>{activeComicPanel.narration}</p></div>
+                  <button className="comic-arrow previous" disabled={comicPanelIndex === 0} onClick={() => { stopNarration(); setComicPanelIndex((value) => Math.max(0, value - 1)); }} aria-label="Предыдущий кадр">‹</button>
+                  <button className="comic-arrow next" disabled={comicPanelIndex === comicPanels.length - 1} onClick={() => { stopNarration(); setComicPanelIndex((value) => Math.min(comicPanels.length - 1, value + 1)); }} aria-label="Следующий кадр">›</button>
+                </div>
+                <div className="comic-progress">{comicPanels.map((panel, index) => <button key={panel.image} className={index === comicPanelIndex ? "active" : ""} onClick={() => { stopNarration(); setComicPanelIndex(index); }} aria-label={`Кадр ${index + 1}`} />)}</div>
+                <button className="comic-details-link" onClick={() => { stopNarration(); setComicDetailsOpen(true); }}>Открыть полное содержание кейса</button>
+              </div>
+            ) : <div className="case-content-copy">
               <p className="case-content-summary">{selectedCase.summary}</p>
               <CaseBlock icon="▤" title="СИТУАЦИЯ">{selectedCase.situation}</CaseBlock>
               <CaseBlock icon="⚔" title="ЦЕНТРАЛЬНЫЙ КОНФЛИКТ">{selectedCase.conflict}</CaseBlock>
@@ -691,9 +721,10 @@ export default function VoiceArena() {
               </div>
               {selectedCase.stakes.length > 0 && <CaseBlock icon="◆" title="СТАВКИ"><ul>{selectedCase.stakes.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock>}
               <CaseBlock icon="▶" title="НАЧАЛЬНАЯ СИТУАЦИЯ">{selectedCase.startSituation}</CaseBlock>
-            </div>
+            </div>}
             {narrationError && <p className="narration-error">{narrationError}</p>}
             <footer>
+              {comicDetailsOpen && comicPanels.length > 0 && <button className="comic-details-link" onClick={() => setComicDetailsOpen(false)}>← Вернуться к комиксу</button>}
               <span>Голос: {voiceMode === "female" ? "Marin" : "Cedar"}</span>
               <button className={`narration-button ${narrationStatus === "playing" ? "playing" : ""}`} onClick={() => void toggleNarration()}>
                 {narrationStatus === "loading" ? "ГОТОВИМ АУДИО…" : narrationStatus === "playing" ? "■ ОСТАНОВИТЬ" : "▶ ОЗВУЧИТЬ"}
