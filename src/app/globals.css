@@ -33,6 +33,7 @@ button, select, textarea, input { font: inherit; }
 .site-login-logo { flex: 0 0 46px; border: 1px solid #173e66; border-radius: 9px; object-fit: cover; box-shadow: 0 5px 14px rgba(0, 0, 0, .22); }
 .site-login-brand > span { display: flex; flex-direction: column; font-size: 24px; font-weight: 800; letter-spacing: .12em; }
 .site-login-brand small { margin-top: 3px; color: #548ab9; font-size: 7px; letter-spacing: .16em; }
+.site-login-card > .admin-eyebrow { display: block; }
 .site-login-card h1 { margin: 9px 0 8px; font-size: 30px; }
 .site-login-card > p { margin: 0 auto 25px; color: #839bb4; font-size: 11px; line-height: 1.6; }
 .site-login-card form { display: grid; gap: 10px; text-align: left; }
