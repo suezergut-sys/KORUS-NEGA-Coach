@@ -13,6 +13,9 @@ type Status = "idle" | "connecting" | "connected" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
 type Line = { id: string; author: Speaker; text: string; time: string };
 type VoiceMode = "female" | "male";
+type NegotiationStyle = "collaborative" | "hard";
+type DurationMinutes = 3 | 5 | 10 | 15;
+type EndReason = "user" | "timer";
 type AnalysisStatus = "idle" | "loading" | "ready" | "error";
 type NarrationStatus = "idle" | "loading" | "playing" | "error";
 
@@ -34,6 +37,8 @@ const OPPONENTS = {
 } as const;
 
 const WAVE_BARS = [22, 32, 18, 42, 29, 58, 35, 72, 43, 88, 52, 66, 36, 79, 46, 61, 28, 49, 33, 24];
+const DURATION_OPTIONS: DurationMinutes[] = [3, 5, 10, 15];
+const TIME_EXPIRED_MESSAGE = "Время переговоров истекло. Запускаем анализ поединка для определения победителя.";
 
 function roleVoiceGender(role: CanonicalCase["userRole"]): VoiceMode {
   if (role.voiceGender === "female" || role.voiceGender === "male") return role.voiceGender;
@@ -55,14 +60,28 @@ function clockTime() {
   return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(new Date());
 }
 
+function updateTurnDetection(channel: RTCDataChannel | null, eagerness: "low" | "high") {
+  if (channel?.readyState !== "open") return;
+  channel.send(JSON.stringify({
+    type: "session.update",
+    session: {
+      type: "realtime",
+      audio: { input: { turn_detection: { type: "semantic_vad", eagerness, create_response: true, interrupt_response: true } } },
+    },
+  }));
+}
+
 export default function VoiceArena() {
   const [status, setStatus] = useState<Status>("idle");
   const [seconds, setSeconds] = useState(0);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("male");
+  const [negotiationStyle, setNegotiationStyle] = useState<NegotiationStyle>("collaborative");
+  const [durationMinutes, setDurationMinutes] = useState<DurationMinutes>(5);
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState("");
   const [pauseRemaining, setPauseRemaining] = useState(0);
   const [pauseUsed, setPauseUsed] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [opponentSpeaking, setOpponentSpeaking] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
@@ -99,6 +118,10 @@ export default function VoiceArena() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
   const pausedRef = useRef(false);
+  const endingRef = useRef(false);
+  const endSessionRef = useRef<(reason?: EndReason) => Promise<void>>(async () => undefined);
+  const opponentTurnCountRef = useRef(0);
+  const linesRef = useRef<Line[]>([]);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
@@ -121,6 +144,8 @@ export default function VoiceArena() {
   const isLive = status === "connected";
   const isBusy = status === "connecting";
   const isPaused = pauseRemaining > 0;
+  const totalDurationSeconds = durationMinutes * 60;
+  const remainingSeconds = Math.max(0, totalDurationSeconds - seconds);
   const comicPanels = remoteComic || getCaseComic(selectedCase);
   const activeComicPanel = comicPanels[comicPanelIndex];
 
@@ -141,6 +166,28 @@ export default function VoiceArena() {
     applyMediaPaused(false);
     setPauseRemaining(0);
   }, [applyMediaPaused]);
+
+  const announceTimeExpired = useCallback(() => new Promise<void>((resolve) => {
+    if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+      resolve();
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(TIME_EXPIRED_MESSAGE);
+    utterance.lang = "ru-RU";
+    utterance.rate = 1;
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(fallback);
+      resolve();
+    };
+    const fallback = window.setTimeout(finish, 12_000);
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }), []);
 
   useEffect(() => {
     if (!caseContentOpen || !comicPanels.length) return;
@@ -289,10 +336,16 @@ export default function VoiceArena() {
   }, [loadCases]);
 
   useEffect(() => {
-    if (!isLive || isPaused) return;
-    const timer = window.setInterval(() => setSeconds((value) => value + 1), 1000);
+    if (!isLive || isPaused || isEnding) return;
+    const timer = window.setInterval(() => setSeconds((value) => Math.min(totalDurationSeconds, value + 1)), 1000);
     return () => window.clearInterval(timer);
-  }, [isLive, isPaused]);
+  }, [isEnding, isLive, isPaused, totalDurationSeconds]);
+
+  useEffect(() => {
+    if (!isLive || isPaused || isEnding || remainingSeconds > 0) return;
+    const timer = window.setTimeout(() => void endSessionRef.current("timer"), 0);
+    return () => window.clearTimeout(timer);
+  }, [isEnding, isLive, isPaused, remainingSeconds]);
 
   useEffect(() => {
     if (!isLive || pauseRemaining <= 0) return;
@@ -305,6 +358,7 @@ export default function VoiceArena() {
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    linesRef.current = lines;
   }, [lines]);
 
   useEffect(() => {
@@ -382,12 +436,14 @@ export default function VoiceArena() {
     peerRef.current?.close();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     if (audioRef.current) audioRef.current.srcObject = null;
+    window.speechSynthesis?.cancel();
     channelRef.current = null;
     peerRef.current = null;
     streamRef.current = null;
     pausedRef.current = false;
     setPauseRemaining(0);
     setPauseUsed(false);
+    setIsEnding(false);
     setUserSpeaking(false);
     setOpponentSpeaking(false);
     setStatus("idle");
@@ -401,9 +457,14 @@ export default function VoiceArena() {
     setLines((current) => {
       const existing = current.findIndex((line) => line.id === id);
       const line = { id, author, text: text.trim(), time: clockTime() };
-      if (existing === -1) return [...current, line].slice(-30);
+      if (existing === -1) {
+        const next = [...current, line];
+        linesRef.current = next;
+        return next;
+      }
       const next = [...current];
       next[existing] = { ...next[existing], text: text.trim() };
+      linesRef.current = next;
       return next;
     });
   }, []);
@@ -413,10 +474,13 @@ export default function VoiceArena() {
     setLines((current) => {
       const existing = current.findIndex((line) => line.id === id);
       if (existing === -1) {
-        return [...current, { id, author, text: delta, time: clockTime() }].slice(-30);
+        const next = [...current, { id, author, text: delta, time: clockTime() }];
+        linesRef.current = next;
+        return next;
       }
       const next = [...current];
       next[existing] = { ...next[existing], text: `${next[existing].text}${delta}` };
+      linesRef.current = next;
       return next;
     });
   }, []);
@@ -449,6 +513,10 @@ export default function VoiceArena() {
       }
       if (type === "response.output_audio_transcript.done") {
         replaceLine("Оппонент", String(event.transcript || ""), itemId);
+        if (negotiationStyle === "hard") {
+          opponentTurnCountRef.current += 1;
+          updateTurnDetection(channelRef.current, opponentTurnCountRef.current % 5 === 0 ? "high" : "low");
+        }
       }
       if (type === "error") {
         const nested = event.error as { message?: string } | undefined;
@@ -457,7 +525,7 @@ export default function VoiceArena() {
     } catch {
       // Диагностические сообщения вне JSON не влияют на голосовую сессию.
     }
-  }, [appendDelta, replaceLine]);
+  }, [appendDelta, negotiationStyle, replaceLine]);
 
   function togglePause() {
     if (!isLive) return;
@@ -486,12 +554,17 @@ export default function VoiceArena() {
     setSeconds(0);
     setPauseRemaining(0);
     setPauseUsed(false);
+    setIsEnding(false);
     pausedRef.current = false;
+    endingRef.current = false;
+    opponentTurnCountRef.current = 0;
     setAnalysisStatus("idle");
     setAnalysis(null);
     setAnalysisError("");
     startedAtRef.current = new Date().toISOString();
-    setLines([{ id: "connecting", author: "Система", text: "Устанавливаем защищённую голосовую связь…", time: clockTime() }]);
+    const connectingLines: Line[] = [{ id: "connecting", author: "Система", text: "Устанавливаем защищённую голосовую связь…", time: clockTime() }];
+    linesRef.current = connectingLines;
+    setLines(connectingLines);
 
     try {
       const health = await fetch("/api/realtime/session", { cache: "no-store" });
@@ -519,7 +592,9 @@ export default function VoiceArena() {
       channel.addEventListener("message", handleEvent);
       channel.addEventListener("open", () => {
         setStatus("connected");
-        setLines([{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }]);
+        const readyLines: Line[] = [{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }];
+        linesRef.current = readyLines;
+        setLines(readyLines);
         channel.send(JSON.stringify({ type: "response.create" }));
       });
       channel.addEventListener("close", () => setStatus("idle"));
@@ -528,7 +603,7 @@ export default function VoiceArena() {
       await pc.setLocalDescription(offer);
 
       const params = new URLSearchParams({
-        difficulty: "Средняя",
+        negotiationStyle,
         caseId: selectedCase.id,
         caseCode: selectedCase.slug,
         participantRoleIndex: String(selectedRoleIndex),
@@ -551,17 +626,25 @@ export default function VoiceArena() {
       closeSession();
       setStatus("error");
       setError(caught instanceof Error ? caught.message : "Не удалось запустить микрофон.");
+      linesRef.current = [];
       setLines([]);
     }
   }
 
-  async function endSession() {
-    if (!isLive) return;
+  async function endSession(reason: EndReason = "user") {
+    if (!isLive || endingRef.current) return;
+    endingRef.current = true;
+    setIsEnding(true);
     const completedLines = [
-      ...lines,
-      { id: crypto.randomUUID(), author: "Система" as const, text: "Переговоры завершены пользователем.", time: clockTime() },
+      ...linesRef.current,
+      { id: crypto.randomUUID(), author: "Система" as const, text: reason === "timer" ? TIME_EXPIRED_MESSAGE : "Переговоры завершены пользователем.", time: clockTime() },
     ];
+    linesRef.current = completedLines;
     setLines(completedLines);
+    if (reason === "timer") {
+      applyMediaPaused(true);
+      await announceTimeExpired();
+    }
     closeSession();
     setAnalysisStatus("loading");
     setAnalysisError("");
@@ -591,6 +674,10 @@ export default function VoiceArena() {
     }
   }
 
+  useEffect(() => {
+    endSessionRef.current = endSession;
+  });
+
   return (
     <main className="duel-app">
       <AppNavRail onQuickUpload={() => setQuickUploadOpen(true)} quickUploadDisabled={isLive || isBusy} />
@@ -605,12 +692,6 @@ export default function VoiceArena() {
         <CaseSelect cases={cases} value={selectedCase.id} onChange={chooseCase} disabled={isLive || isBusy} />
         <RoleSelect selectedCase={selectedCase} value={selectedRoleIndex} onChange={chooseRole} disabled={isLive || isBusy} />
         {casesError && <p className="case-select-error">{casesError}</p>}
-
-        <section className="setting-group is-disabled">
-          <div className="setting-label">УРОВЕНЬ СЛОЖНОСТИ <i>i</i></div>
-          <div className="difficulty-track"><span /><b /></div>
-          <div className="difficulty-labels"><span>Низкий</span><span>Средний</span><span>Высокий</span><span>Эксперт</span></div>
-        </section>
 
         <section className="setting-group">
           <div className="setting-label">ГОЛОС ОППОНЕНТА <i>i</i></div>
@@ -634,11 +715,19 @@ export default function VoiceArena() {
           </div>
         </section>
 
-        <DisabledSelect label="СТИЛЬ ПЕРЕГОВОРОВ" value="Сотрудничество" icon="♞" />
+        <section className="setting-group">
+          <div className="setting-label">СТИЛЬ ПЕРЕГОВОРОВ <i>i</i></div>
+          <div className="style-options" role="group" aria-label="Стиль переговоров">
+            <button className={negotiationStyle === "collaborative" ? "selected" : ""} onClick={() => setNegotiationStyle("collaborative")} disabled={isLive || isBusy} aria-pressed={negotiationStyle === "collaborative"}>Сотрудничество</button>
+            <button className={negotiationStyle === "hard" ? "selected" : ""} onClick={() => setNegotiationStyle("hard")} disabled={isLive || isBusy} aria-pressed={negotiationStyle === "hard"}>Жёсткие переговоры</button>
+          </div>
+        </section>
 
-        <section className="setting-group is-disabled">
-          <div className="setting-label setting-row"><span>ТАЙМЕР <i>i</i></span><span className="fake-toggle on" /></div>
-          <div className="timer-options"><button disabled>10 мин</button><button className="selected" disabled>20 мин</button><button disabled>30 мин</button><button disabled>45 мин</button></div>
+        <section className="setting-group">
+          <div className="setting-label">ТАЙМЕР <i>i</i></div>
+          <div className="timer-options" role="group" aria-label="Длительность переговоров">
+            {DURATION_OPTIONS.map((minutes) => <button key={minutes} className={durationMinutes === minutes ? "selected" : ""} onClick={() => setDurationMinutes(minutes)} disabled={isLive || isBusy} aria-pressed={durationMinutes === minutes}>{minutes} мин</button>)}
+          </div>
         </section>
 
         <section className="setting-group extras">
@@ -658,8 +747,8 @@ export default function VoiceArena() {
           </div>
           <div className="live-status">
             <span className={isLive && !isPaused ? "status-dot live" : "status-dot"} />
-            <span>{isBusy ? "ПОДКЛЮЧЕНИЕ" : isPaused ? "ПАУЗА" : isLive ? "В ЭФИРЕ" : "ГОТОВ"}</span>
-            <strong>{formatTime(seconds)}</strong>
+            <span>{isBusy ? "ПОДКЛЮЧЕНИЕ" : isEnding ? "ЗАВЕРШЕНИЕ" : isPaused ? "ПАУЗА" : isLive ? "В ЭФИРЕ" : "ГОТОВ"}</span>
+            <strong>{formatTime(remainingSeconds)}</strong>
           </div>
         </header>
 
@@ -688,8 +777,8 @@ export default function VoiceArena() {
             </div>
           )}
 
-          <div className={`audio-deck ${isLive && !isPaused ? "active" : ""}`}>
-            <div className="listening-copy"><span className={userSpeaking ? "mini-wave active" : "mini-wave"}>▥</span><small>{isPaused ? `Пауза ${formatTime(pauseRemaining)}` : userSpeaking ? "Вы говорите…" : opponentSpeaking ? "Оппонент отвечает…" : isLive ? "Слушаю…" : "Ожидание"}</small></div>
+          <div className={`audio-deck ${isLive && !isPaused && !isEnding ? "active" : ""}`}>
+            <div className="listening-copy"><span className={userSpeaking ? "mini-wave active" : "mini-wave"}>▥</span><small>{isEnding ? "Запускаем анализ…" : isPaused ? `Пауза ${formatTime(pauseRemaining)}` : userSpeaking ? "Вы говорите…" : opponentSpeaking ? "Оппонент отвечает…" : isLive ? "Слушаю…" : "Ожидание"}</small></div>
             <div className="waveform" aria-hidden="true">
               {WAVE_BARS.map((height, index) => <i key={index} style={{ height: `${height}%`, animationDelay: `${index * -55}ms` }} />)}
             </div>
@@ -701,13 +790,13 @@ export default function VoiceArena() {
         {error && <div className="error-banner" role="alert"><strong>Не удалось начать переговоры.</strong><span>{error}</span></div>}
 
         <footer className="session-actions">
-          <button className="start-session" onClick={startSession} disabled={isLive || isBusy}>
-            <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : "НАЧАТЬ"}
+          <button className="start-session" onClick={startSession} disabled={isLive || isBusy || isEnding}>
+            <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : isEnding ? "АНАЛИЗ…" : isLive ? `ОСТАЛОСЬ ${formatTime(remainingSeconds)}` : "НАЧАТЬ"}
           </button>
-          <button className={`pause-session ${isPaused ? "counting" : ""}`} onClick={togglePause} disabled={!isLive || (pauseUsed && !isPaused)} aria-label={isPaused ? `Продолжить переговоры, осталось ${formatTime(pauseRemaining)}` : "Пауза"}>
-            <span>{isPaused ? "▶" : "‖"}</span>{isPaused ? `ПАУЗА · ${formatTime(pauseRemaining)}` : "ПАУЗА"}
+          <button className={`pause-session ${isPaused ? "counting" : ""}`} onClick={togglePause} disabled={!isLive || isEnding || (pauseUsed && !isPaused)} aria-label={isPaused ? `Продолжить переговоры, осталось ${formatTime(pauseRemaining)}` : "Пауза"}>
+            <svg className="pause-icon" viewBox="0 0 18 18" aria-hidden="true"><rect x="3" y="2" width="4" height="14" rx="1" /><rect x="11" y="2" width="4" height="14" rx="1" /></svg>{isPaused ? `ПАУЗА · ${formatTime(pauseRemaining)}` : "ПАУЗА"}
           </button>
-          <button className="end-session" onClick={endSession} disabled={!isLive}>
+          <button className="end-session" onClick={() => void endSession("user")} disabled={!isLive || isEnding}>
             <span>■</span>ЗАВЕРШИТЬ
           </button>
         </footer>
@@ -866,15 +955,6 @@ function RoleSelect({ selectedCase, value, onChange, disabled }: { selectedCase:
     <label className="setting-group case-select-control">
       <span className="setting-label">ВАША РОЛЬ</span>
       <span className="case-select-shell"><b>♙</b><select value={value} onChange={(event) => onChange(Number(event.target.value))} disabled={disabled} aria-label="Ваша роль">{roles.map((role, index) => <option value={index} key={role.name}>{role.name}</option>)}</select><i>⌄</i></span>
-    </label>
-  );
-}
-
-function DisabledSelect({ label, value, icon }: { label: string; value: string; icon: string }) {
-  return (
-    <label className="setting-group disabled-select">
-      <span className="setting-label">{label}</span>
-      <button disabled title="Будет доступно в следующей версии"><span>{icon}</span>{value}<b>⌄</b></button>
     </label>
   );
 }
