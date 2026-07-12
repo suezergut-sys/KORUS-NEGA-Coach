@@ -803,7 +803,7 @@ export default function VoiceArena() {
             ) : activeComicPanel && !comicDetailsOpen ? (
               <div className="comic-prologue">
                 <div className="comic-stage">
-                  <Image src={activeComicPanel.image} alt={activeComicPanel.title} fill sizes="(max-width: 900px) 100vw, 900px" priority />
+                  <Image src={activeComicPanel.image} alt={activeComicPanel.title} fill sizes="(max-width: 900px) 100vw, 900px" priority unoptimized={activeComicPanel.image.startsWith("http")} />
                   <div className="comic-caption"><span>{activeComicPanel.eyebrow}</span><h3>{activeComicPanel.title}</h3><p>{activeComicPanel.narration}</p></div>
                   <button className="comic-arrow previous" disabled={comicPanelIndex === 0} onClick={() => { stopNarration(); setComicPanelIndex((value) => Math.max(0, value - 1)); }} aria-label="Предыдущий кадр">‹</button>
                   <button className="comic-arrow next" disabled={comicPanelIndex === comicPanels.length - 1} onClick={() => { stopNarration(); setComicPanelIndex((value) => Math.min(comicPanels.length - 1, value + 1)); }} aria-label="Следующий кадр">›</button>
