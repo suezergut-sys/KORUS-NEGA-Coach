@@ -5,6 +5,14 @@ import { extractUploadedFile, validateFiles } from "@/lib/case-files";
 import { mapCaseRow, type CanonicalCase, type CaseWorkspaceView, type GeneratedCaseVariant } from "@/lib/case-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
+const FULL_PERSON_NAME = /^[А-ЯЁ][а-яё-]+\s+[А-ЯЁ][а-яё-]+(?:\s+[А-ЯЁ][а-яё-]+)?$/;
+
+function assertCanonicalRoleNames(userRole: { name?: string }, opponentRole: { name?: string }) {
+  if (!FULL_PERSON_NAME.test(userRole.name || "") || !FULL_PERSON_NAME.test(opponentRole.name || "")) {
+    throw new Error("Канонический кейс должен содержать имя и фамилию каждой стороны; должность указывается отдельно.");
+  }
+}
+
 export async function createOrUpdateWorkspace(input: { workspaceId?: string; title: string; notes: string }) {
   const supabase = getSupabaseAdmin();
   if (input.workspaceId) {
@@ -104,6 +112,7 @@ export async function approveVariant(variantId: string, origin: CanonicalCase["o
     .eq("id", variantId)
     .single();
   if (variantError) throw new Error(`Вариант кейса: ${variantError.message}`);
+  assertCanonicalRoleNames(variant.user_role, variant.opponent_role);
   const slug = `case-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
   const { data: approved, error: insertError } = await supabase
     .from("negotiation_cases")

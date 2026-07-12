@@ -77,7 +77,11 @@ const roleSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    name: { type: "string" },
+    name: {
+      type: "string",
+      pattern: "^[А-ЯЁ][а-яё-]+\\s+[А-ЯЁ][а-яё-]+(?:\\s+[А-ЯЁ][а-яё-]+)?$",
+      description: "Полное личное имя участника: имя и фамилия, при необходимости отчество. Должность хранится отдельно в position.",
+    },
     position: { type: "string" },
     publicGoal: { type: "string" },
     interests: stringArray,
