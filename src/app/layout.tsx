@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DUEL — тренажёр переговоров",
+  title: "KORUS NEGA AI — тренажёр переговоров",
   description: "Русскоязычный голосовой тренажёр управленческих переговоров по методике Владимира Тарасова",
 };
 

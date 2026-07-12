@@ -9,7 +9,7 @@ export default async function AdminLoginPage({
   return (
     <main className="admin-login-shell">
       <section className="admin-login-card neon-panel">
-        <Link className="admin-back-link" href="/">← Вернуться в DUEL</Link>
+        <Link className="admin-back-link" href="/">← Вернуться в KORUS NEGA AI</Link>
         <div className="admin-login-mark">D</div>
         <span className="admin-eyebrow">ЗАКРЫТАЯ ЗОНА</span>
         <h1>Админ-панель</h1>
@@ -24,4 +24,3 @@ export default async function AdminLoginPage({
     </main>
   );
 }
-

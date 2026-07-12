@@ -8,7 +8,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
   return (
     <main className="admin-shell">
       <aside className="admin-sidebar">
-        <Link href="/" className="admin-logo"><strong>D</strong><span>DUEL<small>ADMIN</small></span></Link>
+        <Link href="/" className="admin-logo"><strong>K</strong><span>KORUS NEGA AI<small>ADMIN</small></span></Link>
         <nav aria-label="Админ-панель">
           <Link href="/admin">⌂ <span>Обзор</span></Link>
           <Link href="/admin/methodology">▤ <span>Методология</span></Link>

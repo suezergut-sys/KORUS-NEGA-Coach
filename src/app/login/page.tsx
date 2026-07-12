@@ -6,9 +6,9 @@ export default async function SiteLoginPage({ searchParams }: { searchParams: Pr
   return (
     <main className="site-login-shell">
       <section className="site-login-card neon-panel">
-        <Link className="site-login-brand" href="/login"><strong>D</strong><span>DUEL<small>ТРЕНАЖЁР ПЕРЕГОВОРОВ</small></span></Link>
+        <Link className="site-login-brand" href="/login"><strong>K</strong><span>KORUS NEGA AI<small>ТРЕНАЖЁР ПЕРЕГОВОРОВ</small></span></Link>
         <span className="admin-eyebrow">ЗАКРЫТЫЙ ПРОТОТИП</span>
-        <h1>Вход в DUEL</h1>
+        <h1>Вход в KORUS NEGA AI</h1>
         <p>Введите общий пароль, чтобы открыть тренажёр, конструктор кейсов и админ-панель.</p>
         <form action="/api/site/login" method="post">
           <input type="hidden" name="next" value={next} />

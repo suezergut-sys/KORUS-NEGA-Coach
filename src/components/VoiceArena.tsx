@@ -515,7 +515,7 @@ export default function VoiceArena() {
   return (
     <main className="duel-app">
       <aside className="nav-rail" aria-label="Разделы приложения">
-        <div className="duel-symbol" aria-hidden="true">D</div>
+        <div className="duel-symbol" aria-hidden="true">K</div>
         <Link className="rail-button active" href="/" aria-label="Домой" title="Домой">⌂</Link>
         <Link className="rail-button admin-rail-link" href="/admin" aria-label="Админ-панель" title="Админ-панель">⚙</Link>
         <button className="rail-button case-upload-rail" onClick={() => setQuickUploadOpen(true)} disabled={isLive || isBusy} aria-label="Загрузить кейс" title="Загрузить кейс">↑</button>
@@ -524,7 +524,7 @@ export default function VoiceArena() {
 
       <aside className="settings-panel neon-panel">
         <header className="settings-header">
-          <div className="brand-lockup"><strong>DUEL</strong><span>ТРЕНАЖЁР ПЕРЕГОВОРОВ</span></div>
+          <div className="brand-lockup"><strong>KORUS NEGA AI</strong><span>ТРЕНАЖЁР ПЕРЕГОВОРОВ</span></div>
           <span className="prototype-badge">ПРОТОТИП</span>
         </header>
         <h2><span>⚙</span> НАСТРОЙКИ</h2>

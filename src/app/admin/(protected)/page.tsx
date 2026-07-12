@@ -17,7 +17,7 @@ export default async function AdminDashboardPage() {
   return (
     <>
       <header className="admin-page-header">
-        <div><span className="admin-eyebrow">НАСТРОЙКИ ПРИЛОЖЕНИЯ</span><h1>Админ-панель DUEL</h1><p>Состояние методической базы и инструментов тренажёра.</p></div>
+        <div><span className="admin-eyebrow">НАСТРОЙКИ ПРИЛОЖЕНИЯ</span><h1>Админ-панель KORUS NEGA AI</h1><p>Состояние методической базы и инструментов тренажёра.</p></div>
         <Link className="admin-primary-link" href="/admin/methodology">ПРОВЕРИТЬ МЕТОДОЛОГИЮ →</Link>
       </header>
       <section className="admin-metrics">
@@ -41,4 +41,3 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
-
