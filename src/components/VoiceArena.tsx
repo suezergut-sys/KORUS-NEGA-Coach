@@ -389,16 +389,10 @@ export default function VoiceArena() {
     <main className="duel-app">
       <aside className="nav-rail" aria-label="Разделы приложения">
         <div className="duel-symbol" aria-hidden="true">D</div>
-        <button className="rail-button active" aria-label="Переговоры">⌂</button>
-        <Link className="rail-button admin-rail-link" href="/admin" aria-label="Админ-панель">⚙</Link>
-        <button className="rail-button" aria-label="Цели" disabled>◎</button>
-        <button className="rail-button" aria-label="Статистика" disabled>▥</button>
-        <button className="rail-button" aria-label="История" disabled>▤</button>
-        <button className="rail-button" aria-label="Достижения" disabled>♜</button>
-        <div className="rail-spacer" />
-        <button className="rail-button" aria-label="Помощь" disabled>?</button>
-        <form action="/api/site/logout" method="post"><button className="rail-button" type="submit" aria-label="Выйти с сайта">⇥</button></form>
-        <button className="rail-avatar" aria-label="Профиль пользователя">Д</button>
+        <Link className="rail-button active" href="/" aria-label="Домой" title="Домой">⌂</Link>
+        <Link className="rail-button admin-rail-link" href="/admin" aria-label="Админ-панель" title="Админ-панель">⚙</Link>
+        <button className="rail-button case-upload-rail" onClick={() => setQuickUploadOpen(true)} disabled={isLive || isBusy} aria-label="Загрузить кейс" title="Загрузить кейс">↑</button>
+        <Link className="rail-button case-create-rail" href="/cases" aria-label="Создать свой кейс" title="Создать свой кейс">＋</Link>
       </aside>
 
       <aside className="settings-panel neon-panel">
@@ -453,9 +447,6 @@ export default function VoiceArena() {
           <div><span>Анализ по методике после завершения</span><span className="fake-toggle on" /></div>
         </section>
 
-        <Link className="admin-entry-link" href="/admin"><span>⚙</span><div><strong>АДМИН-ПАНЕЛЬ</strong><small>Методология и настройки</small></div><b>→</b></Link>
-        <button className="admin-entry-link case-action-link" onClick={() => setQuickUploadOpen(true)} disabled={isLive || isBusy}><span>⇧</span><div><strong>ЗАГРУЗИТЬ КЕЙС</strong><small>Один файл — сразу в базу</small></div><b>→</b></button>
-        <Link className="admin-entry-link case-action-link" href="/cases"><span>＋</span><div><strong>СОЗДАТЬ СВОЙ КЕЙС</strong><small>Материалы, анализ и варианты</small></div><b>→</b></Link>
         <button className="reset-settings" disabled>↻ &nbsp; СБРОСИТЬ НАСТРОЙКИ</button>
       </aside>
 
