@@ -61,8 +61,8 @@ export default function VoiceArena() {
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("male");
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState("");
-  const [eventCount, setEventCount] = useState(0);
-  const [latency, setLatency] = useState<number | null>(null);
+  const [pauseRemaining, setPauseRemaining] = useState(0);
+  const [pauseUsed, setPauseUsed] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [opponentSpeaking, setOpponentSpeaking] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
@@ -98,7 +98,7 @@ export default function VoiceArena() {
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
-  const responseStartedAtRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
@@ -120,8 +120,27 @@ export default function VoiceArena() {
   };
   const isLive = status === "connected";
   const isBusy = status === "connecting";
+  const isPaused = pauseRemaining > 0;
   const comicPanels = remoteComic || getCaseComic(selectedCase);
   const activeComicPanel = comicPanels[comicPanelIndex];
+
+  const applyMediaPaused = useCallback((paused: boolean) => {
+    pausedRef.current = paused;
+    streamRef.current?.getAudioTracks().forEach((track) => { track.enabled = !paused; });
+    if (paused) {
+      audioRef.current?.pause();
+      setUserSpeaking(false);
+      setOpponentSpeaking(false);
+      return;
+    }
+    const audio = audioRef.current;
+    if (audio) void audio.play().catch(() => undefined);
+  }, []);
+
+  const resumeSession = useCallback(() => {
+    applyMediaPaused(false);
+    setPauseRemaining(0);
+  }, [applyMediaPaused]);
 
   useEffect(() => {
     if (!caseContentOpen || !comicPanels.length) return;
@@ -270,10 +289,19 @@ export default function VoiceArena() {
   }, [loadCases]);
 
   useEffect(() => {
-    if (!isLive) return;
+    if (!isLive || isPaused) return;
     const timer = window.setInterval(() => setSeconds((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
-  }, [isLive]);
+  }, [isLive, isPaused]);
+
+  useEffect(() => {
+    if (!isLive || pauseRemaining <= 0) return;
+    const timer = window.setTimeout(() => {
+      if (pauseRemaining <= 1) resumeSession();
+      else setPauseRemaining((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [isLive, pauseRemaining, resumeSession]);
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -357,6 +385,9 @@ export default function VoiceArena() {
     channelRef.current = null;
     peerRef.current = null;
     streamRef.current = null;
+    pausedRef.current = false;
+    setPauseRemaining(0);
+    setPauseUsed(false);
     setUserSpeaking(false);
     setOpponentSpeaking(false);
     setStatus("idle");
@@ -395,19 +426,14 @@ export default function VoiceArena() {
       const event = JSON.parse(raw.data) as Record<string, unknown>;
       const type = String(event.type || "");
       const itemId = String(event.item_id || event.response_id || crypto.randomUUID());
-      setEventCount((value) => value + 1);
+      if (pausedRef.current) return;
 
       if (type === "input_audio_buffer.speech_started") setUserSpeaking(true);
       if (type === "input_audio_buffer.speech_stopped") {
         setUserSpeaking(false);
-        responseStartedAtRef.current = performance.now();
       }
       if (type === "response.output_audio.delta" || type === "response.output_audio_transcript.delta") {
         setOpponentSpeaking(true);
-        if (responseStartedAtRef.current) {
-          setLatency(Math.round(performance.now() - responseStartedAtRef.current));
-          responseStartedAtRef.current = null;
-        }
       }
       if (type === "response.output_audio.done" || type === "response.output_audio_transcript.done") {
         setOpponentSpeaking(false);
@@ -433,6 +459,24 @@ export default function VoiceArena() {
     }
   }, [appendDelta, replaceLine]);
 
+  function togglePause() {
+    if (!isLive) return;
+    if (isPaused) {
+      resumeSession();
+      return;
+    }
+    if (pauseUsed) return;
+
+    const channel = channelRef.current;
+    if (channel?.readyState === "open") {
+      channel.send(JSON.stringify({ type: "input_audio_buffer.clear" }));
+      if (opponentSpeaking) channel.send(JSON.stringify({ type: "response.cancel" }));
+    }
+    setPauseUsed(true);
+    setPauseRemaining(60);
+    applyMediaPaused(true);
+  }
+
   async function startSession() {
     if (isBusy || isLive) return;
     stopNarration();
@@ -440,8 +484,9 @@ export default function VoiceArena() {
     setStatus("connecting");
     setError("");
     setSeconds(0);
-    setEventCount(0);
-    setLatency(null);
+    setPauseRemaining(0);
+    setPauseUsed(false);
+    pausedRef.current = false;
     setAnalysisStatus("idle");
     setAnalysis(null);
     setAnalysisError("");
@@ -612,8 +657,8 @@ export default function VoiceArena() {
             <p>Общайтесь с виртуальным оппонентом. Реплики появляются здесь в реальном времени.</p>
           </div>
           <div className="live-status">
-            <span className={isLive ? "status-dot live" : "status-dot"} />
-            <span>{isBusy ? "ПОДКЛЮЧЕНИЕ" : isLive ? "В ЭФИРЕ" : "ГОТОВ"}</span>
+            <span className={isLive && !isPaused ? "status-dot live" : "status-dot"} />
+            <span>{isBusy ? "ПОДКЛЮЧЕНИЕ" : isPaused ? "ПАУЗА" : isLive ? "В ЭФИРЕ" : "ГОТОВ"}</span>
             <strong>{formatTime(seconds)}</strong>
           </div>
         </header>
@@ -643,27 +688,29 @@ export default function VoiceArena() {
             </div>
           )}
 
-          <div className={`audio-deck ${isLive ? "active" : ""}`}>
-            <div className="listening-copy"><span className={userSpeaking ? "mini-wave active" : "mini-wave"}>▥</span><small>{userSpeaking ? "Вы говорите…" : opponentSpeaking ? "Оппонент отвечает…" : isLive ? "Слушаю…" : "Ожидание"}</small></div>
+          <div className={`audio-deck ${isLive && !isPaused ? "active" : ""}`}>
+            <div className="listening-copy"><span className={userSpeaking ? "mini-wave active" : "mini-wave"}>▥</span><small>{isPaused ? `Пауза ${formatTime(pauseRemaining)}` : userSpeaking ? "Вы говорите…" : opponentSpeaking ? "Оппонент отвечает…" : isLive ? "Слушаю…" : "Ожидание"}</small></div>
             <div className="waveform" aria-hidden="true">
               {WAVE_BARS.map((height, index) => <i key={index} style={{ height: `${height}%`, animationDelay: `${index * -55}ms` }} />)}
             </div>
             <div className={`mic-orb ${userSpeaking ? "speaking" : ""}`}>◉</div>
           </div>
-          <p className="speech-note">ⓘ Говорите естественно. Система распознает речь и отобразит её в диалоге.</p>
+          <p className="speech-note">{isPaused ? "ⓘ Микрофон и оппонент на паузе. Нажмите кнопку с таймером, чтобы продолжить." : "ⓘ Говорите естественно. Система распознает речь и отобразит её в диалоге."}</p>
         </div>
 
         {error && <div className="error-banner" role="alert"><strong>Не удалось начать переговоры.</strong><span>{error}</span></div>}
 
         <footer className="session-actions">
           <button className="start-session" onClick={startSession} disabled={isLive || isBusy}>
-            <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : "НАЧАТЬ ПЕРЕГОВОРЫ"}
+            <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : "НАЧАТЬ"}
+          </button>
+          <button className={`pause-session ${isPaused ? "counting" : ""}`} onClick={togglePause} disabled={!isLive || (pauseUsed && !isPaused)} aria-label={isPaused ? `Продолжить переговоры, осталось ${formatTime(pauseRemaining)}` : "Пауза"}>
+            <span>{isPaused ? "▶" : "‖"}</span>{isPaused ? `ПАУЗА · ${formatTime(pauseRemaining)}` : "ПАУЗА"}
           </button>
           <button className="end-session" onClick={endSession} disabled={!isLive}>
-            <span>■</span>ЗАВЕРШИТЬ ПЕРЕГОВОРЫ
+            <span>■</span>ЗАВЕРШИТЬ
           </button>
         </footer>
-        <div className="diagnostics"><span>WebRTC · GPT‑Realtime‑2</span><span>{eventCount} событий</span><span>{latency ? `ответ ${latency} мс` : "задержка —"}</span></div>
 
         {analysisStatus !== "idle" && (
           <section className="analysis-card" aria-live="polite" ref={analysisRef}>
