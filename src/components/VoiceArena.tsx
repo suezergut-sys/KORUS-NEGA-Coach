@@ -12,6 +12,7 @@ type Line = { id: string; author: Speaker; text: string; time: string };
 type VoiceMode = "female" | "male";
 type AnalysisStatus = "idle" | "loading" | "ready" | "error";
 type RoleSide = "user" | "opponent";
+type NarrationStatus = "idle" | "loading" | "playing" | "error";
 
 const CASE_CONTEXT =
   "Компания «Альтаир» внедряет новую CRM. Ключевой этап проекта сорван, а заказчик требует назвать ответственного и компенсировать задержку.";
@@ -106,6 +107,9 @@ export default function VoiceArena() {
   const [quickFile, setQuickFile] = useState<File | null>(null);
   const [quickStatus, setQuickStatus] = useState<"idle" | "loading" | "error">("idle");
   const [quickError, setQuickError] = useState("");
+  const [caseContentOpen, setCaseContentOpen] = useState(false);
+  const [narrationStatus, setNarrationStatus] = useState<NarrationStatus>("idle");
+  const [narrationError, setNarrationError] = useState("");
 
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -115,6 +119,8 @@ export default function VoiceArena() {
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
+  const narrationAudioRef = useRef<HTMLAudioElement | null>(null);
+  const narrationUrlRef = useRef<string | null>(null);
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
   const participantRole = selectedRoleSide === "user" ? selectedCase.userRole : selectedCase.opponentRole;
@@ -128,6 +134,50 @@ export default function VoiceArena() {
   const selectedCaseContext = `${selectedCase.situation}\n\nЦентральный конфликт: ${selectedCase.conflict}`;
   const isLive = status === "connected";
   const isBusy = status === "connecting";
+
+  const stopNarration = useCallback(() => {
+    narrationAudioRef.current?.pause();
+    narrationAudioRef.current = null;
+    if (narrationUrlRef.current) URL.revokeObjectURL(narrationUrlRef.current);
+    narrationUrlRef.current = null;
+    setNarrationStatus("idle");
+  }, []);
+
+  const toggleNarration = useCallback(async () => {
+    if (narrationStatus === "loading" || narrationStatus === "playing") {
+      stopNarration();
+      return;
+    }
+    setNarrationStatus("loading");
+    setNarrationError("");
+    try {
+      const response = await fetch("/api/cases/narration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: selectedCase.id, participantRoleSide: selectedRoleSide, voice: opponent.voice }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || "Не удалось озвучить кейс.");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const audio = new Audio(url);
+      narrationUrlRef.current = url;
+      narrationAudioRef.current = audio;
+      audio.onended = stopNarration;
+      audio.onerror = () => {
+        stopNarration();
+        setNarrationStatus("error");
+        setNarrationError("Не удалось воспроизвести аудио.");
+      };
+      await audio.play();
+      setNarrationStatus("playing");
+    } catch (caught) {
+      stopNarration();
+      setNarrationStatus("error");
+      setNarrationError(caught instanceof Error ? caught.message : "Не удалось озвучить кейс.");
+    }
+  }, [narrationStatus, opponent.voice, selectedCase.id, selectedRoleSide, stopNarration]);
 
   const loadCases = useCallback(async (preferredId?: string) => {
     try {
@@ -165,6 +215,7 @@ export default function VoiceArena() {
 
   function chooseCase(caseId: string) {
     if (isLive || isBusy) return;
+    stopNarration();
     setSelectedCaseId(caseId);
     setSelectedRoleSide("user");
     setLines([]);
@@ -177,6 +228,7 @@ export default function VoiceArena() {
 
   function chooseRole(side: RoleSide) {
     if (isLive || isBusy) return;
+    stopNarration();
     setSelectedRoleSide(side);
     setLines([]);
     setAnalysis(null);
@@ -218,6 +270,7 @@ export default function VoiceArena() {
   }, []);
 
   useEffect(() => () => closeSession(), [closeSession]);
+  useEffect(() => () => stopNarration(), [stopNarration]);
 
   const replaceLine = useCallback((author: Speaker, text: string, id: string) => {
     if (!text.trim()) return;
@@ -289,6 +342,8 @@ export default function VoiceArena() {
 
   async function startSession() {
     if (isBusy || isLive) return;
+    stopNarration();
+    setCaseContentOpen(false);
     setStatus("connecting");
     setError("");
     setSeconds(0);
@@ -432,7 +487,7 @@ export default function VoiceArena() {
           <div className="voice-switch" role="group" aria-label="Голос оппонента">
             <button
               className={voiceMode === "female" ? "selected" : ""}
-              onClick={() => setVoiceMode("female")}
+              onClick={() => { stopNarration(); setVoiceMode("female"); }}
               disabled={isLive || isBusy}
               aria-pressed={voiceMode === "female"}
             >
@@ -440,7 +495,7 @@ export default function VoiceArena() {
             </button>
             <button
               className={voiceMode === "male" ? "selected" : ""}
-              onClick={() => setVoiceMode("male")}
+              onClick={() => { stopNarration(); setVoiceMode("male"); }}
               disabled={isLive || isBusy}
               aria-pressed={voiceMode === "male"}
             >
@@ -485,6 +540,7 @@ export default function VoiceArena() {
               <div className="empty-rings"><span>◉</span></div>
               <h3>Переговоры ещё не начались</h3>
               <p>Выберите голос оппонента и нажмите «Начать переговоры».</p>
+              <button className="case-content-trigger" onClick={() => setCaseContentOpen(true)}>Содержание кейса</button>
             </div>
           ) : (
             <div className="dialogue-list" aria-live="polite">
@@ -587,7 +643,7 @@ export default function VoiceArena() {
           </div>
           <div className="avatar-choices" aria-label="Выбор оппонента">
             {(Object.keys(OPPONENTS) as VoiceMode[]).map((mode) => (
-              <button key={mode} className={voiceMode === mode ? "selected" : ""} onClick={() => setVoiceMode(mode)} disabled={isLive || isBusy} aria-label={mode === "female" ? "Женский голос" : "Мужской голос"}>
+              <button key={mode} className={voiceMode === mode ? "selected" : ""} onClick={() => { stopNarration(); setVoiceMode(mode); }} disabled={isLive || isBusy} aria-label={mode === "female" ? "Женский голос" : "Мужской голос"}>
                 <Image src={OPPONENTS[mode].image} alt="" width={62} height={62} />
               </button>
             ))}
@@ -614,6 +670,35 @@ export default function VoiceArena() {
             <label className="quick-file-drop"><input type="file" accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" onChange={(event) => setQuickFile(event.target.files?.[0] || null)} /><strong>{quickFile ? quickFile.name : "ВЫБРАТЬ ФАЙЛ"}</strong><small>TXT, MD, CSV, JSON, XML, HTML, RTF, PDF или DOCX · до 3 МБ</small></label>
             {quickError && <div className="error-banner"><strong>Не удалось загрузить кейс</strong><span>{quickError}</span></div>}
             <footer><button className="modal-secondary" onClick={() => setQuickUploadOpen(false)} disabled={quickStatus === "loading"}>ОТМЕНА</button><button className="modal-primary" onClick={uploadQuickCase} disabled={!quickFile || quickStatus === "loading"}>{quickStatus === "loading" ? "АНАЛИЗИРУЕМ И СОХРАНЯЕМ…" : "ЗАГРУЗИТЬ И СОЗДАТЬ КЕЙС"}</button></footer>
+          </section>
+        </div>
+      )}
+      {caseContentOpen && !isLive && (
+        <div className="case-content-modal" role="dialog" aria-modal="true" aria-labelledby="case-content-title">
+          <button className="case-modal-backdrop" aria-label="Закрыть" onClick={() => { stopNarration(); setCaseContentOpen(false); }} />
+          <section>
+            <header>
+              <div><span>ПЕРЕД НАЧАЛОМ ПОЕДИНКА</span><h2 id="case-content-title">{selectedCase.title}</h2></div>
+              <button onClick={() => { stopNarration(); setCaseContentOpen(false); }} aria-label="Закрыть">×</button>
+            </header>
+            <div className="case-content-copy">
+              <p className="case-content-summary">{selectedCase.summary}</p>
+              <CaseBlock icon="▤" title="СИТУАЦИЯ">{selectedCase.situation}</CaseBlock>
+              <CaseBlock icon="⚔" title="ЦЕНТРАЛЬНЫЙ КОНФЛИКТ">{selectedCase.conflict}</CaseBlock>
+              <div className="case-content-roles">
+                <RoleCaseBlock title="РОЛЬ 1" role={selectedCase.userRole} selected={selectedRoleSide === "user"} />
+                <RoleCaseBlock title="РОЛЬ 2" role={selectedCase.opponentRole} selected={selectedRoleSide === "opponent"} />
+              </div>
+              {selectedCase.stakes.length > 0 && <CaseBlock icon="◆" title="СТАВКИ"><ul>{selectedCase.stakes.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock>}
+              <CaseBlock icon="▶" title="НАЧАЛЬНАЯ СИТУАЦИЯ">{selectedCase.startSituation}</CaseBlock>
+            </div>
+            {narrationError && <p className="narration-error">{narrationError}</p>}
+            <footer>
+              <span>Голос: {voiceMode === "female" ? "Marin" : "Cedar"}</span>
+              <button className={`narration-button ${narrationStatus === "playing" ? "playing" : ""}`} onClick={() => void toggleNarration()}>
+                {narrationStatus === "loading" ? "ГОТОВИМ АУДИО…" : narrationStatus === "playing" ? "■ ОСТАНОВИТЬ" : "▶ ОЗВУЧИТЬ"}
+              </button>
+            </footer>
           </section>
         </div>
       )}
