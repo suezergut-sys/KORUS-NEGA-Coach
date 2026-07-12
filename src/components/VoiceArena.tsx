@@ -35,6 +35,7 @@ const DEFAULT_CASE: CanonicalCase = {
   userRole: {
     name: "Ирина Соколова",
     position: "Руководитель проекта",
+    voiceGender: "female",
     publicGoal: CASE_GOAL,
     interests: ["Восстановить срок проекта", "Сохранить доверие заказчика", "Не потерять ключевого специалиста"],
     constraints: CASE_CONSTRAINTS,
@@ -44,6 +45,7 @@ const DEFAULT_CASE: CanonicalCase = {
   opponentRole: {
     name: "Алексей Воронцов",
     position: "Руководитель отдела продаж, ключевой участник проекта",
+    voiceGender: "male",
     publicGoal: "Избежать персонального обвинения и сохранить влияние на решения по внедрению.",
     interests: ["Сохранить репутацию", "Получить дополнительные ресурсы", "Не принимать нереалистичный срок"],
     constraints: ["Не готов единолично отвечать за системный сбой"],
@@ -77,6 +79,12 @@ const OPPONENTS = {
 
 const WAVE_BARS = [22, 32, 18, 42, 29, 58, 35, 72, 43, 88, 52, 66, 36, 79, 46, 61, 28, 49, 33, 24];
 
+function roleVoiceGender(role: CanonicalCase["userRole"]): VoiceMode {
+  if (role.voiceGender === "female" || role.voiceGender === "male") return role.voiceGender;
+  const firstName = role.name.trim().split(/\s+/)[0].toLowerCase();
+  return /[ая]$/.test(firstName) ? "female" : "male";
+}
+
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
@@ -90,7 +98,7 @@ function clockTime() {
 export default function VoiceArena() {
   const [status, setStatus] = useState<Status>("idle");
   const [seconds, setSeconds] = useState(0);
-  const [voiceMode, setVoiceMode] = useState<VoiceMode>("female");
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>("male");
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState("");
   const [eventCount, setEventCount] = useState(0);
@@ -122,6 +130,7 @@ export default function VoiceArena() {
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
+  const voiceManuallySelectedRef = useRef(false);
   const narrationAudioRef = useRef<HTMLAudioElement | null>(null);
   const narrationUrlRef = useRef<string | null>(null);
   const comicAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -241,7 +250,9 @@ export default function VoiceArena() {
       if (!response.ok || !payload.cases?.length) throw new Error(payload.error || "База кейсов пока недоступна.");
       setCases(payload.cases);
       const queryId = preferredId || new URLSearchParams(window.location.search).get("case") || "";
-      setSelectedCaseId(payload.cases.some((item) => item.id === queryId) ? queryId : payload.cases[0].id);
+      const nextCase = payload.cases.find((item) => item.id === queryId) || payload.cases[0];
+      setSelectedCaseId(nextCase.id);
+      if (!voiceManuallySelectedRef.current) setVoiceMode(roleVoiceGender(nextCase.opponentRole));
       if (preferredId) setSelectedRoleSide("user");
       setCasesError("");
     } catch (caught) {
@@ -275,6 +286,8 @@ export default function VoiceArena() {
     setComicPanelIndex(0);
     setComicDetailsOpen(false);
     setSelectedRoleSide("user");
+    const nextCase = cases.find((item) => item.id === caseId);
+    if (nextCase && !voiceManuallySelectedRef.current) setVoiceMode(roleVoiceGender(nextCase.opponentRole));
     setLines([]);
     setAnalysis(null);
     setAnalysisStatus("idle");
@@ -287,9 +300,20 @@ export default function VoiceArena() {
     if (isLive || isBusy) return;
     stopNarration();
     setSelectedRoleSide(side);
+    if (!voiceManuallySelectedRef.current) {
+      const nextAiRole = side === "user" ? selectedCase.opponentRole : selectedCase.userRole;
+      setVoiceMode(roleVoiceGender(nextAiRole));
+    }
     setLines([]);
     setAnalysis(null);
     setAnalysisStatus("idle");
+  }
+
+  function chooseVoice(mode: VoiceMode) {
+    if (isLive || isBusy) return;
+    stopNarration();
+    voiceManuallySelectedRef.current = true;
+    setVoiceMode(mode);
   }
 
   async function uploadQuickCase() {
@@ -544,7 +568,7 @@ export default function VoiceArena() {
           <div className="voice-switch" role="group" aria-label="Голос оппонента">
             <button
               className={voiceMode === "female" ? "selected" : ""}
-              onClick={() => { stopNarration(); setVoiceMode("female"); }}
+              onClick={() => chooseVoice("female")}
               disabled={isLive || isBusy}
               aria-pressed={voiceMode === "female"}
             >
@@ -552,7 +576,7 @@ export default function VoiceArena() {
             </button>
             <button
               className={voiceMode === "male" ? "selected" : ""}
-              onClick={() => { stopNarration(); setVoiceMode("male"); }}
+              onClick={() => chooseVoice("male")}
               disabled={isLive || isBusy}
               aria-pressed={voiceMode === "male"}
             >
@@ -700,7 +724,7 @@ export default function VoiceArena() {
           </div>
           <div className="avatar-choices" aria-label="Выбор оппонента">
             {(Object.keys(OPPONENTS) as VoiceMode[]).map((mode) => (
-              <button key={mode} className={voiceMode === mode ? "selected" : ""} onClick={() => { stopNarration(); setVoiceMode(mode); }} disabled={isLive || isBusy} aria-label={mode === "female" ? "Женский голос" : "Мужской голос"}>
+              <button key={mode} className={voiceMode === mode ? "selected" : ""} onClick={() => chooseVoice(mode)} disabled={isLive || isBusy} aria-label={mode === "female" ? "Женский голос" : "Мужской голос"}>
                 <Image src={OPPONENTS[mode].image} alt="" width={62} height={62} />
               </button>
             ))}

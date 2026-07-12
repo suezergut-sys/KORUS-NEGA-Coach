@@ -1,6 +1,7 @@
 export type CaseRole = {
   name: string;
   position: string;
+  voiceGender: "female" | "male";
   publicGoal: string;
   interests: string[];
   constraints: string[];
@@ -83,13 +84,14 @@ const roleSchema = {
       description: "Полное личное имя участника: имя и фамилия, при необходимости отчество. Должность хранится отдельно в position.",
     },
     position: { type: "string" },
+    voiceGender: { type: "string", enum: ["female", "male"], description: "Пол персонажа для автоматического выбора голоса ИИ-оппонента." },
     publicGoal: { type: "string" },
     interests: stringArray,
     constraints: stringArray,
     hiddenMotives: { ...stringArray, minItems: 0 },
     leverage: stringArray,
   },
-  required: ["name", "position", "publicGoal", "interests", "constraints", "hiddenMotives", "leverage"],
+  required: ["name", "position", "voiceGender", "publicGoal", "interests", "constraints", "hiddenMotives", "leverage"],
 } as const;
 
 export function createCaseVariantsSchema(atomIds: string[]) {
