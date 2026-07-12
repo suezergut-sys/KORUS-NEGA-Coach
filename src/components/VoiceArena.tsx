@@ -655,6 +655,16 @@ export default function VoiceArena() {
 
         {error && <div className="error-banner" role="alert"><strong>Не удалось начать переговоры.</strong><span>{error}</span></div>}
 
+        <footer className="session-actions">
+          <button className="start-session" onClick={startSession} disabled={isLive || isBusy}>
+            <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : "НАЧАТЬ ПЕРЕГОВОРЫ"}
+          </button>
+          <button className="end-session" onClick={endSession} disabled={!isLive}>
+            <span>■</span>ЗАВЕРШИТЬ ПЕРЕГОВОРЫ
+          </button>
+        </footer>
+        <div className="diagnostics"><span>WebRTC · GPT‑Realtime‑2</span><span>{eventCount} событий</span><span>{latency ? `ответ ${latency} мс` : "задержка —"}</span></div>
+
         {analysisStatus !== "idle" && (
           <section className="analysis-card" aria-live="polite" ref={analysisRef}>
             {analysisStatus === "loading" && (
@@ -702,15 +712,6 @@ export default function VoiceArena() {
           </section>
         )}
 
-        <footer className="session-actions">
-          <button className="start-session" onClick={startSession} disabled={isLive || isBusy}>
-            <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : "НАЧАТЬ ПЕРЕГОВОРЫ"}
-          </button>
-          <button className="end-session" onClick={endSession} disabled={!isLive}>
-            <span>■</span>ЗАВЕРШИТЬ ПЕРЕГОВОРЫ
-          </button>
-        </footer>
-        <div className="diagnostics"><span>WebRTC · GPT‑Realtime‑2</span><span>{eventCount} событий</span><span>{latency ? `ответ ${latency} мс` : "задержка —"}</span></div>
       </section>
 
       <aside className="opponent-panel neon-panel">
