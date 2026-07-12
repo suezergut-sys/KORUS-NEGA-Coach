@@ -130,7 +130,7 @@ export default function VoiceArena() {
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
-  const voiceManuallySelectedRef = useRef(false);
+  const voiceOverridesRef = useRef<Map<string, VoiceMode>>(new Map());
   const narrationAudioRef = useRef<HTMLAudioElement | null>(null);
   const narrationUrlRef = useRef<string | null>(null);
   const comicAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -252,7 +252,7 @@ export default function VoiceArena() {
       const queryId = preferredId || new URLSearchParams(window.location.search).get("case") || "";
       const nextCase = payload.cases.find((item) => item.id === queryId) || payload.cases[0];
       setSelectedCaseId(nextCase.id);
-      if (!voiceManuallySelectedRef.current) setVoiceMode(roleVoiceGender(nextCase.opponentRole));
+      setVoiceMode(voiceOverridesRef.current.get(nextCase.opponentRole.name) || roleVoiceGender(nextCase.opponentRole));
       if (preferredId) setSelectedRoleSide("user");
       setCasesError("");
     } catch (caught) {
@@ -287,7 +287,7 @@ export default function VoiceArena() {
     setComicDetailsOpen(false);
     setSelectedRoleSide("user");
     const nextCase = cases.find((item) => item.id === caseId);
-    if (nextCase && !voiceManuallySelectedRef.current) setVoiceMode(roleVoiceGender(nextCase.opponentRole));
+    if (nextCase) setVoiceMode(voiceOverridesRef.current.get(nextCase.opponentRole.name) || roleVoiceGender(nextCase.opponentRole));
     setLines([]);
     setAnalysis(null);
     setAnalysisStatus("idle");
@@ -300,10 +300,8 @@ export default function VoiceArena() {
     if (isLive || isBusy) return;
     stopNarration();
     setSelectedRoleSide(side);
-    if (!voiceManuallySelectedRef.current) {
-      const nextAiRole = side === "user" ? selectedCase.opponentRole : selectedCase.userRole;
-      setVoiceMode(roleVoiceGender(nextAiRole));
-    }
+    const nextAiRole = side === "user" ? selectedCase.opponentRole : selectedCase.userRole;
+    setVoiceMode(voiceOverridesRef.current.get(nextAiRole.name) || roleVoiceGender(nextAiRole));
     setLines([]);
     setAnalysis(null);
     setAnalysisStatus("idle");
@@ -312,7 +310,7 @@ export default function VoiceArena() {
   function chooseVoice(mode: VoiceMode) {
     if (isLive || isBusy) return;
     stopNarration();
-    voiceManuallySelectedRef.current = true;
+    voiceOverridesRef.current.set(aiRole.name, mode);
     setVoiceMode(mode);
   }
 
