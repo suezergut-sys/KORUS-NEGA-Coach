@@ -15,8 +15,15 @@ function extension(name: string) {
 }
 
 export function safeFileName(name: string) {
-  const cleaned = name.replace(/[^a-zA-Zа-яА-ЯёЁ0-9._-]+/g, "-").replace(/-+/g, "-");
-  return cleaned.slice(0, 140) || "material.txt";
+  const ext = extension(name).replace(/[^a-z0-9]/g, "").slice(0, 12) || "bin";
+  const base = name
+    .replace(/\.[^.]+$/, "")
+    .normalize("NFKD")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-")
+    .slice(0, 80) || "material";
+  return `${base}.${ext}`;
 }
 
 function normalizeText(value: string) {

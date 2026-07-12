@@ -48,7 +48,7 @@ export async function addWorkspaceFiles(workspaceId: string, files: File[]) {
     if (uploadError) throw new Error(`Сохранение файла «${file.name}»: ${uploadError.message}`);
     rows.push({
       workspace_id: workspaceId,
-      file_name: extracted.safeName,
+      file_name: file.name.replace(/[\u0000-\u001f]/g, "").slice(0, 240) || extracted.safeName,
       mime_type: extracted.mimeType,
       size_bytes: file.size,
       storage_path: storagePath,
