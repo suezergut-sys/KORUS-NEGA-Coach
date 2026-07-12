@@ -51,8 +51,8 @@ alter table public.case_media_jobs add column if not exists published_generation
 alter table public.case_comic_panels add column if not exists generation_id uuid;
 
 insert into public.case_media_jobs (case_id, status, generation_id, published_generation_id, completed_at, updated_at)
-select distinct p.case_id, 'ready', gen_random_uuid(), null, now(), now()
-from public.case_comic_panels p
+select p.case_id, 'ready', gen_random_uuid(), null::uuid, now(), now()
+from (select distinct case_id from public.case_comic_panels) p
 where not exists (select 1 from public.case_media_jobs j where j.case_id = p.case_id)
 on conflict (case_id) do nothing;
 
