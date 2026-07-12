@@ -124,6 +124,7 @@ export default function VoiceArena() {
   const startedAtRef = useRef<string | null>(null);
   const narrationAudioRef = useRef<HTMLAudioElement | null>(null);
   const narrationUrlRef = useRef<string | null>(null);
+  const comicAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
   const participantRole = selectedRoleSide === "user" ? selectedCase.userRole : selectedCase.opponentRole;
@@ -139,6 +140,19 @@ export default function VoiceArena() {
   const isBusy = status === "connecting";
   const comicPanels = getCaseComic(selectedCase);
   const activeComicPanel = comicPanels[comicPanelIndex];
+
+  useEffect(() => {
+    if (!caseContentOpen || !comicPanels.length) return;
+    comicPanels.forEach((panel) => {
+      const source = panel.audio[voiceMode];
+      if (comicAudioCacheRef.current.has(source)) return;
+      const audio = new Audio();
+      audio.preload = "auto";
+      audio.src = source;
+      audio.load();
+      comicAudioCacheRef.current.set(source, audio);
+    });
+  }, [caseContentOpen, comicPanels, voiceMode]);
 
   const stopNarration = useCallback(() => {
     narrationAudioRef.current?.pause();
@@ -156,6 +170,30 @@ export default function VoiceArena() {
     setNarrationStatus("loading");
     setNarrationError("");
     try {
+      const preparedIndex = typeof panelIndex === "number" ? panelIndex : -1;
+      const preparedPanel = preparedIndex >= 0 ? comicPanels[preparedIndex] : undefined;
+      if (preparedPanel) {
+        const source = preparedPanel.audio[voiceMode];
+        const audio = comicAudioCacheRef.current.get(source) || new Audio(source);
+        audio.currentTime = 0;
+        narrationAudioRef.current = audio;
+        audio.onended = () => {
+          stopNarration();
+          if (preparedIndex < comicPanels.length - 1) {
+            const next = preparedIndex + 1;
+            setComicPanelIndex(next);
+            void playNarration(next);
+          }
+        };
+        audio.onerror = () => {
+          stopNarration();
+          setNarrationStatus("error");
+          setNarrationError("Не удалось воспроизвести подготовленное аудио.");
+        };
+        await audio.play();
+        setNarrationStatus("playing");
+        return;
+      }
       const response = await fetch("/api/cases/narration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,7 +227,7 @@ export default function VoiceArena() {
       setNarrationStatus("error");
       setNarrationError(caught instanceof Error ? caught.message : "Не удалось озвучить кейс.");
     }
-  }, [comicPanels.length, narrationStatus, opponent.voice, selectedCase.id, selectedRoleSide, stopNarration]);
+  }, [comicPanels, narrationStatus, opponent.voice, selectedCase.id, selectedRoleSide, stopNarration, voiceMode]);
 
   const toggleNarration = useCallback(() => {
     if (narrationStatus === "loading" || narrationStatus === "playing") return stopNarration();
