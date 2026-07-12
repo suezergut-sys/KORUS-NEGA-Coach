@@ -29,6 +29,7 @@ export async function POST(request: Request) {
   const sdp = (await request.text()).slice(0, 100_000);
   const requestedVoice = readParam(url, "voice", "marin");
   const voice = requestedVoice === "cedar" ? "cedar" : "marin";
+  const negotiationStyle = readParam(url, "negotiationStyle", "collaborative") === "hard" ? "hard" : "collaborative";
   const caseId = readParam(url, "caseId", "");
   const negotiationCase = await resolvePublishedCase(caseId, readParam(url, "caseCode", ""));
   if (!negotiationCase) return Response.json({ error: "Опубликованный кейс не найден." }, { status: 404 });
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   const opponentRole = selected.opponentRole;
   const instructions = buildRealtimeInstructions({
     role: `${opponentRole.name}, ${opponentRole.position}`,
-    difficulty: readParam(url, "difficulty", "Средняя"),
+    negotiationStyle,
     context: negotiationCase.situation,
     conflict: negotiationCase.conflict,
     startSituation: negotiationCase.startSituation,
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
         },
         turn_detection: {
           type: "semantic_vad",
+          eagerness: negotiationStyle === "hard" ? "high" : "low",
           create_response: true,
           interrupt_response: true,
         },

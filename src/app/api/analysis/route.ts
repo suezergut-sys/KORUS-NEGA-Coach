@@ -3,16 +3,10 @@ import { createNegotiationAnalysisSchema, type NegotiationAnalysis } from "@/lib
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import { formatAnalysisTranscript, normalizeAnalysisTurns, type TranscriptTurn } from "@/lib/transcript";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-type InputTurn = {
-  id: string;
-  author: "Вы" | "Оппонент" | "Система";
-  text: string;
-  time: string;
-};
 
 type AnalysisRequest = {
   caseId?: string;
@@ -22,7 +16,7 @@ type AnalysisRequest = {
   opponentVoice?: string;
   startedAt?: string;
   durationSeconds?: number;
-  turns?: InputTurn[];
+  turns?: TranscriptTurn[];
 };
 
 type RetrievedChunk = {
@@ -55,16 +49,7 @@ export async function POST(request: Request) {
   let persistedSessionId: string | null = null;
   try {
     const body = (await request.json()) as AnalysisRequest;
-    const turns = (Array.isArray(body.turns) ? body.turns : [])
-      .slice(-80)
-      .filter((turn): turn is InputTurn => Boolean(turn && typeof turn === "object"))
-      .map((turn) => ({
-        id: clean(turn.id, 120),
-        author: turn.author,
-        text: clean(turn.text, 2000),
-        time: clean(turn.time, 20),
-      }))
-      .filter((turn) => turn.text && (turn.author === "Вы" || turn.author === "Оппонент"));
+    const turns = normalizeAnalysisTurns(body.turns);
 
     if (turns.length < 2 || !turns.some((turn) => turn.author === "Вы")) {
       return Response.json(
@@ -79,10 +64,7 @@ export async function POST(request: Request) {
     const caseContext = `${negotiationCase.situation}\n\nЦентральный конфликт: ${negotiationCase.conflict}`;
     const caseGoal = selected.participantRole.publicGoal;
     const caseConstraints = selected.participantRole.constraints.slice(0, 10);
-    const transcript = turns
-      .map((turn, index) => `${index + 1}. ${turn.author}: ${turn.text}`)
-      .join("\n")
-      .slice(0, 24000);
+    const transcript = formatAnalysisTranscript(turns);
 
     const openai = getOpenAI();
     const supabase = getSupabaseAdmin();
