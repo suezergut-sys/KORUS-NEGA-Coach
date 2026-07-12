@@ -210,6 +210,7 @@ ${sources}
         case_id: negotiationCase.id.startsWith("default-") ? null : negotiationCase.id,
         case_code: negotiationCase.slug,
         case_context: caseContext,
+        participant_role_name: selected.participantRole.name,
         opponent_name: selected.opponentRole.name,
         opponent_voice: clean(body.opponentVoice, 80) || "marin",
         started_at: startedAt,

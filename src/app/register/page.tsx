@@ -14,7 +14,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   return (
     <main className="site-login-shell">
       <section className="site-login-card register-card neon-panel">
-        <Link className="site-login-brand" href="/login"><Image className="site-login-logo" src="/korus_sign_color.jpg" alt="KORUS Consulting" width={46} height={46} priority /><span>KORUS NEGA AI<small>ТРЕНАЖЁР ПЕРЕГОВОРОВ</small></span></Link>
+        <Link className="site-login-brand" href="/login"><Image className="site-login-logo" src="/korus_sign_color.jpg" alt="KORUS Consulting" width={46} height={46} priority /><span>KORUS NEGA AI 2.0<small>ТРЕНАЖЁР ПЕРЕГОВОРОВ</small></span></Link>
         <span className="admin-eyebrow">РЕГИСТРАЦИЯ УЧАСТНИКА</span>
         <h1>Создайте личный профиль</h1>
         <p>Статистика поединков, победы и любимые кейсы будут сохраняться в вашем личном кабинете.</p>

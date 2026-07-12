@@ -9,7 +9,7 @@ export default async function AdminLoginPage({
   return (
     <main className="admin-login-shell">
       <section className="admin-login-card neon-panel">
-        <Link className="admin-back-link" href="/">← Вернуться в KORUS NEGA AI</Link>
+        <Link className="admin-back-link" href="/">← Вернуться в KORUS NEGA AI 2.0</Link>
         <div className="admin-login-mark">D</div>
         <span className="admin-eyebrow">ЗАКРЫТАЯ ЗОНА</span>
         <h1>Админ-панель</h1>

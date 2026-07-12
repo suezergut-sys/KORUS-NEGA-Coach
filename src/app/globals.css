@@ -127,27 +127,11 @@ button { color: inherit; }
 .brand-lockup strong, .brand-lockup span { display: block; }
 .brand-lockup strong { font-size: 25px; letter-spacing: .12em; }
 .brand-lockup span { margin-top: 2px; color: #94a8c3; font-size: 10px; letter-spacing: .08em; }
-.prototype-badge { padding: 5px 8px; border: 1px solid #28517d; border-radius: 5px; color: #78a2cc; font-size: 9px; letter-spacing: .09em; }
 .settings-panel > h2, .opponent-panel > h2 { margin: 22px 0 20px; font-size: 15px; letter-spacing: .08em; }
 .settings-panel > h2 span { color: var(--cyan); margin-right: 7px; }
 .setting-group { display: block; margin: 0 0 20px; }
 .setting-label { display: block; margin-bottom: 9px; color: #7dc2ff; font-size: 11px; font-weight: 700; letter-spacing: .07em; }
 .setting-label i { width: 14px; height: 14px; display: inline-grid; place-items: center; margin-left: 4px; border: 1px solid #6c829e; border-radius: 50%; color: #9caec3; font-size: 8px; font-style: normal; }
-.reset-settings {
-  width: 100%;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 13px;
-  border: 1px solid #1b3b60;
-  border-radius: 9px;
-  color: #cedaeb;
-  background: #091a31;
-  font-size: 12px;
-  text-align: left;
-}
-.is-disabled, .reset-settings:disabled { opacity: .72; cursor: not-allowed; }
 .voice-switch { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #1b3b60; border-radius: 9px; overflow: hidden; }
 .voice-switch button { min-height: 65px; display: grid; grid-template-columns: 28px 1fr; grid-template-rows: 1fr 1fr; align-items: center; border: 0; border-right: 1px solid #1b3b60; color: #879ab3; background: #09182c; cursor: pointer; }
 .voice-switch button:last-child { border-right: 0; }
@@ -161,16 +145,9 @@ button { color: inherit; }
 .style-options button { min-height: 36px; padding: 7px 9px; border: 1px solid #1c3b5d; border-radius: 8px; color: #8497b0; background: #07162a; font-size: 9px; font-weight: 700; cursor: pointer; }
 .style-options button.selected { border-color: #0785ff; color: #e1f1ff; background: linear-gradient(135deg, #0a2e5a, #071a32); box-shadow: inset 0 0 18px rgba(0, 120, 255, .16); }
 .style-options button:disabled, .timer-options button:disabled { opacity: .45; cursor: not-allowed; }
-.setting-row { display: flex; align-items: center; justify-content: space-between; }
-.fake-toggle { width: 37px; height: 20px; display: inline-flex; padding: 3px; border-radius: 20px; background: #263a52; }
-.fake-toggle::after { content: ""; width: 14px; height: 14px; border-radius: 50%; background: #b9c8da; }
-.fake-toggle.on { justify-content: flex-end; background: #087bea; box-shadow: 0 0 12px rgba(0, 126, 255, .4); }
-.fake-toggle.on::after { background: white; }
 .timer-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .timer-options button { height: 36px; border: 1px solid #1c3b5d; border-radius: 7px; color: #8497b0; background: #07162a; font-size: 9px; cursor: pointer; }
 .timer-options button.selected { border-color: #0785ff; color: #cfe5ff; background: #0a2546; }
-.extras > div:not(.setting-label) { display: flex; justify-content: space-between; align-items: center; margin: 11px 0; color: #aebcd0; font-size: 10px; }
-.reset-settings { margin-top: 16px; justify-content: center; color: #3e91df; letter-spacing: .05em; }
 
 .conversation-panel { min-height: 0; height: fit-content; align-self: start; padding: 26px 22px 16px; display: flex; flex-direction: column; }
 .conversation-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 0 8px 20px; }
@@ -372,7 +349,7 @@ button { color: inherit; }
   .rail-admin-spacer { min-width: 8px; min-height: 0; }
   .settings-panel, .conversation-panel, .opponent-panel { margin-bottom: 10px; }
   .settings-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
-  .settings-header, .settings-panel > h2, .reset-settings { grid-column: 1 / -1; }
+  .settings-header, .settings-panel > h2 { grid-column: 1 / -1; }
   .conversation-panel { min-height: 0; }
   .opponent-panel { display: block; }
   .opponent-panel .case-title { display: block; }
@@ -423,6 +400,20 @@ button { color: inherit; }
 .top-cases-list article > div { display: grid; justify-items: end; }
 .top-cases-list b { color: #67c1ff; font-size: 23px; }
 .top-cases-list small { color: #617f9d; font-size: 8px; text-transform: uppercase; }
+.duel-history-card { margin-top: 18px; padding: 25px; }
+.duel-history-card > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding-bottom: 18px; }
+.duel-history-card h2 { margin: 6px 0 0; font-size: 24px; }
+.duel-history-card header p { margin: 0; color: #6f8ba6; font-size: 10px; }
+.duel-history-wrap { overflow-x: auto; border: 1px solid #173a5b; border-radius: 10px; }
+.duel-history-table { width: 100%; min-width: 790px; border-collapse: collapse; }
+.duel-history-table th { padding: 13px 16px; color: #7194b4; background: #071a30; font-size: 9px; text-align: left; letter-spacing: .06em; white-space: nowrap; }
+.duel-history-table td { min-height: 58px; padding: 15px 16px; border-top: 1px solid #143552; color: #9eb4ca; font-size: 11px; }
+.duel-history-table td:nth-child(2) { color: #dceaf8; }
+.duel-result { display: inline-block; min-width: 84px; padding: 6px 9px; border: 1px solid #53677c; border-radius: 6px; text-align: center; }
+.duel-result.win { border-color: #1c765e; color: #52daa9; background: rgba(14, 91, 70, .2); }
+.duel-result.loss { border-color: #8d3e46; color: #ff9e9e; background: rgba(102, 27, 37, .22); }
+.duel-result.draw { border-color: #7a6638; color: #e8c779; background: rgba(101, 75, 24, .2); }
+.duel-score, .average-score { color: #68c2ff; font-size: 16px; }
 .dashboard-empty, .empty-rating { padding: 36px; color: #68849f; font-size: 11px; text-align: center; }
 .rating-table-wrap { overflow: hidden; border-radius: 14px; }
 .rating-table { width: 100%; border-collapse: collapse; }
@@ -438,7 +429,7 @@ button { color: inherit; }
   .auth-name-grid, .user-metrics { grid-template-columns: 1fr; }
   .rating-table-wrap { overflow-x: auto; }
   .rating-table { min-width: 720px; }
-  .top-cases-card > header { align-items: flex-start; flex-direction: column; }
+  .top-cases-card > header, .duel-history-card > header { align-items: flex-start; flex-direction: column; }
 }
 
 /* Admin */
