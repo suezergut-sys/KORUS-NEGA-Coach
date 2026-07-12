@@ -313,11 +313,11 @@ export default function VoiceArena() {
     setComicPanelIndex(0);
     setComicDetailsOpen(false);
     setSelectedRoleIndex(0);
+    const nextCase = cases.find((item) => item.id === caseId);
     const nextRoles = nextCase ? [nextCase.userRole, nextCase.opponentRole, ...(nextCase.additionalRoles || [])] : [];
     const randomOpponent = nextRoles.length > 1 ? 1 + Math.floor(Math.random() * (nextRoles.length - 1)) : 0;
     setOpponentRoleIndex(randomOpponent);
     setRemoteComic(null);
-    const nextCase = cases.find((item) => item.id === caseId);
     if (nextCase) {
       const nextAiRole = nextRoles[randomOpponent];
       setVoiceMode(voiceOverridesRef.current.get(nextAiRole.name) || roleVoiceGender(nextAiRole));
