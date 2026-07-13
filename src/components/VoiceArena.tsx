@@ -13,6 +13,7 @@ import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import { realtimeResponseStatus, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
+import { readJsonResponse } from "@/lib/http-response";
 
 type Status = "idle" | "connecting" | "connected" | "degraded" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
@@ -1065,8 +1066,9 @@ export default function VoiceArena() {
           turns: completedLines,
         }),
       });
-      const payload = (await response.json()) as { analysis?: NegotiationAnalysis; error?: string };
-      if (!response.ok || !payload.analysis) throw new Error(payload.error || "Не удалось получить оценку.");
+      const { payload, isJson } = await readJsonResponse<{ analysis?: NegotiationAnalysis; error?: string; diagnosticId?: string }>(response);
+      if (!isJson) throw new Error("Сервис анализа временно недоступен. Попробуйте ещё раз.");
+      if (!response.ok || !payload?.analysis) throw new Error(payload?.error || "Не удалось получить оценку. Попробуйте ещё раз.");
       setAnalysis(payload.analysis);
       setAnalysisStatus("ready");
     } catch (caught) {
@@ -1197,7 +1199,7 @@ export default function VoiceArena() {
         {error && <div className="error-banner" role="alert"><strong>Не удалось начать переговоры.</strong><span>{error}</span></div>}
 
         <footer className="session-actions">
-          <button className="start-session" onClick={startSession} disabled={isLive || isBusy || isEnding || analysisStatus === "loading"}>
+          <button className={`start-session ${isBusy ? "is-connecting" : ""}`} onClick={startSession} disabled={isLive || isBusy || isEnding || analysisStatus === "loading"}>
             <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : isEnding ? "АНАЛИЗ…" : isLive ? `ОСТАЛОСЬ ${formatTime(remainingSeconds)}` : "НАЧАТЬ"}
           </button>
           <button className={`pause-session ${isPaused ? "counting" : ""}`} onClick={togglePause} disabled={!isLive || isEnding || (pauseUsed && !isPaused)} aria-label={isPaused ? `Продолжить переговоры, осталось ${formatTime(pauseRemaining)}` : "Пауза"}>

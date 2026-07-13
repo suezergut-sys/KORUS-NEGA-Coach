@@ -4,9 +4,13 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { formatAnalysisTranscript, hasEnoughUserTurnsForAnalysis, INSUFFICIENT_ANALYSIS_MESSAGE, normalizeAnalysisTurns, type TranscriptTurn } from "@/lib/transcript";
+import { isRetryableModelError, parseStructuredOutput } from "@/lib/structured-output";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
+
+const MODEL_ATTEMPTS = 2;
+const MODEL_ATTEMPT_TIMEOUT_MS = 120_000;
 
 type AnalysisRequest = {
   caseId?: string;
@@ -35,6 +39,17 @@ function normalizeQuote(value: string) {
   return value.toLocaleLowerCase("ru-RU").replace(/\s+/g, " ").trim();
 }
 
+function errorDetails(error: unknown) {
+  if (!error || typeof error !== "object") return { name: "UnknownError", message: "Unknown failure" };
+  const candidate = error as { name?: unknown; message?: unknown; status?: unknown; code?: unknown };
+  return {
+    name: typeof candidate.name === "string" ? candidate.name : "Error",
+    message: typeof candidate.message === "string" ? candidate.message.replace(/\s+/g, " ").slice(0, 500) : "Unknown failure",
+    status: typeof candidate.status === "number" ? candidate.status : undefined,
+    code: typeof candidate.code === "string" ? candidate.code : undefined,
+  };
+}
+
 export async function GET() {
   const configured = Boolean(
     process.env.OPENAI_API_KEY &&
@@ -47,9 +62,16 @@ export async function GET() {
 export async function POST(request: Request) {
   const userSession = await getCurrentUserSession();
   if (!userSession) return Response.json({ error: "Требуется авторизация." }, { status: 401 });
+  const diagnosticId = crypto.randomUUID();
+  const analysisStartedAt = Date.now();
+  let stage = "request";
+  let caseReference = "";
+  let modelAttempts = 0;
   let persistedSessionId: string | null = null;
   try {
     const body = (await request.json()) as AnalysisRequest;
+    caseReference = clean(body.caseId, 80) || clean(body.caseCode, 120);
+    stage = "validation";
     const turns = normalizeAnalysisTurns(body.turns);
 
     if (!hasEnoughUserTurnsForAnalysis(turns)) {
@@ -59,6 +81,7 @@ export async function POST(request: Request) {
       );
     }
 
+    stage = "case_resolution";
     const negotiationCase = await resolvePublishedCase(clean(body.caseId, 80), clean(body.caseCode, 120));
     if (!negotiationCase) return Response.json({ error: "Опубликованный кейс не найден." }, { status: 404 });
     const selected = selectCaseRoles(negotiationCase, Number(body.participantRoleIndex), Number(body.opponentRoleIndex));
@@ -69,12 +92,14 @@ export async function POST(request: Request) {
 
     const openai = getOpenAI();
     const supabase = getSupabaseAdmin();
+    stage = "embedding";
     const embeddingResponse = await openai.embeddings.create({
       model: EMBEDDING_MODEL,
       input: `${caseContext}\n${caseGoal}\n${caseConstraints.join("\n")}\n\n${transcript}`.slice(0, 28000),
       encoding_format: "float",
     });
 
+    stage = "methodology_retrieval";
     const { data: chunksData, error: chunksError } = await supabase.rpc("match_method_chunks", {
       query_embedding: embeddingResponse.data[0].embedding,
       match_threshold: 0.3,
@@ -124,7 +149,7 @@ export async function POST(request: Request) {
       )
       .join("\n\n");
 
-    const response = await openai.responses.create({
+    const createAnalysisResponse = () => openai.responses.create({
       model: ANALYSIS_MODEL,
       reasoning: { effort: "medium" },
       instructions: `
@@ -168,9 +193,34 @@ ${sources}
           schema: createNegotiationAnalysisSchema(atoms.map((atom) => atom.id)),
         },
       },
-    });
+    }, { signal: AbortSignal.timeout(MODEL_ATTEMPT_TIMEOUT_MS), maxRetries: 0 });
 
-    const analysis = JSON.parse(response.output_text) as NegotiationAnalysis;
+    let analysis: NegotiationAnalysis | null = null;
+    for (let attempt = 1; attempt <= MODEL_ATTEMPTS; attempt += 1) {
+      modelAttempts = attempt;
+      stage = `model_attempt_${attempt}`;
+      try {
+        const response = await createAnalysisResponse();
+        analysis = parseStructuredOutput<NegotiationAnalysis>(response);
+        break;
+      } catch (error) {
+        const willRetry = attempt < MODEL_ATTEMPTS && isRetryableModelError(error);
+        console.warn(JSON.stringify({
+          event: "analysis_model_attempt_failed",
+          diagnosticId,
+          userId: userSession.userId,
+          caseReference,
+          attempt,
+          willRetry,
+          durationMs: Date.now() - analysisStartedAt,
+          error: errorDetails(error),
+        }));
+        if (!willRetry) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+    if (!analysis) throw new Error("Модель не вернула результат анализа.");
+
     analysis.methodologyStatus = methodologyStatus;
     analysis.methodologyVersion = methodologyVersion;
     analysis.disclaimer = methodologyStatus === "verified"
@@ -204,6 +254,7 @@ ${sources}
     const startedAt = Number.isFinite(parsedStartedAt) && parsedStartedAt <= Date.now() + 60_000 && parsedStartedAt >= Date.now() - 24 * 60 * 60 * 1000
       ? new Date(parsedStartedAt).toISOString()
       : new Date(Date.now() - durationSeconds * 1000).toISOString();
+    stage = "persistence";
     const { data: session, error: sessionError } = await supabase
       .from("training_sessions")
       .insert({
@@ -277,10 +328,31 @@ ${sources}
     }
 
     persistedSessionId = null;
-    return Response.json({ sessionId: session.id, analysis });
+    console.info(JSON.stringify({
+      event: "analysis_completed",
+      diagnosticId,
+      userId: userSession.userId,
+      caseReference,
+      sessionId: session.id,
+      modelAttempts,
+      durationMs: Date.now() - analysisStartedAt,
+    }));
+    return Response.json({ sessionId: session.id, analysis, diagnosticId });
   } catch (error) {
     if (persistedSessionId) await getSupabaseAdmin().from("training_sessions").delete().eq("id", persistedSessionId);
-    const message = error instanceof Error ? error.message : "Не удалось выполнить методический анализ.";
-    return Response.json({ error: message }, { status: 500 });
+    console.error(JSON.stringify({
+      event: "analysis_failed",
+      diagnosticId,
+      userId: userSession.userId,
+      caseReference,
+      stage,
+      modelAttempts,
+      durationMs: Date.now() - analysisStartedAt,
+      error: errorDetails(error),
+    }));
+    return Response.json({
+      error: `Анализ временно недоступен. Попробуйте ещё раз. Код диагностики: ${diagnosticId}.`,
+      diagnosticId,
+    }, { status: 500 });
   }
 }
