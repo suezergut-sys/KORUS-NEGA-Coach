@@ -745,12 +745,9 @@ export default function VoiceArena() {
         </header>
 
         <div className="dialogue-surface">
-          <div className="day-chip">Сегодня</div>
           {lines.length === 0 ? (
             <div className="empty-dialogue">
-              <div className="empty-rings"><span>◉</span></div>
               <h3>Переговоры ещё не начались</h3>
-              <p>Выберите голос оппонента и нажмите «Начать переговоры».</p>
               <button className="case-content-trigger" onClick={() => { setComicPanelIndex(0); setComicDetailsOpen(false); setCaseContentOpen(true); }}>Содержание кейса</button>
             </div>
           ) : (
