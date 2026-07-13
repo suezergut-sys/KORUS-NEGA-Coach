@@ -199,6 +199,7 @@ button { color: inherit; }
 .mic-orb.speaking { box-shadow: 0 0 0 7px rgba(0, 126, 255, .12), 0 0 26px #087fff; animation: micPulse 900ms infinite alternate; }
 @keyframes micPulse { to { transform: scale(1.06); } }
 .speech-note { margin: 14px 0 0; color: #8ba0b9; text-align: center; font-size: 10px; }
+.realtime-notice { margin: 9px auto 0; padding: 8px 11px; border: 1px solid #966d27; border-radius: 7px; color: #ffd58b; background: rgba(92, 60, 12, .3); text-align: center; font-size: 10px; }
 .error-banner { display: flex; gap: 8px; margin-top: 12px; padding: 10px 13px; border: 1px solid #a83d3d; border-radius: 8px; color: #ffd4d1; background: rgba(101, 21, 26, .45); font-size: 11px; }
 .session-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 18px 4px 8px; }
 .session-actions button { min-height: 58px; border-radius: 8px; font-weight: 800; letter-spacing: .04em; cursor: pointer; }
