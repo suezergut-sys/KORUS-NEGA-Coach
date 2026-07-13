@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { parseAdminCaseInput } from "@/lib/admin-case-input";
+import { deleteNegotiationCase } from "@/lib/case-deletion";
 import { generateCaseMedia } from "@/lib/case-media";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
@@ -54,10 +55,13 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!(await isAdminAuthenticated())) return Response.json({ error: "Требуется вход." }, { status: 401 });
   if (!sameOrigin(request)) return Response.json({ error: "Недопустимый источник запроса." }, { status: 403 });
   const { id } = await params;
-  const db = getSupabaseAdmin();
-  const { error } = await db.from("negotiation_cases").delete().eq("id", id);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  revalidatePath("/admin/cases");
-  revalidatePath("/");
-  return Response.json({ deleted: true });
+  try {
+    const result = await deleteNegotiationCase(id);
+    if (!result.found) return Response.json({ error: "Кейс не найден." }, { status: 404 });
+    revalidatePath("/admin/cases");
+    revalidatePath("/");
+    return Response.json({ deleted: true, deletedFiles: result.deletedFiles });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "Не удалось удалить кейс." }, { status: 500 });
+  }
 }

@@ -673,10 +673,10 @@ button { color: inherit; }
 }
 
 /* Case library and builder */
-.case-select-control { display: grid; gap: 7px; }
-.case-select-shell { min-height: 42px; display: flex; align-items: center; gap: 9px; position: relative; padding: 0 12px; border: 1px solid #173d63; border-radius: 8px; background: #07172a; }
+.case-select-control { min-width: 0; max-width: 100%; display: grid; gap: 7px; }
+.case-select-shell { width: 100%; min-width: 0; max-width: 100%; min-height: 42px; display: flex; align-items: center; gap: 9px; position: relative; overflow: hidden; box-sizing: border-box; padding: 0 12px; border: 1px solid #173d63; border-radius: 8px; background: #07172a; }
 .case-select-shell > b { color: #62adff; font-size: 17px; }
-.case-select-shell select { min-width: 0; align-self: stretch; flex: 1; padding-right: 24px; appearance: none; border: 0; color: #d9e8f7; background: transparent; outline: none; color-scheme: dark; font-size: 10px; cursor: pointer; }
+.case-select-shell select { width: 0; min-width: 0; align-self: stretch; flex: 1 1 0; overflow: hidden; padding-right: 24px; appearance: none; border: 0; color: #d9e8f7; background: transparent; outline: none; color-scheme: dark; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .case-select-shell select option { color: #e2eefb; background: #07172a; }
 .case-select-shell select option:checked { color: #fff; background: #0b5eb8; }
 .case-select-shell select option:disabled { color: #6f849d; background: #07172a; }
