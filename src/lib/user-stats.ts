@@ -47,7 +47,7 @@ export async function getUserDashboard(userId: string) {
   const supabase = getSupabaseAdmin();
   const [{ data: profile, error: profileError }, { data: sessions, error: sessionsError }] = await Promise.all([
     supabase.from("user_profiles").select("id, first_name, last_name, email, created_at").eq("id", userId).single<ProfileRow>(),
-    supabase.from("training_sessions").select("id, user_id, case_id, case_code, participant_role_name, opponent_name, ended_at").eq("user_id", userId).order("ended_at", { ascending: false }),
+    supabase.from("training_sessions").select("id, user_id, case_id, case_code, participant_role_name, opponent_name, ended_at").eq("user_id", userId).eq("is_ranked", true).order("ended_at", { ascending: false }),
   ]);
   if (profileError || !profile) throw new Error("Профиль пользователя не найден.");
   if (sessionsError) throw new Error(`Не удалось загрузить статистику: ${sessionsError.message}`);
@@ -86,7 +86,7 @@ export async function getRating(): Promise<UserStanding[]> {
   const supabase = getSupabaseAdmin();
   const [{ data: profiles, error: profilesError }, { data: sessions, error: sessionsError }] = await Promise.all([
     supabase.from("user_profiles").select("id, first_name, last_name, email, created_at").eq("role", "user"),
-    supabase.from("training_sessions").select("id, user_id, case_id, case_code, participant_role_name, opponent_name, ended_at").not("user_id", "is", null),
+    supabase.from("training_sessions").select("id, user_id, case_id, case_code, participant_role_name, opponent_name, ended_at").not("user_id", "is", null).eq("is_ranked", true),
   ]);
   if (profilesError || sessionsError) throw new Error("Не удалось сформировать рейтинг пользователей.");
   const sessionRows = (sessions || []) as SessionRow[];
