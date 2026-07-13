@@ -82,6 +82,7 @@ export default function VoiceArena() {
   const [pauseRemaining, setPauseRemaining] = useState(0);
   const [pauseUsed, setPauseUsed] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
+  const [settingsCollapsed, setSettingsCollapsed] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [opponentSpeaking, setOpponentSpeaking] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
@@ -144,6 +145,8 @@ export default function VoiceArena() {
   const isLive = status === "connected";
   const isBusy = status === "connecting";
   const isPaused = pauseRemaining > 0;
+  const isDuelMode = isBusy || isLive || isEnding;
+  const isSettingsCollapsed = isDuelMode && settingsCollapsed;
   const totalDurationSeconds = durationMinutes * 60;
   const remainingSeconds = Math.max(0, totalDurationSeconds - seconds);
   const comicPanels = remoteComic || getCaseComic(selectedCase);
@@ -444,6 +447,7 @@ export default function VoiceArena() {
     setPauseRemaining(0);
     setPauseUsed(false);
     setIsEnding(false);
+    setSettingsCollapsed(false);
     setUserSpeaking(false);
     setOpponentSpeaking(false);
     setStatus("idle");
@@ -549,6 +553,7 @@ export default function VoiceArena() {
     if (isBusy || isLive) return;
     stopNarration();
     setCaseContentOpen(false);
+    setSettingsCollapsed(true);
     setStatus("connecting");
     setError("");
     setSeconds(0);
@@ -679,12 +684,18 @@ export default function VoiceArena() {
   });
 
   return (
-    <main className="duel-app">
+    <main className={`duel-app ${isDuelMode ? "duel-mode" : ""} ${isSettingsCollapsed ? "settings-collapsed" : ""}`}>
       <AppNavRail onQuickUpload={() => setQuickUploadOpen(true)} quickUploadDisabled={isLive || isBusy} />
 
-      <aside className="settings-panel neon-panel">
+      <aside className={`settings-panel neon-panel ${isSettingsCollapsed ? "is-collapsed" : ""}`}>
+        {isSettingsCollapsed ? (
+          <button className="rail-button settings-expand-button" onClick={() => setSettingsCollapsed(false)} aria-label="Развернуть настройки" title="Развернуть настройки">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+          </button>
+        ) : (<>
         <header className="settings-header">
           <div className="brand-lockup"><strong>KORUS NEGA AI 2.0</strong><span>ТРЕНАЖЁР ПЕРЕГОВОРОВ</span></div>
+          {isDuelMode && <button className="settings-collapse-button" onClick={() => setSettingsCollapsed(true)} aria-label="Свернуть настройки" title="Свернуть настройки"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg></button>}
         </header>
         <h2><span>⚙</span> НАСТРОЙКИ</h2>
 
@@ -728,7 +739,7 @@ export default function VoiceArena() {
             {DURATION_OPTIONS.map((minutes) => <button key={minutes} className={durationMinutes === minutes ? "selected" : ""} onClick={() => setDurationMinutes(minutes)} disabled={isLive || isBusy} aria-pressed={durationMinutes === minutes}>{minutes} мин</button>)}
           </div>
         </section>
-
+        </>)}
       </aside>
 
       <section className="conversation-panel neon-panel" aria-label="Переговоры">
