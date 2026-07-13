@@ -169,7 +169,6 @@ export default function VoiceArena() {
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
-  const voiceOverridesRef = useRef<Map<string, VoiceMode>>(new Map());
   const narrationAudioRef = useRef<HTMLAudioElement | null>(null);
   const narrationUrlRef = useRef<string | null>(null);
   const comicAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -428,7 +427,7 @@ export default function VoiceArena() {
       const randomOpponent = 1 + Math.floor(Math.random() * Math.max(1, nextRoles.length - 1));
       setOpponentRoleIndex(Math.min(randomOpponent, nextRoles.length - 1));
       const nextAiRole = nextRoles[Math.min(randomOpponent, nextRoles.length - 1)];
-      setVoiceMode(voiceOverridesRef.current.get(nextAiRole.name) || roleVoiceGender(nextAiRole));
+      setVoiceMode(roleVoiceGender(nextAiRole));
       if (preferredId) setSelectedRoleIndex(0);
       setCasesError("");
     } catch (caught) {
@@ -488,7 +487,7 @@ export default function VoiceArena() {
     setRemoteComic(null);
     if (nextCase) {
       const nextAiRole = nextRoles[randomOpponent];
-      setVoiceMode(voiceOverridesRef.current.get(nextAiRole.name) || roleVoiceGender(nextAiRole));
+      setVoiceMode(roleVoiceGender(nextAiRole));
     }
     setLines([]);
     setAnalysis(null);
@@ -506,17 +505,10 @@ export default function VoiceArena() {
     const nextOpponentIndex = candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
     setOpponentRoleIndex(nextOpponentIndex);
     const nextAiRole = allRoles[nextOpponentIndex];
-    setVoiceMode(voiceOverridesRef.current.get(nextAiRole.name) || roleVoiceGender(nextAiRole));
+    setVoiceMode(roleVoiceGender(nextAiRole));
     setLines([]);
     setAnalysis(null);
     setAnalysisStatus("idle");
-  }
-
-  function chooseVoice(mode: VoiceMode) {
-    if (isLive || isBusy) return;
-    stopNarration();
-    voiceOverridesRef.current.set(aiRole.name, mode);
-    setVoiceMode(mode);
   }
 
   async function uploadQuickCase() {
@@ -1053,29 +1045,7 @@ export default function VoiceArena() {
         {casesError && <p className="case-select-error">{casesError}</p>}
 
         <section className="setting-group">
-          <div className="setting-label">ГОЛОС ОППОНЕНТА</div>
-          <div className="voice-switch" role="group" aria-label="Голос оппонента">
-            <button
-              className={voiceMode === "female" ? "selected" : ""}
-              onClick={() => chooseVoice("female")}
-              disabled={isLive || isBusy}
-              aria-pressed={voiceMode === "female"}
-            >
-              <strong>♀</strong><span>Женский голос</span><small>Marin</small>
-            </button>
-            <button
-              className={voiceMode === "male" ? "selected" : ""}
-              onClick={() => chooseVoice("male")}
-              disabled={isLive || isBusy}
-              aria-pressed={voiceMode === "male"}
-            >
-              <strong>♂</strong><span>Мужской голос</span><small>Cedar</small>
-            </button>
-          </div>
-        </section>
-
-        <section className="setting-group">
-          <div className="setting-label">СТИЛЬ ПЕРЕГОВОРОВ</div>
+          <div className="setting-label">ВЫБЕРИ СТИЛЬ ОППОНЕНТА</div>
           <div className="style-options" role="group" aria-label="Стиль переговоров">
             <button className={negotiationStyle === "collaborative" ? "selected" : ""} onClick={() => setNegotiationStyle("collaborative")} disabled={isLive || isBusy} aria-pressed={negotiationStyle === "collaborative"}>Сотрудничество</button>
             <button className={negotiationStyle === "hard" ? "selected" : ""} onClick={() => setNegotiationStyle("hard")} disabled={isLive || isBusy} aria-pressed={negotiationStyle === "hard"}>Жёсткие переговоры</button>
@@ -1083,7 +1053,7 @@ export default function VoiceArena() {
         </section>
 
         <section className="setting-group">
-          <div className="setting-label">ТАЙМЕР</div>
+          <div className="setting-label">УСТАНОВИ ДЛИТЕЛЬНОСТЬ</div>
           <div className="timer-options" role="group" aria-label="Длительность переговоров">
             {DURATION_OPTIONS.map((minutes) => <button key={minutes} className={durationMinutes === minutes ? "selected" : ""} onClick={() => setDurationMinutes(minutes)} disabled={isLive || isBusy} aria-pressed={durationMinutes === minutes}>{minutes} мин</button>)}
           </div>
@@ -1234,13 +1204,6 @@ export default function VoiceArena() {
             <p>{opponent.title}</p>
             <ul><li>◎ Рациональный подход</li><li>◈ Анализ интересов</li><li>♧ Ценит конкретику</li></ul>
           </div>
-          <div className="avatar-choices" aria-label="Выбор оппонента">
-            {(Object.keys(OPPONENTS) as VoiceMode[]).map((mode) => (
-              <button key={mode} className={voiceMode === mode ? "selected" : ""} onClick={() => chooseVoice(mode)} disabled={isLive || isBusy} aria-label={mode === "female" ? "Женский голос" : "Мужской голос"}>
-                <Image src={OPPONENTS[mode].image} alt="" width={62} height={62} />
-              </button>
-            ))}
-          </div>
           <p className="opponent-style">{opponent.style}</p>
         </section>
 
@@ -1314,7 +1277,7 @@ export default function VoiceArena() {
 function CaseSelect({ cases, value, onChange, disabled }: { cases: CanonicalCase[]; value: string; onChange: (value: string) => void; disabled: boolean }) {
   return (
     <label className="setting-group case-select-control">
-      <span className="setting-label">КЕЙС</span>
+      <span className="setting-label">ВЫБЕРИ КЕЙС</span>
       <span className="case-select-shell"><b>▣</b><select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>{cases.map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}</select><i>⌄</i></span>
     </label>
   );
@@ -1324,7 +1287,7 @@ function RoleSelect({ selectedCase, value, onChange, disabled }: { selectedCase:
   const roles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
   return (
     <label className="setting-group case-select-control">
-      <span className="setting-label">ВАША РОЛЬ</span>
+      <span className="setting-label">ВЫБЕРИ РОЛЬ</span>
       <span className="case-select-shell"><b>♙</b><select value={value} onChange={(event) => onChange(Number(event.target.value))} disabled={disabled} aria-label="Ваша роль">{roles.map((role, index) => <option value={index} key={role.name}>{role.name}</option>)}</select><i>⌄</i></span>
     </label>
   );
