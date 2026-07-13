@@ -5,7 +5,7 @@ import { generateCaseMedia } from "@/lib/case-media";
 import { toPublicCase } from "@/lib/case-types";
 import { readBoundedFormData } from "@/lib/bounded-form-data";
 import { QUICK_UPLOAD_REQUEST_BYTES, uploadErrorStatus } from "@/lib/case-upload-constraints";
-import { getCurrentUserSession } from "@/lib/user-auth";
+import { getCurrentCaseAuthor } from "@/lib/case-author";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -28,8 +28,8 @@ export async function POST(request: Request) {
       materials: materials.map((item) => ({ fileName: item.file_name, text: item.extracted_text })),
     });
     const saved = await saveGeneratedVariants(workspace.id, variants);
-    const user = await getCurrentUserSession();
-    const approved = await approveVariant(saved[0].id, "quick_upload", user?.email ? `Загрузил ${user.email}` : "Пользователь (быстрая загрузка)");
+    const author = await getCurrentCaseAuthor("Пользователь (быстрая загрузка)");
+    const approved = await approveVariant(saved[0].id, "quick_upload", author);
     published = true;
     after(async () => { try { await generateCaseMedia(approved.id); } catch { /* status is stored */ } });
     return Response.json({
