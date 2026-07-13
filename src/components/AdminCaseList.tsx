@@ -27,7 +27,7 @@ export default function AdminCaseList({ initialCases }: { initialCases: AdminCas
   const [error, setError] = useState("");
 
   async function remove(item: AdminCaseListItem) {
-    if (!window.confirm(`Удалить кейс «${item.title}»? История отыгрышей останется, но без привязки к кейсу.`)) return;
+    if (!window.confirm(`Удалить кейс «${item.title}» и его комиксы с озвучкой? История и результаты отыгрышей сохранятся без привязки к удалённому кейсу.`)) return;
     setBusyId(item.id);
     setError("");
     const response = await fetch(`/api/admin/cases/${item.id}`, { method: "DELETE" });

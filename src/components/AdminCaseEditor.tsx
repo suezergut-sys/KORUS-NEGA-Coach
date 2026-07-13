@@ -57,7 +57,7 @@ export default function AdminCaseEditor({ initialCase }: { initialCase: Editable
   }
 
   async function remove() {
-    if (!window.confirm(`Безвозвратно удалить кейс «${item.title}»?`)) return;
+    if (!window.confirm(`Безвозвратно удалить кейс «${item.title}» и его комиксы с озвучкой? История и результаты отыгрышей сохранятся.`)) return;
     setStatus("deleting"); setError("");
     const response = await fetch(`/api/admin/cases/${item.id}`, { method: "DELETE" });
     const payload = (await response.json()) as { error?: string };
