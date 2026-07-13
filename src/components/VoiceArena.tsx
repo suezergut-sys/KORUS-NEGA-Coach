@@ -9,6 +9,7 @@ import type { CanonicalCase } from "@/lib/case-types";
 import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
+import { validateUploadSelection } from "@/lib/case-upload-constraints";
 
 type Status = "idle" | "connecting" | "connected" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
@@ -71,6 +72,39 @@ function updateTurnDetection(channel: RTCDataChannel | null, eagerness: "low" | 
       audio: { input: { turn_detection: { type: "semantic_vad", eagerness, create_response: true, interrupt_response: true } } },
     },
   }));
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 25_000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function waitForDataChannelOpen(channel: RTCDataChannel, timeoutMs = 25_000) {
+  if (channel.readyState === "open") return Promise.resolve();
+  if (channel.readyState !== "connecting") return Promise.reject(new Error("Голосовой канал закрылся до подключения."));
+  return new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      channel.removeEventListener("open", opened);
+      channel.removeEventListener("close", closed);
+      channel.removeEventListener("error", failed);
+    };
+    const opened = () => { cleanup(); resolve(); };
+    const closed = () => { cleanup(); reject(new Error("Голосовой канал закрылся до подключения.")); };
+    const failed = () => { cleanup(); reject(new Error("Не удалось открыть голосовой канал.")); };
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Подключение заняло слишком много времени. Проверьте сеть и попробуйте снова."));
+    }, timeoutMs);
+    channel.addEventListener("open", opened);
+    channel.addEventListener("close", closed);
+    channel.addEventListener("error", failed);
+  });
 }
 
 export default function VoiceArena() {
@@ -138,6 +172,15 @@ export default function VoiceArena() {
   const narrationUrlRef = useRef<string | null>(null);
   const comicAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const playNarrationRef = useRef<(panelIndex?: number) => Promise<void>>(async () => undefined);
+  const startPendingRef = useRef(false);
+  const quickUploadPendingRef = useRef(false);
+  const hintPendingRef = useRef(false);
+  const narrationPendingRef = useRef(false);
+  const narrationAbortRef = useRef<AbortController | null>(null);
+  const quickFileInputRef = useRef<HTMLInputElement | null>(null);
+  const elapsedActiveMsRef = useRef(0);
+  const activeRunStartedAtRef = useRef<number | null>(null);
+  const pauseEndsAtRef = useRef<number | null>(null);
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
   const allRoles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
@@ -172,7 +215,24 @@ export default function VoiceArena() {
     if (audio) void audio.play().catch(() => undefined);
   }, []);
 
+  const currentActiveSeconds = useCallback(() => {
+    const runningMs = activeRunStartedAtRef.current === null ? 0 : Date.now() - activeRunStartedAtRef.current;
+    return Math.max(0, Math.floor((elapsedActiveMsRef.current + runningMs) / 1000));
+  }, []);
+
+  const freezeActiveTimer = useCallback(() => {
+    if (activeRunStartedAtRef.current !== null) {
+      elapsedActiveMsRef.current += Date.now() - activeRunStartedAtRef.current;
+      activeRunStartedAtRef.current = null;
+    }
+    const elapsed = currentActiveSeconds();
+    setSeconds(elapsed);
+    return elapsed;
+  }, [currentActiveSeconds]);
+
   const resumeSession = useCallback(() => {
+    pauseEndsAtRef.current = null;
+    if (activeRunStartedAtRef.current === null) activeRunStartedAtRef.current = Date.now();
     applyMediaPaused(false);
     setPauseRemaining(0);
   }, [applyMediaPaused]);
@@ -213,6 +273,9 @@ export default function VoiceArena() {
   }, [caseContentOpen, comicPanels, voiceMode]);
 
   const stopNarration = useCallback(() => {
+    narrationAbortRef.current?.abort();
+    narrationAbortRef.current = null;
+    narrationPendingRef.current = false;
     narrationAudioRef.current?.pause();
     narrationAudioRef.current = null;
     if (narrationUrlRef.current) URL.revokeObjectURL(narrationUrlRef.current);
@@ -221,10 +284,14 @@ export default function VoiceArena() {
   }, []);
 
   const playNarration = useCallback(async (panelIndex?: number) => {
+    if (narrationPendingRef.current) return;
     if (narrationStatus === "loading" || narrationStatus === "playing") {
       stopNarration();
       return;
     }
+    narrationPendingRef.current = true;
+    const controller = new AbortController();
+    narrationAbortRef.current = controller;
     setNarrationStatus("loading");
     setNarrationError("");
     try {
@@ -256,6 +323,7 @@ export default function VoiceArena() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ caseId: selectedCase.id, participantRoleIndex: selectedRoleIndex, opponentRoleIndex, voice: opponent.voice, panelIndex }),
+        signal: controller.signal,
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
@@ -281,9 +349,13 @@ export default function VoiceArena() {
       await audio.play();
       setNarrationStatus("playing");
     } catch (caught) {
+      if (controller.signal.aborted) return;
       stopNarration();
       setNarrationStatus("error");
       setNarrationError(caught instanceof Error ? caught.message : "Не удалось озвучить кейс.");
+    } finally {
+      if (narrationAbortRef.current === controller) narrationAbortRef.current = null;
+      narrationPendingRef.current = false;
     }
   }, [comicPanels, narrationStatus, opponent.voice, opponentRoleIndex, selectedCase.id, selectedRoleIndex, stopNarration, voiceMode]);
 
@@ -347,9 +419,11 @@ export default function VoiceArena() {
 
   useEffect(() => {
     if (!isLive || isPaused || isEnding) return;
-    const timer = window.setInterval(() => setSeconds((value) => Math.min(totalDurationSeconds, value + 1)), 1000);
+    const tick = () => setSeconds(Math.min(totalDurationSeconds, currentActiveSeconds()));
+    tick();
+    const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [isEnding, isLive, isPaused, totalDurationSeconds]);
+  }, [currentActiveSeconds, isEnding, isLive, isPaused, totalDurationSeconds]);
 
   useEffect(() => {
     if (!isLive || isPaused || isEnding || remainingSeconds > 0) return;
@@ -359,11 +433,12 @@ export default function VoiceArena() {
 
   useEffect(() => {
     if (!isLive || pauseRemaining <= 0) return;
-    const timer = window.setTimeout(() => {
-      if (pauseRemaining <= 1) resumeSession();
-      else setPauseRemaining((value) => Math.max(0, value - 1));
-    }, 1000);
-    return () => window.clearTimeout(timer);
+    const timer = window.setInterval(() => {
+      const remaining = Math.max(0, Math.ceil(((pauseEndsAtRef.current || Date.now()) - Date.now()) / 1000));
+      if (remaining <= 0) resumeSession();
+      else setPauseRemaining(remaining);
+    }, 250);
+    return () => window.clearInterval(timer);
   }, [isLive, pauseRemaining, resumeSession]);
 
   useEffect(() => {
@@ -421,7 +496,8 @@ export default function VoiceArena() {
   }
 
   async function uploadQuickCase() {
-    if (!quickFile || quickStatus === "loading") return;
+    if (!quickFile || quickUploadPendingRef.current) return;
+    quickUploadPendingRef.current = true;
     setQuickStatus("loading");
     setQuickError("");
     try {
@@ -433,11 +509,28 @@ export default function VoiceArena() {
       await loadCases(payload.case.id);
       setQuickStatus("idle");
       setQuickFile(null);
+      if (quickFileInputRef.current) quickFileInputRef.current.value = "";
       setQuickUploadOpen(false);
       setLines([{ id: crypto.randomUUID(), author: "Система", text: `Кейс «${payload.case.title}» добавлен в базу и выбран.`, time: clockTime() }]);
     } catch (caught) {
       setQuickStatus("error");
       setQuickError(caught instanceof Error ? caught.message : "Не удалось загрузить кейс.");
+    } finally {
+      quickUploadPendingRef.current = false;
+    }
+  }
+
+  function chooseQuickFile(file: File | null) {
+    try {
+      if (file) validateUploadSelection([file]);
+      setQuickFile(file);
+      setQuickError("");
+      setQuickStatus("idle");
+    } catch (caught) {
+      setQuickFile(null);
+      if (quickFileInputRef.current) quickFileInputRef.current.value = "";
+      setQuickStatus("error");
+      setQuickError(caught instanceof Error ? caught.message : "Файл не подходит для загрузки.");
     }
   }
 
@@ -551,13 +644,16 @@ export default function VoiceArena() {
       channel.send(JSON.stringify({ type: "input_audio_buffer.clear" }));
       if (opponentSpeaking) channel.send(JSON.stringify({ type: "response.cancel" }));
     }
+    freezeActiveTimer();
     setPauseUsed(true);
+    pauseEndsAtRef.current = Date.now() + 60_000;
     setPauseRemaining(60);
     applyMediaPaused(true);
   }
 
   async function requestHint() {
-    if (!isPaused || hintStatus === "loading" || hintUsedRef.current) return;
+    if (!isPaused || hintPendingRef.current || hintUsedRef.current) return;
+    hintPendingRef.current = true;
     setHintStatus("loading");
     setHintError("");
     try {
@@ -581,11 +677,14 @@ export default function VoiceArena() {
     } catch (caught) {
       setHintStatus("error");
       setHintError(caught instanceof Error ? caught.message : "Не удалось получить подсказку.");
+    } finally {
+      hintPendingRef.current = false;
     }
   }
 
   async function startSession() {
-    if (isBusy || isLive) return;
+    if (startPendingRef.current || isBusy || isLive || analysisStatus === "loading") return;
+    startPendingRef.current = true;
     stopNarration();
     setCaseContentOpen(false);
     setSettingsCollapsed(true);
@@ -596,6 +695,9 @@ export default function VoiceArena() {
     setPauseUsed(false);
     setIsEnding(false);
     pausedRef.current = false;
+    elapsedActiveMsRef.current = 0;
+    activeRunStartedAtRef.current = null;
+    pauseEndsAtRef.current = null;
     endingRef.current = false;
     opponentTurnCountRef.current = 0;
     setAnalysisStatus("idle");
@@ -612,7 +714,7 @@ export default function VoiceArena() {
     setLines(connectingLines);
 
     try {
-      const health = await fetch("/api/realtime/session", { cache: "no-store" });
+      const health = await fetchWithTimeout("/api/realtime/session", { cache: "no-store" }, 10_000);
       if (!health.ok) throw new Error("На сервере не настроен OpenAI API key.");
 
       const pc = new RTCPeerConnection();
@@ -636,13 +738,17 @@ export default function VoiceArena() {
       channelRef.current = channel;
       channel.addEventListener("message", handleEvent);
       channel.addEventListener("open", () => {
+        elapsedActiveMsRef.current = 0;
+        activeRunStartedAtRef.current = Date.now();
         setStatus("connected");
         const readyLines: Line[] = [{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }];
         linesRef.current = readyLines;
         setLines(readyLines);
         channel.send(JSON.stringify({ type: "response.create" }));
       });
-      channel.addEventListener("close", () => setStatus("idle"));
+      channel.addEventListener("close", () => {
+        if (channelRef.current === channel && !endingRef.current) setStatus("idle");
+      });
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -655,7 +761,7 @@ export default function VoiceArena() {
         opponentRoleIndex: String(opponentRoleIndex),
         voice: opponent.voice,
       });
-      const response = await fetch(`/api/realtime/session?${params.toString()}`, {
+      const response = await fetchWithTimeout(`/api/realtime/session?${params.toString()}`, {
         method: "POST",
         headers: { "Content-Type": "application/sdp" },
         body: offer.sdp,
@@ -667,12 +773,15 @@ export default function VoiceArena() {
       }
 
       await pc.setRemoteDescription({ type: "answer", sdp: await response.text() });
+      await waitForDataChannelOpen(channel);
     } catch (caught) {
       closeSession();
       setStatus("error");
       setError(caught instanceof Error ? caught.message : "Не удалось запустить микрофон.");
       linesRef.current = [];
       setLines([]);
+    } finally {
+      startPendingRef.current = false;
     }
   }
 
@@ -680,6 +789,7 @@ export default function VoiceArena() {
     if (!isLive || endingRef.current) return;
     endingRef.current = true;
     setIsEnding(true);
+    const completedDurationSeconds = Math.min(totalDurationSeconds, freezeActiveTimer());
     const completedLines = [
       ...linesRef.current,
       { id: crypto.randomUUID(), author: "Система" as const, text: reason === "timer" ? TIME_EXPIRED_MESSAGE : "Переговоры завершены пользователем.", time: clockTime() },
@@ -691,6 +801,7 @@ export default function VoiceArena() {
       await announceTimeExpired();
     }
     closeSession();
+    setIsEnding(true);
     setAnalysisStatus("loading");
     setAnalysisError("");
 
@@ -705,7 +816,7 @@ export default function VoiceArena() {
           opponentRoleIndex,
           opponentVoice: opponent.voice,
           startedAt: startedAtRef.current,
-          durationSeconds: seconds,
+          durationSeconds: completedDurationSeconds,
           usedHint: hintUsedRef.current,
           turns: completedLines,
         }),
@@ -717,6 +828,8 @@ export default function VoiceArena() {
     } catch (caught) {
       setAnalysisStatus("error");
       setAnalysisError(caught instanceof Error ? caught.message : "Не удалось выполнить анализ.");
+    } finally {
+      setIsEnding(false);
     }
   }
 
@@ -831,7 +944,7 @@ export default function VoiceArena() {
         {error && <div className="error-banner" role="alert"><strong>Не удалось начать переговоры.</strong><span>{error}</span></div>}
 
         <footer className="session-actions">
-          <button className="start-session" onClick={startSession} disabled={isLive || isBusy || isEnding}>
+          <button className="start-session" onClick={startSession} disabled={isLive || isBusy || isEnding || analysisStatus === "loading"}>
             <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : isEnding ? "АНАЛИЗ…" : isLive ? `ОСТАЛОСЬ ${formatTime(remainingSeconds)}` : "НАЧАТЬ"}
           </button>
           <button className={`pause-session ${isPaused ? "counting" : ""}`} onClick={togglePause} disabled={!isLive || isEnding || (pauseUsed && !isPaused)} aria-label={isPaused ? `Продолжить переговоры, осталось ${formatTime(pauseRemaining)}` : "Пауза"}>
@@ -950,7 +1063,7 @@ export default function VoiceArena() {
           <section>
             <header><div><span>БЫСТРОЕ ДОБАВЛЕНИЕ</span><h2 id="quick-case-title">Загрузить кейс</h2></div><button onClick={() => setQuickUploadOpen(false)} disabled={quickStatus === "loading"} aria-label="Закрыть">×</button></header>
             <p>Выберите один файл. Система сохранит оригинал, извлечёт факты, приведёт ситуацию и роли к каноническому виду и добавит готовый кейс в список.</p>
-            <label className="quick-file-drop"><input type="file" accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" onChange={(event) => setQuickFile(event.target.files?.[0] || null)} /><strong>{quickFile ? quickFile.name : "ВЫБРАТЬ ФАЙЛ"}</strong><small>TXT, MD, CSV, JSON, XML, HTML, RTF, PDF или DOCX · до 3 МБ</small></label>
+            <label className="quick-file-drop"><input ref={quickFileInputRef} type="file" accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" disabled={quickStatus === "loading"} onChange={(event) => chooseQuickFile(event.target.files?.[0] || null)} /><strong>{quickFile ? quickFile.name : "ВЫБРАТЬ ФАЙЛ"}</strong><small>TXT, MD, CSV, JSON, XML, HTML, RTF, PDF или DOCX · до 3 МБ</small></label>
             {quickError && <div className="error-banner"><strong>Не удалось загрузить кейс</strong><span>{quickError}</span></div>}
             <footer><button className="modal-secondary" onClick={() => setQuickUploadOpen(false)} disabled={quickStatus === "loading"}>ОТМЕНА</button><button className="modal-primary" onClick={uploadQuickCase} disabled={!quickFile || quickStatus === "loading"}>{quickStatus === "loading" ? "АНАЛИЗИРУЕМ И СОХРАНЯЕМ…" : "ЗАГРУЗИТЬ И СОЗДАТЬ КЕЙС"}</button></footer>
           </section>

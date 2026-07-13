@@ -3,13 +3,9 @@ import "server-only";
 import mammoth from "mammoth";
 import { extractText as extractPdfText } from "unpdf";
 import { asciiStorageBase, decodeRtfEscapes, decodeTextBytes, displayFileName } from "@/lib/file-text";
-
-const MAX_FILE_BYTES = 3 * 1024 * 1024;
-export const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
-export const MAX_FILES = 6;
+import { ALLOWED_CASE_EXTENSIONS, MAX_FILE_BYTES, UploadValidationError, validateUploadSelection } from "@/lib/case-upload-constraints";
 
 const TEXT_EXTENSIONS = new Set(["txt", "md", "markdown", "csv", "json", "xml", "html", "htm", "rtf", "log"]);
-const ALLOWED_EXTENSIONS = new Set([...TEXT_EXTENSIONS, "pdf", "docx"]);
 
 function extension(name: string) {
   return displayFileName(name).toLowerCase().split(".").pop() || "";
@@ -28,8 +24,49 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 };
 
 function assertFileSignature(ext: string, bytes: Buffer) {
-  if (ext === "pdf" && bytes.subarray(0, 5).toString("ascii") !== "%PDF-") throw new Error("Расширение PDF не соответствует содержимому файла.");
-  if (ext === "docx" && !(bytes[0] === 0x50 && bytes[1] === 0x4b)) throw new Error("Расширение DOCX не соответствует содержимому файла.");
+  if (ext === "pdf" && bytes.subarray(0, 5).toString("ascii") !== "%PDF-") throw new UploadValidationError("Расширение PDF не соответствует содержимому файла.");
+  if (ext === "docx") assertSafeDocxArchive(bytes);
+}
+
+function assertSafeDocxArchive(bytes: Buffer) {
+  let eocd = -1;
+  for (let index = bytes.length - 22; index >= Math.max(0, bytes.length - 65_557); index -= 1) {
+    if (bytes.readUInt32LE(index) === 0x06054b50) { eocd = index; break; }
+  }
+  if (eocd < 0) throw new UploadValidationError("Расширение DOCX не соответствует содержимому файла.");
+
+  const entries = bytes.readUInt16LE(eocd + 10);
+  const directorySize = bytes.readUInt32LE(eocd + 12);
+  const directoryOffset = bytes.readUInt32LE(eocd + 16);
+  if (!entries || entries > 1_000 || directoryOffset + directorySize > bytes.length) {
+    throw new UploadValidationError("Структура DOCX повреждена или слишком сложна.");
+  }
+
+  let offset = directoryOffset;
+  let totalUncompressed = 0;
+  let hasContentTypes = false;
+  for (let entry = 0; entry < entries; entry += 1) {
+    if (offset + 46 > bytes.length || bytes.readUInt32LE(offset) !== 0x02014b50) {
+      throw new UploadValidationError("Структура DOCX повреждена.");
+    }
+    const compressed = bytes.readUInt32LE(offset + 20);
+    const uncompressed = bytes.readUInt32LE(offset + 24);
+    const nameLength = bytes.readUInt16LE(offset + 28);
+    const extraLength = bytes.readUInt16LE(offset + 30);
+    const commentLength = bytes.readUInt16LE(offset + 32);
+    const nextOffset = offset + 46 + nameLength + extraLength + commentLength;
+    if (compressed === 0xffffffff || uncompressed === 0xffffffff || nextOffset > bytes.length) {
+      throw new UploadValidationError("ZIP64 и повреждённые DOCX не поддерживаются.");
+    }
+    totalUncompressed += uncompressed;
+    if (totalUncompressed > 40 * 1024 * 1024 || (uncompressed > 10 * 1024 * 1024 && compressed > 0 && uncompressed / compressed > 250)) {
+      throw new UploadValidationError("Содержимое DOCX слишком велико после распаковки.", 413);
+    }
+    const name = bytes.subarray(offset + 46, offset + 46 + nameLength).toString("utf8");
+    if (name === "[Content_Types].xml") hasContentTypes = true;
+    offset = nextOffset;
+  }
+  if (!hasContentTypes) throw new UploadValidationError("Файл не является корректным DOCX-документом.");
 }
 
 function normalizeText(value: string) {
@@ -47,7 +84,7 @@ function normalizeText(value: string) {
 
 export async function extractUploadedFile(file: File) {
   const ext = extension(file.name);
-  if (!ALLOWED_EXTENSIONS.has(ext)) {
+  if (!ALLOWED_CASE_EXTENSIONS.has(ext)) {
     throw new Error(`Формат .${ext || "без расширения"} не поддерживается. Используйте TXT, MD, CSV, JSON, XML, HTML, RTF, PDF или DOCX.`);
   }
   if (!file.size || file.size > MAX_FILE_BYTES) {
@@ -67,13 +104,10 @@ export async function extractUploadedFile(file: File) {
   }
 
   text = normalizeText(text).slice(0, 50000);
-  if (text.length < 40) throw new Error(`В файле «${file.name}» не удалось найти достаточно текста.`);
+  if (text.length < 40) throw new UploadValidationError(`В файле «${file.name}» не удалось найти достаточно текста.`);
   return { bytes, text, safeName: safeFileName(file.name), displayName: displayFileName(file.name), mimeType: MIME_BY_EXTENSION[ext] || "application/octet-stream" };
 }
 
-export function validateFiles(files: File[]) {
-  if (!files.length) return;
-  if (files.length > MAX_FILES) throw new Error(`Можно загрузить не более ${MAX_FILES} файлов за один анализ.`);
-  const total = files.reduce((sum, file) => sum + file.size, 0);
-  if (total > MAX_TOTAL_BYTES) throw new Error("Общий размер файлов должен быть меньше 4 МБ.");
+export function validateFiles(files: File[], existing: { count?: number; totalBytes?: number } = {}) {
+  validateUploadSelection(files, existing);
 }
