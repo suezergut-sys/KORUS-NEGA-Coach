@@ -7,6 +7,7 @@ import AppNavRail from "@/components/AppNavRail";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import type { CanonicalCase } from "@/lib/case-types";
 import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
+import { shouldEnableMicrophone, type NegotiationInputMode } from "@/lib/negotiation-input-mode";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
@@ -114,6 +115,8 @@ export default function VoiceArena() {
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("male");
   const [negotiationStyle, setNegotiationStyle] = useState<NegotiationStyle>("collaborative");
   const [durationMinutes, setDurationMinutes] = useState<DurationMinutes>(5);
+  const [inputMode, setInputMode] = useState<NegotiationInputMode>("duplex");
+  const [pushToTalkActive, setPushToTalkActive] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState("");
   const [pauseRemaining, setPauseRemaining] = useState(0);
@@ -161,6 +164,8 @@ export default function VoiceArena() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
   const pausedRef = useRef(false);
+  const inputModeRef = useRef<NegotiationInputMode>("duplex");
+  const pushToTalkActiveRef = useRef(false);
   const endingRef = useRef(false);
   const hintUsedRef = useRef(false);
   const endSessionRef = useRef<(reason?: EndReason) => Promise<void>>(async () => undefined);
@@ -225,9 +230,18 @@ export default function VoiceArena() {
     }).catch(() => undefined);
   }, [selectedCase.id]);
 
+  const syncMicrophoneTrack = useCallback(() => {
+    const enabled = shouldEnableMicrophone(inputModeRef.current, pausedRef.current, pushToTalkActiveRef.current);
+    streamRef.current?.getAudioTracks().forEach((track) => { track.enabled = enabled; });
+  }, []);
+
   const applyMediaPaused = useCallback((paused: boolean) => {
     pausedRef.current = paused;
-    streamRef.current?.getAudioTracks().forEach((track) => { track.enabled = !paused; });
+    if (paused) {
+      pushToTalkActiveRef.current = false;
+      setPushToTalkActive(false);
+    }
+    syncMicrophoneTrack();
     if (paused) {
       audioRef.current?.pause();
       setUserSpeaking(false);
@@ -236,7 +250,13 @@ export default function VoiceArena() {
     }
     const audio = audioRef.current;
     if (audio) void audio.play().catch(() => undefined);
-  }, []);
+  }, [syncMicrophoneTrack]);
+
+  const setPushToTalkCapture = useCallback((active: boolean) => {
+    pushToTalkActiveRef.current = active;
+    setPushToTalkActive(active);
+    syncMicrophoneTrack();
+  }, [syncMicrophoneTrack]);
 
   const currentActiveSeconds = useCallback(() => {
     const runningMs = activeRunStartedAtRef.current === null ? 0 : Date.now() - activeRunStartedAtRef.current;
@@ -511,6 +531,18 @@ export default function VoiceArena() {
     setAnalysisStatus("idle");
   }
 
+  function chooseInputMode(mode: NegotiationInputMode) {
+    if (isLive || isBusy) return;
+    inputModeRef.current = mode;
+    setInputMode(mode);
+    setPushToTalkCapture(false);
+  }
+
+  function beginPushToTalk() {
+    if (inputMode !== "push_to_talk" || !isLive || isPaused || isEnding) return;
+    setPushToTalkCapture(true);
+  }
+
   async function uploadQuickCase() {
     if (!quickFile || quickUploadPendingRef.current) return;
     quickUploadPendingRef.current = true;
@@ -562,6 +594,7 @@ export default function VoiceArena() {
     peerRef.current = null;
     streamRef.current = null;
     pausedRef.current = false;
+    pushToTalkActiveRef.current = false;
     userSpeakingRef.current = false;
     opponentSpeakingRef.current = false;
     activeResponseIdRef.current = "";
@@ -577,12 +610,18 @@ export default function VoiceArena() {
     setSettingsCollapsed(false);
     setUserSpeaking(false);
     setOpponentSpeaking(false);
+    setPushToTalkActive(false);
     setRealtimeNotice("");
     setStatus("idle");
   }, []);
 
   useEffect(() => () => closeSession(), [closeSession]);
   useEffect(() => () => stopNarration(), [stopNarration]);
+  useEffect(() => {
+    const release = () => setPushToTalkCapture(false);
+    window.addEventListener("blur", release);
+    return () => window.removeEventListener("blur", release);
+  }, [setPushToTalkCapture]);
 
   const replaceLine = useCallback((author: Speaker, text: string, id: string) => {
     if (!text.trim()) return;
@@ -825,6 +864,8 @@ export default function VoiceArena() {
     setPauseUsed(false);
     setIsEnding(false);
     pausedRef.current = false;
+    pushToTalkActiveRef.current = false;
+    setPushToTalkActive(false);
     elapsedActiveMsRef.current = 0;
     activeRunStartedAtRef.current = null;
     pauseEndsAtRef.current = null;
@@ -908,6 +949,9 @@ export default function VoiceArena() {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       streamRef.current = media;
+      media.getAudioTracks().forEach((track) => {
+        track.enabled = shouldEnableMicrophone(inputModeRef.current, false, pushToTalkActiveRef.current);
+      });
       media.getTracks().forEach((track) => pc.addTrack(track, media));
 
       const channel = pc.createDataChannel("oai-events");
@@ -917,7 +961,7 @@ export default function VoiceArena() {
         elapsedActiveMsRef.current = 0;
         activeRunStartedAtRef.current = Date.now();
         setStatus("connected");
-        reportRealtimeDiagnostic("session_started", { peerState: pc.connectionState, channelState: channel.readyState });
+        reportRealtimeDiagnostic("session_started", { peerState: pc.connectionState, channelState: channel.readyState, inputMode: inputModeRef.current });
         const readyLines: Line[] = [{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }];
         linesRef.current = readyLines;
         setLines(readyLines);
@@ -1058,6 +1102,20 @@ export default function VoiceArena() {
             {DURATION_OPTIONS.map((minutes) => <button key={minutes} className={durationMinutes === minutes ? "selected" : ""} onClick={() => setDurationMinutes(minutes)} disabled={isLive || isBusy} aria-pressed={durationMinutes === minutes}>{minutes} мин</button>)}
           </div>
         </section>
+
+        <section className="setting-group">
+          <div className="setting-label">ВЫБЕРИ РЕЖИМ ПЕРЕГОВОРОВ</div>
+          <div className="input-mode-options" role="group" aria-label="Режим переговоров">
+            <div className={inputMode === "duplex" ? "input-mode-option selected" : "input-mode-option"}>
+              <button type="button" onClick={() => chooseInputMode("duplex")} disabled={isLive || isBusy} aria-pressed={inputMode === "duplex"}>Дуплекс</button>
+              <span className="mode-info" tabIndex={0} aria-label="Описание режима Дуплекс">i<span role="tooltip">Микрофон работает постоянно: можно говорить одновременно с оппонентом и перебивать его.</span></span>
+            </div>
+            <div className={inputMode === "push_to_talk" ? "input-mode-option selected" : "input-mode-option"}>
+              <button type="button" onClick={() => chooseInputMode("push_to_talk")} disabled={isLive || isBusy} aria-pressed={inputMode === "push_to_talk"}>Обычный</button>
+              <span className="mode-info" tabIndex={0} aria-label="Описание обычного режима">i<span role="tooltip">Микрофон передаёт звук только пока вы удерживаете кнопку. Подходит для шумных помещений и турниров с комментариями ведущего.</span></span>
+            </div>
+          </div>
+        </section>
         </>)}
       </aside>
 
@@ -1097,13 +1155,29 @@ export default function VoiceArena() {
           )}
 
           <div className={`audio-deck ${isLive && !isPaused && !isEnding ? "active" : ""}`}>
-            <div className="listening-copy"><span className={userSpeaking ? "mini-wave active" : "mini-wave"}>▥</span><small>{isEnding ? "Запускаем анализ…" : isPaused ? `Пауза ${formatTime(pauseRemaining)}` : userSpeaking ? "Вы говорите…" : opponentSpeaking ? "Оппонент отвечает…" : isLive ? "Слушаю…" : "Ожидание"}</small></div>
+            <div className="listening-copy"><span className={userSpeaking ? "mini-wave active" : "mini-wave"}>▥</span><small>{isEnding ? "Запускаем анализ…" : isPaused ? `Пауза ${formatTime(pauseRemaining)}` : userSpeaking ? "Вы говорите…" : opponentSpeaking ? "Оппонент отвечает…" : inputMode === "push_to_talk" && isLive && !pushToTalkActive ? "Микрофон выключен" : isLive ? "Слушаю…" : "Ожидание"}</small></div>
             <div className="waveform" aria-hidden="true">
               {WAVE_BARS.map((height, index) => <i key={index} style={{ height: `${height}%`, animationDelay: `${index * -55}ms` }} />)}
             </div>
-            <div className={`mic-orb ${userSpeaking ? "speaking" : ""}`}>◉</div>
+            {inputMode === "push_to_talk" ? (
+              <button
+                type="button"
+                className={`mic-orb push-to-talk ${pushToTalkActive ? "capturing" : ""} ${userSpeaking ? "speaking" : ""}`}
+                disabled={!isLive || isPaused || isEnding}
+                aria-label={pushToTalkActive ? "Отпустите, чтобы выключить микрофон" : "Удерживайте, чтобы говорить"}
+                aria-pressed={pushToTalkActive}
+                onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); beginPushToTalk(); }}
+                onPointerUp={() => setPushToTalkCapture(false)}
+                onPointerCancel={() => setPushToTalkCapture(false)}
+                onLostPointerCapture={() => setPushToTalkCapture(false)}
+                onKeyDown={(event) => { if (!event.repeat && (event.key === " " || event.key === "Enter")) { event.preventDefault(); beginPushToTalk(); } }}
+                onKeyUp={(event) => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); setPushToTalkCapture(false); } }}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></svg>
+              </button>
+            ) : <div className={`mic-orb ${userSpeaking ? "speaking" : ""}`}>◉</div>}
           </div>
-          <p className="speech-note">{isPaused ? "ⓘ Микрофон и оппонент на паузе. Нажмите кнопку с таймером, чтобы продолжить." : "ⓘ Говорите естественно. Система распознает речь и отобразит её в диалоге."}</p>
+          <p className="speech-note">{isPaused ? "ⓘ Микрофон и оппонент на паузе. Нажмите кнопку с таймером, чтобы продолжить." : inputMode === "push_to_talk" ? "ⓘ Удерживайте кнопку микрофона, пока говорите. Отпустите её, чтобы система перестала обрабатывать окружающие звуки." : "ⓘ Говорите естественно. Система распознает речь и отобразит её в диалоге."}</p>
           {realtimeNotice && <p className="realtime-notice" role="status">ⓘ {realtimeNotice}</p>}
         </div>
 
