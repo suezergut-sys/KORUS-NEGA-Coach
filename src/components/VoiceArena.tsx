@@ -1105,7 +1105,7 @@ export default function VoiceArena() {
           <div className="setting-label">ВЫБЕРИ СТИЛЬ ОППОНЕНТА</div>
           <div className="style-options" role="group" aria-label="Стиль переговоров">
             <button className={negotiationStyle === "collaborative" ? "selected" : ""} onClick={() => setNegotiationStyle("collaborative")} disabled={isLive || isBusy} aria-pressed={negotiationStyle === "collaborative"}>Сотрудничество</button>
-            <button className={negotiationStyle === "hard" ? "selected" : ""} onClick={() => setNegotiationStyle("hard")} disabled={isLive || isBusy} aria-pressed={negotiationStyle === "hard"}>Жёсткие переговоры</button>
+            <button className={negotiationStyle === "hard" ? "selected" : ""} onClick={() => setNegotiationStyle("hard")} disabled={isLive || isBusy} aria-pressed={negotiationStyle === "hard"}>Жёсткий</button>
           </div>
         </section>
 
