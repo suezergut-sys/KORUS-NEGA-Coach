@@ -14,6 +14,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
           <Link href="/admin">Обзор</Link>
           <Link href="/admin/methodology">Методология</Link>
           <Link href="/admin/cases">База кейсов</Link>
+          <Link href="/admin/infrastructure">Лимиты</Link>
         </nav>
         {children}
       </div>
