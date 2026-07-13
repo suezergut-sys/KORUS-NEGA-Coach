@@ -8,6 +8,7 @@ import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import type { CanonicalCase } from "@/lib/case-types";
 import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
 import { DEFAULT_CASE } from "@/lib/default-case";
+import type { NegotiationHint } from "@/lib/hint-types";
 
 type Status = "idle" | "connecting" | "connected" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
@@ -18,6 +19,7 @@ type DurationMinutes = 3 | 5 | 10 | 15;
 type EndReason = "user" | "timer";
 type AnalysisStatus = "idle" | "loading" | "ready" | "error";
 type NarrationStatus = "idle" | "loading" | "playing" | "error";
+type HintStatus = "idle" | "loading" | "ready" | "error";
 
 const OPPONENTS = {
   female: {
@@ -88,6 +90,10 @@ export default function VoiceArena() {
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
   const [analysis, setAnalysis] = useState<NegotiationAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState("");
+  const [hintStatus, setHintStatus] = useState<HintStatus>("idle");
+  const [hint, setHint] = useState<NegotiationHint | null>(null);
+  const [hintError, setHintError] = useState("");
+  const [hintUsed, setHintUsed] = useState(false);
   const [cases, setCases] = useState<CanonicalCase[]>([DEFAULT_CASE]);
   const [selectedCaseId, setSelectedCaseId] = useState(DEFAULT_CASE.id);
   const [selectedRoleIndex, setSelectedRoleIndex] = useState(0);
@@ -120,6 +126,7 @@ export default function VoiceArena() {
   const channelRef = useRef<RTCDataChannel | null>(null);
   const pausedRef = useRef(false);
   const endingRef = useRef(false);
+  const hintUsedRef = useRef(false);
   const endSessionRef = useRef<(reason?: EndReason) => Promise<void>>(async () => undefined);
   const opponentTurnCountRef = useRef(0);
   const linesRef = useRef<Line[]>([]);
@@ -549,6 +556,34 @@ export default function VoiceArena() {
     applyMediaPaused(true);
   }
 
+  async function requestHint() {
+    if (!isPaused || hintStatus === "loading" || hintUsedRef.current) return;
+    setHintStatus("loading");
+    setHintError("");
+    try {
+      const response = await fetch("/api/hint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
+          caseCode: selectedCase.slug,
+          participantRoleIndex: selectedRoleIndex,
+          opponentRoleIndex,
+          turns: linesRef.current,
+        }),
+      });
+      const payload = (await response.json()) as { hint?: NegotiationHint; error?: string };
+      if (!response.ok || !payload.hint) throw new Error(payload.error || "Не удалось получить подсказку.");
+      hintUsedRef.current = true;
+      setHintUsed(true);
+      setHint(payload.hint);
+      setHintStatus("ready");
+    } catch (caught) {
+      setHintStatus("error");
+      setHintError(caught instanceof Error ? caught.message : "Не удалось получить подсказку.");
+    }
+  }
+
   async function startSession() {
     if (isBusy || isLive) return;
     stopNarration();
@@ -566,6 +601,11 @@ export default function VoiceArena() {
     setAnalysisStatus("idle");
     setAnalysis(null);
     setAnalysisError("");
+    setHintStatus("idle");
+    setHint(null);
+    setHintError("");
+    setHintUsed(false);
+    hintUsedRef.current = false;
     startedAtRef.current = new Date().toISOString();
     const connectingLines: Line[] = [{ id: "connecting", author: "Система", text: "Устанавливаем защищённую голосовую связь…", time: clockTime() }];
     linesRef.current = connectingLines;
@@ -666,6 +706,7 @@ export default function VoiceArena() {
           opponentVoice: opponent.voice,
           startedAt: startedAtRef.current,
           durationSeconds: seconds,
+          usedHint: hintUsedRef.current,
           turns: completedLines,
         }),
       });
@@ -800,6 +841,27 @@ export default function VoiceArena() {
             <span>■</span>ЗАВЕРШИТЬ
           </button>
         </footer>
+
+        {isPaused && (
+          <section className="hint-panel" aria-live="polite">
+            <button className="hint-button" onClick={() => void requestHint()} disabled={hintStatus === "loading" || hintUsed}>
+              {hintStatus === "loading" ? "ГОТОВИМ ПОДСКАЗКУ…" : hintUsed ? "ПОДСКАЗКА ИСПОЛЬЗОВАНА" : "ПОДСКАЗКА"}
+            </button>
+            <p className="hint-warning">Вы можете воспользоваться подсказкой, но в этом случае результат поединка не будет учтён в рейтинге и личном кабинете.</p>
+            {hintStatus === "error" && <p className="hint-error">{hintError}</p>}
+            {hintStatus === "ready" && hint && (
+              <div className="hint-result">
+                <span>ОБЩЕЕ НАПРАВЛЕНИЕ</span>
+                <p>{hint.direction}</p>
+                <div className="hint-columns">
+                  <section><h3>ЧТО ДЕЛАТЬ ДАЛЬШЕ</h3><ol>{hint.nextActions.map((item, index) => <li key={index}>{item}</li>)}</ol></section>
+                  <section><h3>ВАРИАНТЫ ФОРМУЛИРОВОК</h3><ul>{hint.suggestedPhrases.map((item, index) => <li key={index}>«{item}»</li>)}</ul></section>
+                </div>
+                <aside><strong>ИЗБЕГАЙТЕ</strong><p>{hint.watchOut}</p></aside>
+              </div>
+            )}
+          </section>
+        )}
 
         {analysisStatus !== "idle" && (
           <section className="analysis-card" aria-live="polite" ref={analysisRef}>

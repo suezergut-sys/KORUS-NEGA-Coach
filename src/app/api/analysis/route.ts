@@ -16,6 +16,7 @@ type AnalysisRequest = {
   opponentVoice?: string;
   startedAt?: string;
   durationSeconds?: number;
+  usedHint?: boolean;
   turns?: TranscriptTurn[];
 };
 
@@ -216,6 +217,7 @@ ${sources}
         started_at: startedAt,
         ended_at: new Date().toISOString(),
         duration_seconds: durationSeconds,
+        is_ranked: body.usedHint !== true,
         methodology_version: methodologyVersion,
         status: "analyzed",
       })
