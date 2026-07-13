@@ -10,8 +10,9 @@ import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
+import { realtimeResponseStatus, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
 
-type Status = "idle" | "connecting" | "connected" | "error";
+type Status = "idle" | "connecting" | "connected" | "degraded" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
 type Line = { id: string; author: Speaker; text: string; time: string };
 type VoiceMode = "female" | "male";
@@ -121,6 +122,7 @@ export default function VoiceArena() {
   const [settingsCollapsed, setSettingsCollapsed] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [opponentSpeaking, setOpponentSpeaking] = useState(false);
+  const [realtimeNotice, setRealtimeNotice] = useState("");
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
   const [analysis, setAnalysis] = useState<NegotiationAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState("");
@@ -181,6 +183,18 @@ export default function VoiceArena() {
   const elapsedActiveMsRef = useRef(0);
   const activeRunStartedAtRef = useRef<number | null>(null);
   const pauseEndsAtRef = useRef<number | null>(null);
+  const diagnosticSessionIdRef = useRef("");
+  const userSpeakingRef = useRef(false);
+  const opponentSpeakingRef = useRef(false);
+  const activeResponseIdRef = useRef("");
+  const responseStartedAtRef = useRef(0);
+  const lastOpponentDeltaAtRef = useRef(0);
+  const userTranscriptVersionRef = useRef(0);
+  const interruptedResponseRef = useRef<{ responseId: string; transcriptVersion: number } | null>(null);
+  const recoveryTimerRef = useRef<number | null>(null);
+  const recoveryPendingRef = useRef(false);
+  const recoveryAttemptsRef = useRef(0);
+  const disconnectedTimerRef = useRef<number | null>(null);
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
   const allRoles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
@@ -192,7 +206,7 @@ export default function VoiceArena() {
     name: aiRole.name,
     title: aiRole.position,
   };
-  const isLive = status === "connected";
+  const isLive = status === "connected" || status === "degraded";
   const isBusy = status === "connecting";
   const isPaused = pauseRemaining > 0;
   const isDuelMode = isBusy || isLive || isEnding;
@@ -201,6 +215,16 @@ export default function VoiceArena() {
   const remainingSeconds = Math.max(0, totalDurationSeconds - seconds);
   const comicPanels = remoteComic || getCaseComic(selectedCase);
   const activeComicPanel = comicPanels[comicPanelIndex];
+
+  const reportRealtimeDiagnostic = useCallback((event: string, details: Record<string, string | number | boolean | null> = {}) => {
+    if (!diagnosticSessionIdRef.current) return;
+    void fetch("/api/realtime/diagnostics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: diagnosticSessionIdRef.current, caseId: selectedCase.id, event, details }),
+      keepalive: true,
+    }).catch(() => undefined);
+  }, [selectedCase.id]);
 
   const applyMediaPaused = useCallback((paused: boolean) => {
     pausedRef.current = paused;
@@ -535,6 +559,8 @@ export default function VoiceArena() {
   }
 
   const closeSession = useCallback(() => {
+    if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
+    if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
     channelRef.current?.close();
     peerRef.current?.close();
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -544,12 +570,22 @@ export default function VoiceArena() {
     peerRef.current = null;
     streamRef.current = null;
     pausedRef.current = false;
+    userSpeakingRef.current = false;
+    opponentSpeakingRef.current = false;
+    activeResponseIdRef.current = "";
+    responseStartedAtRef.current = 0;
+    lastOpponentDeltaAtRef.current = 0;
+    interruptedResponseRef.current = null;
+    recoveryTimerRef.current = null;
+    recoveryPendingRef.current = false;
+    disconnectedTimerRef.current = null;
     setPauseRemaining(0);
     setPauseUsed(false);
     setIsEnding(false);
     setSettingsCollapsed(false);
     setUserSpeaking(false);
     setOpponentSpeaking(false);
+    setRealtimeNotice("");
     setStatus("idle");
   }, []);
 
@@ -589,6 +625,49 @@ export default function VoiceArena() {
     });
   }, []);
 
+  const scheduleResponseRecovery = useCallback((reason: string, responseId: string, transcriptVersion: number, delayMs = 3500) => {
+    if (recoveryPendingRef.current || endingRef.current || pausedRef.current) return;
+    recoveryPendingRef.current = true;
+    reportRealtimeDiagnostic("recovery_scheduled", { reason, responseId, delayMs });
+    if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
+    recoveryTimerRef.current = window.setTimeout(() => {
+      recoveryTimerRef.current = null;
+      const channel = channelRef.current;
+      const aNewResponseStarted = Boolean(activeResponseIdRef.current && activeResponseIdRef.current !== responseId);
+      const userActuallySpoke = userTranscriptVersionRef.current !== transcriptVersion;
+      const shouldRecover = shouldRecoverRealtimeResponse({
+        transcriptVersionAtInterruption: transcriptVersion,
+        currentTranscriptVersion: userTranscriptVersionRef.current,
+        userSpeaking: userSpeakingRef.current,
+        newResponseStarted: aNewResponseStarted,
+      });
+      if (endingRef.current || pausedRef.current || !shouldRecover || channel?.readyState !== "open") {
+        recoveryPendingRef.current = false;
+        reportRealtimeDiagnostic("recovery_skipped", { reason, userActuallySpoke, aNewResponseStarted, channelState: channel?.readyState || "missing" });
+        return;
+      }
+      if (recoveryAttemptsRef.current >= 2) {
+        recoveryPendingRef.current = false;
+        setRealtimeNotice("Ответ оппонента прервался повторно. Проверьте соединение или завершите поединок для анализа.");
+        reportRealtimeDiagnostic("recovery_skipped", { reason: "attempt_limit", attempts: recoveryAttemptsRef.current });
+        return;
+      }
+      recoveryAttemptsRef.current += 1;
+      activeResponseIdRef.current = "";
+      opponentSpeakingRef.current = false;
+      setOpponentSpeaking(false);
+      setRealtimeNotice("Обнаружен обрыв ответа — оппонент продолжает с места остановки…");
+      channel.send(JSON.stringify({
+        type: "response.create",
+        response: {
+          output_modalities: ["audio"],
+          instructions: "Продолжи последнюю оборванную реплику с места остановки. Не повторяй уже сказанное и сохрани текущую роль и позицию в переговорах.",
+        },
+      }));
+      reportRealtimeDiagnostic("recovery_triggered", { reason, attempt: recoveryAttemptsRef.current });
+    }, delayMs);
+  }, [reportRealtimeDiagnostic]);
+
   const handleEvent = useCallback((raw: MessageEvent<string>) => {
     try {
       const event = JSON.parse(raw.data) as Record<string, unknown>;
@@ -596,21 +675,44 @@ export default function VoiceArena() {
       const itemId = String(event.item_id || event.response_id || crypto.randomUUID());
       if (pausedRef.current) return;
 
-      if (type === "input_audio_buffer.speech_started") setUserSpeaking(true);
+      if (type === "response.created") {
+        const response = (event.response && typeof event.response === "object" ? event.response : {}) as Record<string, unknown>;
+        activeResponseIdRef.current = String(response.id || event.response_id || "");
+        responseStartedAtRef.current = Date.now();
+        lastOpponentDeltaAtRef.current = Date.now();
+        recoveryPendingRef.current = false;
+        interruptedResponseRef.current = null;
+      }
+      if (type === "input_audio_buffer.speech_started") {
+        userSpeakingRef.current = true;
+        setUserSpeaking(true);
+        if (opponentSpeakingRef.current) {
+          interruptedResponseRef.current = { responseId: activeResponseIdRef.current, transcriptVersion: userTranscriptVersionRef.current };
+          reportRealtimeDiagnostic("speech_started", { duringOpponent: true, responseId: activeResponseIdRef.current });
+        }
+      }
       if (type === "input_audio_buffer.speech_stopped") {
+        userSpeakingRef.current = false;
         setUserSpeaking(false);
+        if (interruptedResponseRef.current) reportRealtimeDiagnostic("speech_stopped", { afterInterruption: true });
       }
       if (type === "response.output_audio.delta" || type === "response.output_audio_transcript.delta") {
+        opponentSpeakingRef.current = true;
+        lastOpponentDeltaAtRef.current = Date.now();
+        setRealtimeNotice("");
         setOpponentSpeaking(true);
       }
       if (type === "response.output_audio.done" || type === "response.output_audio_transcript.done") {
+        opponentSpeakingRef.current = false;
         setOpponentSpeaking(false);
       }
       if (type === "conversation.item.input_audio_transcription.delta") {
         appendDelta("Вы", String(event.delta || ""), itemId);
       }
       if (type === "conversation.item.input_audio_transcription.completed") {
-        replaceLine("Вы", String(event.transcript || ""), itemId);
+        const transcript = String(event.transcript || "").trim();
+        if (transcript) userTranscriptVersionRef.current += 1;
+        replaceLine("Вы", transcript, itemId);
       }
       if (type === "response.output_audio_transcript.delta") {
         appendDelta("Оппонент", String(event.delta || ""), itemId);
@@ -622,14 +724,49 @@ export default function VoiceArena() {
           updateTurnDetection(channelRef.current, opponentTurnCountRef.current % 5 === 0 ? "high" : "low");
         }
       }
+      if (type === "response.done") {
+        const outcome = realtimeResponseStatus(event);
+        const responseId = outcome.responseId || activeResponseIdRef.current;
+        const responseDurationMs = responseStartedAtRef.current ? Date.now() - responseStartedAtRef.current : 0;
+        opponentSpeakingRef.current = false;
+        setOpponentSpeaking(false);
+        reportRealtimeDiagnostic("response_done", { ...outcome, responseDurationMs });
+        if (outcome.status === "completed") {
+          interruptedResponseRef.current = null;
+          recoveryAttemptsRef.current = 0;
+        } else if (outcome.status === "cancelled") {
+          const interrupted = interruptedResponseRef.current;
+          if (interrupted) scheduleResponseRecovery("cancelled_after_speech", responseId || interrupted.responseId, interrupted.transcriptVersion);
+        } else if (outcome.status === "incomplete") {
+          scheduleResponseRecovery(`incomplete_${outcome.reason || "unknown"}`, responseId, userTranscriptVersionRef.current, 1600);
+        } else if (outcome.status === "failed") {
+          setRealtimeNotice("OpenAI не завершил ответ оппонента. Попробуйте продолжить своей репликой или завершите поединок.");
+        }
+      }
       if (type === "error") {
         const nested = event.error as { message?: string } | undefined;
-        setError(nested?.message || "Ошибка голосовой Realtime-сессии.");
+        const message = nested?.message || "Ошибка голосовой Realtime-сессии.";
+        setRealtimeNotice(message);
+        reportRealtimeDiagnostic("realtime_error", { message });
       }
     } catch {
       // Диагностические сообщения вне JSON не влияют на голосовую сессию.
     }
-  }, [appendDelta, negotiationStyle, replaceLine]);
+  }, [appendDelta, negotiationStyle, replaceLine, reportRealtimeDiagnostic, scheduleResponseRecovery]);
+
+  useEffect(() => {
+    if (!isLive || isPaused || isEnding) return;
+    const timer = window.setInterval(() => {
+      if (!opponentSpeakingRef.current || userSpeakingRef.current || recoveryPendingRef.current) return;
+      const silentForMs = Date.now() - lastOpponentDeltaAtRef.current;
+      if (silentForMs < 7000) return;
+      const responseId = activeResponseIdRef.current;
+      reportRealtimeDiagnostic("response_stalled", { responseId, silentForMs, peerState: peerRef.current?.connectionState || "missing" });
+      if (channelRef.current?.readyState === "open") channelRef.current.send(JSON.stringify({ type: "response.cancel" }));
+      scheduleResponseRecovery("output_stalled", responseId, userTranscriptVersionRef.current, 350);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isEnding, isLive, isPaused, reportRealtimeDiagnostic, scheduleResponseRecovery]);
 
   function togglePause() {
     if (!isLive) return;
@@ -690,6 +827,7 @@ export default function VoiceArena() {
     setSettingsCollapsed(true);
     setStatus("connecting");
     setError("");
+    setRealtimeNotice("");
     setSeconds(0);
     setPauseRemaining(0);
     setPauseUsed(false);
@@ -700,6 +838,16 @@ export default function VoiceArena() {
     pauseEndsAtRef.current = null;
     endingRef.current = false;
     opponentTurnCountRef.current = 0;
+    diagnosticSessionIdRef.current = crypto.randomUUID();
+    userSpeakingRef.current = false;
+    opponentSpeakingRef.current = false;
+    activeResponseIdRef.current = "";
+    responseStartedAtRef.current = 0;
+    lastOpponentDeltaAtRef.current = 0;
+    userTranscriptVersionRef.current = 0;
+    interruptedResponseRef.current = null;
+    recoveryPendingRef.current = false;
+    recoveryAttemptsRef.current = 0;
     setAnalysisStatus("idle");
     setAnalysis(null);
     setAnalysisError("");
@@ -719,6 +867,27 @@ export default function VoiceArena() {
 
       const pc = new RTCPeerConnection();
       peerRef.current = pc;
+      pc.addEventListener("connectionstatechange", () => {
+        if (peerRef.current !== pc || endingRef.current) return;
+        reportRealtimeDiagnostic("peer_state", { state: pc.connectionState, iceState: pc.iceConnectionState });
+        if (pc.connectionState === "connected") {
+          if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
+          disconnectedTimerRef.current = null;
+          if (channelRef.current?.readyState === "open") setStatus("connected");
+          setRealtimeNotice("");
+        } else if (pc.connectionState === "disconnected") {
+          if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
+          disconnectedTimerRef.current = window.setTimeout(() => {
+            if (peerRef.current === pc && pc.connectionState === "disconnected" && !endingRef.current) {
+              setStatus("degraded");
+              setRealtimeNotice("Голосовая связь нестабильна. Ожидаем восстановления; при необходимости завершите поединок для анализа.");
+            }
+          }, 4000);
+        } else if (pc.connectionState === "failed") {
+          setStatus("degraded");
+          setRealtimeNotice("Голосовая связь прервалась. Завершите поединок — сохранённые реплики попадут в анализ.");
+        }
+      });
 
       const audio = new Audio();
       audio.autoplay = true;
@@ -726,6 +895,21 @@ export default function VoiceArena() {
       pc.ontrack = (event) => {
         audio.srcObject = event.streams[0];
         void audio.play().catch(() => undefined);
+        const track = event.track;
+        track.addEventListener("mute", () => {
+          reportRealtimeDiagnostic("audio_track_muted", { readyState: track.readyState });
+          if (opponentSpeakingRef.current) setRealtimeNotice("Аудиопоток оппонента временно пропал — пробуем восстановить ответ…");
+        });
+        track.addEventListener("unmute", () => {
+          reportRealtimeDiagnostic("audio_track_unmuted", { readyState: track.readyState });
+          setRealtimeNotice("");
+        });
+        track.addEventListener("ended", () => {
+          if (endingRef.current) return;
+          reportRealtimeDiagnostic("audio_track_ended", { peerState: pc.connectionState });
+          setStatus("degraded");
+          setRealtimeNotice("Аудиоканал оппонента закрылся. Завершите поединок — сохранённые реплики попадут в анализ.");
+        });
       };
 
       const media = await navigator.mediaDevices.getUserMedia({
@@ -741,13 +925,24 @@ export default function VoiceArena() {
         elapsedActiveMsRef.current = 0;
         activeRunStartedAtRef.current = Date.now();
         setStatus("connected");
+        reportRealtimeDiagnostic("session_started", { peerState: pc.connectionState, channelState: channel.readyState });
         const readyLines: Line[] = [{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }];
         linesRef.current = readyLines;
         setLines(readyLines);
         channel.send(JSON.stringify({ type: "response.create" }));
       });
       channel.addEventListener("close", () => {
-        if (channelRef.current === channel && !endingRef.current) setStatus("idle");
+        if (channelRef.current === channel && !endingRef.current) {
+          reportRealtimeDiagnostic("channel_closed", { peerState: pc.connectionState });
+          setStatus("degraded");
+          setRealtimeNotice("Канал событий закрылся. Завершите поединок — сохранённые реплики попадут в анализ.");
+        }
+      });
+      channel.addEventListener("error", () => {
+        if (endingRef.current) return;
+        reportRealtimeDiagnostic("channel_error", { peerState: pc.connectionState, channelState: channel.readyState });
+        setStatus("degraded");
+        setRealtimeNotice("Ошибка голосового канала. Если связь не восстановится, завершите поединок для анализа.");
       });
 
       const offer = await pc.createOffer();
@@ -904,7 +1099,7 @@ export default function VoiceArena() {
           </div>
           <div className="live-status">
             <span className={isLive && !isPaused ? "status-dot live" : "status-dot"} />
-            <span>{isBusy ? "ПОДКЛЮЧЕНИЕ" : isEnding ? "ЗАВЕРШЕНИЕ" : isPaused ? "ПАУЗА" : isLive ? "В ЭФИРЕ" : "ГОТОВ"}</span>
+            <span>{isBusy ? "ПОДКЛЮЧЕНИЕ" : isEnding ? "ЗАВЕРШЕНИЕ" : status === "degraded" ? "СБОЙ СВЯЗИ" : isPaused ? "ПАУЗА" : isLive ? "В ЭФИРЕ" : "ГОТОВ"}</span>
             <strong>{formatTime(remainingSeconds)}</strong>
           </div>
         </header>
@@ -939,6 +1134,7 @@ export default function VoiceArena() {
             <div className={`mic-orb ${userSpeaking ? "speaking" : ""}`}>◉</div>
           </div>
           <p className="speech-note">{isPaused ? "ⓘ Микрофон и оппонент на паузе. Нажмите кнопку с таймером, чтобы продолжить." : "ⓘ Говорите естественно. Система распознает речь и отобразит её в диалоге."}</p>
+          {realtimeNotice && <p className="realtime-notice" role="status">ⓘ {realtimeNotice}</p>}
         </div>
 
         {error && <div className="error-banner" role="alert"><strong>Не удалось начать переговоры.</strong><span>{error}</span></div>}
