@@ -5,6 +5,17 @@ export type TranscriptTurn = {
   time: string;
 };
 
+export const MIN_USER_TURNS_FOR_ANALYSIS = 3;
+export const INSUFFICIENT_ANALYSIS_MESSAGE = "Недостаточно данных для анализа. Произнесите минимум три отдельные реплики со своей стороны.";
+
+export function countUserTurns(turns: Array<{ author: unknown; text?: unknown }>) {
+  return turns.filter((turn) => turn.author === "Вы" && typeof turn.text === "string" && turn.text.trim().length > 0).length;
+}
+
+export function hasEnoughUserTurnsForAnalysis(turns: Array<{ author: unknown; text?: unknown }>) {
+  return countUserTurns(turns) >= MIN_USER_TURNS_FOR_ANALYSIS;
+}
+
 function clean(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }

@@ -8,6 +8,7 @@ import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import type { CanonicalCase } from "@/lib/case-types";
 import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
 import { shouldEnableMicrophone, type NegotiationInputMode } from "@/lib/negotiation-input-mode";
+import { hasEnoughUserTurnsForAnalysis, INSUFFICIENT_ANALYSIS_MESSAGE } from "@/lib/transcript";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
@@ -1032,6 +1033,18 @@ export default function VoiceArena() {
       await announceTimeExpired();
     }
     closeSession();
+    if (!hasEnoughUserTurnsForAnalysis(completedLines)) {
+      const insufficientLines: Line[] = [
+        ...completedLines,
+        { id: crypto.randomUUID(), author: "Система", text: `${INSUFFICIENT_ANALYSIS_MESSAGE} Результат поединка не сохранён.`, time: clockTime() },
+      ];
+      linesRef.current = insufficientLines;
+      setLines(insufficientLines);
+      setAnalysisStatus("error");
+      setAnalysisError(INSUFFICIENT_ANALYSIS_MESSAGE);
+      setIsEnding(false);
+      return;
+    }
     setIsEnding(true);
     setAnalysisStatus("loading");
     setAnalysisError("");

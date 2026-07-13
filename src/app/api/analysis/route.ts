@@ -3,7 +3,7 @@ import { createNegotiationAnalysisSchema, type NegotiationAnalysis } from "@/lib
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
 import { getCurrentUserSession } from "@/lib/user-auth";
-import { formatAnalysisTranscript, normalizeAnalysisTurns, type TranscriptTurn } from "@/lib/transcript";
+import { formatAnalysisTranscript, hasEnoughUserTurnsForAnalysis, INSUFFICIENT_ANALYSIS_MESSAGE, normalizeAnalysisTurns, type TranscriptTurn } from "@/lib/transcript";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -52,9 +52,9 @@ export async function POST(request: Request) {
     const body = (await request.json()) as AnalysisRequest;
     const turns = normalizeAnalysisTurns(body.turns);
 
-    if (turns.length < 2 || !turns.some((turn) => turn.author === "Вы")) {
+    if (!hasEnoughUserTurnsForAnalysis(turns)) {
       return Response.json(
-        { error: "Для анализа нужны минимум две содержательные реплики, включая реплику пользователя." },
+        { error: INSUFFICIENT_ANALYSIS_MESSAGE },
         { status: 400 },
       );
     }
