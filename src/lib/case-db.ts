@@ -33,9 +33,17 @@ export async function createOrUpdateWorkspace(input: { workspaceId?: string; tit
 }
 
 export async function addWorkspaceFiles(workspaceId: string, files: File[]) {
-  validateFiles(files);
   if (!files.length) return [];
   const supabase = getSupabaseAdmin();
+  const { data: existing, error: existingError } = await supabase
+    .from("case_materials")
+    .select("size_bytes")
+    .eq("workspace_id", workspaceId);
+  if (existingError) throw new Error(`Материалы кейса: ${existingError.message}`);
+  validateFiles(files, {
+    count: existing?.length || 0,
+    totalBytes: (existing || []).reduce((sum, item) => sum + Number(item.size_bytes || 0), 0),
+  });
   const rows = [];
   const uploadedPaths: string[] = [];
   try {

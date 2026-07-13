@@ -3,6 +3,8 @@ import { generateCaseVariants } from "@/lib/case-generator";
 import { after } from "next/server";
 import { generateCaseMedia } from "@/lib/case-media";
 import { toPublicCase } from "@/lib/case-types";
+import { readBoundedFormData } from "@/lib/bounded-form-data";
+import { QUICK_UPLOAD_REQUEST_BYTES, uploadErrorStatus } from "@/lib/case-upload-constraints";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -11,7 +13,7 @@ export async function POST(request: Request) {
   let workspaceId: string | null = null;
   let published = false;
   try {
-    const form = await request.formData();
+    const form = await readBoundedFormData(request, QUICK_UPLOAD_REQUEST_BYTES);
     const file = form.get("file");
     if (!(file instanceof File)) return Response.json({ error: "Выберите текстовый файл с описанием кейса." }, { status: 400 });
     const title = String(form.get("title") || file.name.replace(/\.[^.]+$/, "")).trim().slice(0, 160);
@@ -34,6 +36,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (workspaceId && !published) await discardWorkspace(workspaceId);
-    return Response.json({ error: error instanceof Error ? error.message : "Не удалось загрузить и подготовить кейс." }, { status: 500 });
+    return Response.json({ error: error instanceof Error ? error.message : "Не удалось загрузить и подготовить кейс." }, { status: uploadErrorStatus(error) });
   }
 }

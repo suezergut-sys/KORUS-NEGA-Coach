@@ -1,5 +1,7 @@
 import { addWorkspaceFiles, createOrUpdateWorkspace, discardWorkspace, getWorkspaceMaterials, getWorkspaceView, saveGeneratedVariants } from "@/lib/case-db";
 import { generateCaseVariants } from "@/lib/case-generator";
+import { readBoundedFormData } from "@/lib/bounded-form-data";
+import { BUILDER_UPLOAD_REQUEST_BYTES, uploadErrorStatus } from "@/lib/case-upload-constraints";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -7,7 +9,7 @@ export const maxDuration = 120;
 export async function POST(request: Request) {
   let createdWorkspaceId: string | null = null;
   try {
-    const form = await request.formData();
+    const form = await readBoundedFormData(request, BUILDER_UPLOAD_REQUEST_BYTES);
     const workspaceId = String(form.get("workspaceId") || "").trim() || undefined;
     const title = String(form.get("title") || "Новый кейс").trim().slice(0, 160);
     const notes = String(form.get("notes") || "").trim().slice(0, 20000);
@@ -28,6 +30,6 @@ export async function POST(request: Request) {
     return Response.json({ workspace: await getWorkspaceView(workspace.id) });
   } catch (error) {
     if (createdWorkspaceId) await discardWorkspace(createdWorkspaceId);
-    return Response.json({ error: error instanceof Error ? error.message : "Не удалось проанализировать материалы." }, { status: 500 });
+    return Response.json({ error: error instanceof Error ? error.message : "Не удалось проанализировать материалы." }, { status: uploadErrorStatus(error) });
   }
 }

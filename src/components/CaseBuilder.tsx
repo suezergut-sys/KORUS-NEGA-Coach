@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import type { CanonicalCase, CaseWorkspaceView } from "@/lib/case-types";
+import { validateUploadSelection } from "@/lib/case-upload-constraints";
 
 type BuilderStatus = "idle" | "analyzing" | "approving" | "error";
 
@@ -20,9 +21,11 @@ export default function CaseBuilder() {
   const [error, setError] = useState("");
   const [approvedCase, setApprovedCase] = useState<CanonicalCase | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const actionPendingRef = useRef(false);
 
   async function analyze() {
-    if (status === "analyzing") return;
+    if (actionPendingRef.current) return;
+    actionPendingRef.current = true;
     setStatus("analyzing");
     setError("");
     setApprovedCase(null);
@@ -42,11 +45,14 @@ export default function CaseBuilder() {
     } catch (caught) {
       setStatus("error");
       setError(caught instanceof Error ? caught.message : "Не удалось проанализировать материалы.");
+    } finally {
+      actionPendingRef.current = false;
     }
   }
 
   async function approve(variantId: string) {
-    if (status === "approving") return;
+    if (actionPendingRef.current) return;
+    actionPendingRef.current = true;
     setStatus("approving");
     setError("");
     try {
@@ -62,6 +68,24 @@ export default function CaseBuilder() {
     } catch (caught) {
       setStatus("error");
       setError(caught instanceof Error ? caught.message : "Не удалось утвердить кейс.");
+    } finally {
+      actionPendingRef.current = false;
+    }
+  }
+
+  function chooseFiles(nextFiles: File[]) {
+    try {
+      validateUploadSelection(nextFiles, {
+        count: workspace?.materials.length || 0,
+        totalBytes: (workspace?.materials || []).reduce((sum, item) => sum + item.sizeBytes, 0),
+      });
+      setFiles(nextFiles);
+      setError("");
+    } catch (caught) {
+      setFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setStatus("error");
+      setError(caught instanceof Error ? caught.message : "Файлы не подходят для загрузки.");
     }
   }
 
@@ -74,10 +98,10 @@ export default function CaseBuilder() {
 
       <section className="builder-input-card">
         <div className="builder-field-grid">
-          <label><span>НАЗВАНИЕ РАБОЧЕГО ПРОЕКТА</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Например: Пересмотр условий контракта" maxLength={160} /></label>
-          <label className="builder-files"><span>МАТЕРИАЛЫ</span><input ref={fileInputRef} type="file" multiple accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" onChange={(event) => setFiles(Array.from(event.target.files || []))} /><small>До 6 файлов, общий размер до 4 МБ: TXT, MD, CSV, JSON, XML, HTML, RTF, PDF, DOCX</small></label>
+          <label><span>НАЗВАНИЕ РАБОЧЕГО ПРОЕКТА</span><input value={title} disabled={status === "analyzing" || status === "approving"} onChange={(event) => setTitle(event.target.value)} placeholder="Например: Пересмотр условий контракта" maxLength={160} /></label>
+          <label className="builder-files"><span>МАТЕРИАЛЫ</span><input ref={fileInputRef} type="file" multiple accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" disabled={status === "analyzing" || status === "approving"} onChange={(event) => chooseFiles(Array.from(event.target.files || []))} /><small>До 6 файлов, общий размер черновика до 4 МБ: TXT, MD, CSV, JSON, XML, HTML, RTF, PDF, DOCX</small></label>
         </div>
-        <label className="builder-notes"><span>ОПИСАНИЕ И ДРУГИЕ ДЕТАЛИ</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Опишите участников, историю отношений, ограничения, спорные вопросы, риски и желаемые роли. После первого анализа сюда можно добавить новый контекст и повторить генерацию." maxLength={20000} /></label>
+        <label className="builder-notes"><span>ОПИСАНИЕ И ДРУГИЕ ДЕТАЛИ</span><textarea value={notes} disabled={status === "analyzing" || status === "approving"} onChange={(event) => setNotes(event.target.value)} placeholder="Опишите участников, историю отношений, ограничения, спорные вопросы, риски и желаемые роли. После первого анализа сюда можно добавить новый контекст и повторить генерацию." maxLength={20000} /></label>
 
         {(files.length > 0 || workspace?.materials.length) && (
           <div className="material-list">
