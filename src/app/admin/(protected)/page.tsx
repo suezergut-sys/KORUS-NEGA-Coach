@@ -3,11 +3,12 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export default async function AdminDashboardPage() {
   const supabase = getSupabaseAdmin();
-  const [atoms, chunks, sessions, source] = await Promise.all([
+  const [atoms, chunks, sessions, source, cases] = await Promise.all([
     supabase.from("method_atoms").select("verification_status", { count: "exact" }),
     supabase.from("document_chunks").select("id", { count: "exact", head: true }),
     supabase.from("training_sessions").select("id", { count: "exact", head: true }),
     supabase.from("method_sources").select("methodology_version,verification_status").eq("code", "SRC-001").single(),
+    supabase.from("negotiation_cases").select("id", { count: "exact", head: true }),
   ]);
   const statuses = atoms.data || [];
   const verified = statuses.filter((item) => item.verification_status === "verified").length;
@@ -27,6 +28,10 @@ export default async function AdminDashboardPage() {
         <article><span>Тренировки</span><strong>{sessions.count || 0}</strong><small>сохранено</small></article>
       </section>
       <section className="admin-dashboard-grid">
+        <article className="admin-panel-card">
+          <span className="admin-card-icon">▤</span><div><h2>База кейсов</h2><p>Загруженные и сгенерированные кейсы, готовность комиксов по ролям, статистика отыгрышей и полное редактирование.</p><small>{cases.count || 0} кейсов в реестре</small></div>
+          <Link href="/admin/cases">Открыть базу кейсов</Link>
+        </article>
         <article className="admin-panel-card">
           <span className="admin-card-icon">▤</span><div><h2>Верификация методологии</h2><p>Просмотрите цитату в контексте книги, исправьте интерпретацию и примите решение по каждому атому.</p><div className="admin-progress"><i style={{ width: `${statuses.length ? ((verified + rejected) / statuses.length) * 100 : 0}%` }} /></div><small>{verified + rejected} из {statuses.length} обработано</small></div>
           <Link href="/admin/methodology">Открыть проверку</Link>

@@ -129,7 +129,7 @@ export async function saveGeneratedVariants(workspaceId: string, variants: Gener
   return data || [];
 }
 
-export async function approveVariant(variantId: string, origin: CanonicalCase["origin"] = "builder") {
+export async function approveVariant(variantId: string, origin: CanonicalCase["origin"] = "builder", createdBy?: string) {
   const supabase = getSupabaseAdmin();
   const { data: variant, error: variantError } = await supabase
     .from("case_variants")
@@ -140,6 +140,9 @@ export async function approveVariant(variantId: string, origin: CanonicalCase["o
   assertCanonicalRoleNames(variant.user_role, variant.opponent_role, ...(variant.additional_roles || []));
   const { data: approvedId, error: approvalError } = await supabase.rpc("approve_case_variant", { p_variant_id: variantId, p_origin: origin });
   if (approvalError || !approvedId) throw new Error(`Публикация кейса: ${approvalError?.message || "не получен идентификатор"}`);
+  const author = (createdBy || (origin === "quick_upload" ? "Пользователь (быстрая загрузка)" : "AI-конструктор")).trim().slice(0, 160);
+  const { error: authorError } = await supabase.from("negotiation_cases").update({ created_by: author }).eq("id", approvedId);
+  if (authorError) throw new Error(`Автор кейса: ${authorError.message}`);
   const { data: approved, error: lookupError } = await supabase.from("negotiation_cases").select("*").eq("id", approvedId).single();
   if (lookupError) throw new Error(`Опубликованный кейс: ${lookupError.message}`);
   return mapCaseRow(approved);
