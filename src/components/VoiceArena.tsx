@@ -14,6 +14,7 @@ import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import { realtimeResponseStatus, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
 import { readJsonResponse } from "@/lib/http-response";
+import { resetNegotiationClock } from "@/lib/negotiation-timer";
 
 type Status = "idle" | "connecting" | "connected" | "degraded" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
@@ -606,6 +607,11 @@ export default function VoiceArena() {
     recoveryTimerRef.current = null;
     recoveryPendingRef.current = false;
     disconnectedTimerRef.current = null;
+    resetNegotiationClock({
+      elapsedActiveMs: elapsedActiveMsRef,
+      activeRunStartedAt: activeRunStartedAtRef,
+      pauseEndsAt: pauseEndsAtRef,
+    }, setSeconds);
     setPauseRemaining(0);
     setPauseUsed(false);
     setIsEnding(false);
