@@ -50,7 +50,7 @@ export default function AdminCaseList({ initialCases }: { initialCases: AdminCas
             {cases.map((item) => (
               <tr key={item.id}>
                 <td><strong>{item.title}</strong><span className={`admin-case-state ${item.status}`}>{statusLabels[item.status] || item.status}</span></td>
-                <td><time dateTime={item.createdAt}>{new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.createdAt))}</time></td>
+                <td><time dateTime={item.createdAt}>{new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Moscow" }).format(new Date(item.createdAt))}</time></td>
                 <td><strong>{item.createdBy}</strong><small>{originLabels[item.origin] || item.origin}</small></td>
                 <td>
                   <span className={`admin-media-state ${item.mediaStatus}`}>{mediaLabels[item.mediaStatus] || item.mediaStatus}</span>
