@@ -138,7 +138,6 @@ button { color: inherit; }
 .settings-panel > h2 span { color: var(--cyan); margin-right: 7px; }
 .setting-group { display: block; margin: 0 0 20px; }
 .setting-label { display: block; margin-bottom: 9px; color: #7dc2ff; font-size: 11px; font-weight: 700; letter-spacing: .07em; }
-.setting-label i { width: 14px; height: 14px; display: inline-grid; place-items: center; margin-left: 4px; border: 1px solid #6c829e; border-radius: 50%; color: #9caec3; font-size: 8px; font-style: normal; }
 .voice-switch { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #1b3b60; border-radius: 9px; overflow: hidden; }
 .voice-switch button { min-height: 65px; display: grid; grid-template-columns: 28px 1fr; grid-template-rows: 1fr 1fr; align-items: center; border: 0; border-right: 1px solid #1b3b60; color: #879ab3; background: #09182c; cursor: pointer; }
 .voice-switch button:last-child { border-right: 0; }
@@ -677,12 +676,12 @@ button { color: inherit; }
 .case-select-control { display: grid; gap: 7px; }
 .case-select-shell { min-height: 42px; display: flex; align-items: center; gap: 9px; position: relative; padding: 0 12px; border: 1px solid #173d63; border-radius: 8px; background: #07172a; }
 .case-select-shell > b { color: #62adff; font-size: 17px; }
-.case-select-shell select { min-width: 0; flex: 1; appearance: none; border: 0; color: #d9e8f7; background: transparent; outline: none; color-scheme: dark; font-size: 10px; cursor: pointer; }
+.case-select-shell select { min-width: 0; align-self: stretch; flex: 1; padding-right: 24px; appearance: none; border: 0; color: #d9e8f7; background: transparent; outline: none; color-scheme: dark; font-size: 10px; cursor: pointer; }
 .case-select-shell select option { color: #e2eefb; background: #07172a; }
 .case-select-shell select option:checked { color: #fff; background: #0b5eb8; }
 .case-select-shell select option:disabled { color: #6f849d; background: #07172a; }
 .case-select-shell select:disabled { opacity: .65; cursor: not-allowed; }
-.case-select-shell > i { color: #7892ad; font-style: normal; }
+.case-select-shell > i { position: absolute; right: 12px; color: #7892ad; font-style: normal; pointer-events: none; }
 .case-select-error { margin: -7px 0 10px; color: #ff918a; font-size: 9px; line-height: 1.4; }
 
 .case-upload-modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; }

@@ -1053,7 +1053,7 @@ export default function VoiceArena() {
         {casesError && <p className="case-select-error">{casesError}</p>}
 
         <section className="setting-group">
-          <div className="setting-label">ГОЛОС ОППОНЕНТА <i>i</i></div>
+          <div className="setting-label">ГОЛОС ОППОНЕНТА</div>
           <div className="voice-switch" role="group" aria-label="Голос оппонента">
             <button
               className={voiceMode === "female" ? "selected" : ""}
@@ -1075,7 +1075,7 @@ export default function VoiceArena() {
         </section>
 
         <section className="setting-group">
-          <div className="setting-label">СТИЛЬ ПЕРЕГОВОРОВ <i>i</i></div>
+          <div className="setting-label">СТИЛЬ ПЕРЕГОВОРОВ</div>
           <div className="style-options" role="group" aria-label="Стиль переговоров">
             <button className={negotiationStyle === "collaborative" ? "selected" : ""} onClick={() => setNegotiationStyle("collaborative")} disabled={isLive || isBusy} aria-pressed={negotiationStyle === "collaborative"}>Сотрудничество</button>
             <button className={negotiationStyle === "hard" ? "selected" : ""} onClick={() => setNegotiationStyle("hard")} disabled={isLive || isBusy} aria-pressed={negotiationStyle === "hard"}>Жёсткие переговоры</button>
@@ -1083,7 +1083,7 @@ export default function VoiceArena() {
         </section>
 
         <section className="setting-group">
-          <div className="setting-label">ТАЙМЕР <i>i</i></div>
+          <div className="setting-label">ТАЙМЕР</div>
           <div className="timer-options" role="group" aria-label="Длительность переговоров">
             {DURATION_OPTIONS.map((minutes) => <button key={minutes} className={durationMinutes === minutes ? "selected" : ""} onClick={() => setDurationMinutes(minutes)} disabled={isLive || isBusy} aria-pressed={durationMinutes === minutes}>{minutes} мин</button>)}
           </div>
