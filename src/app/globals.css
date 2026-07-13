@@ -503,6 +503,9 @@ button { color: inherit; }
 .admin-sidebar nav a:hover, .admin-sidebar form button:hover { border-color: #174a77; color: #bce1ff; background: #09213d; }
 .admin-sidebar form { margin-top: auto; }
 .admin-main { min-width: 0; padding: 34px clamp(20px, 4vw, 58px) 60px; }
+.admin-section-nav { display: flex; gap: 7px; margin: -10px 0 27px; padding-bottom: 13px; border-bottom: 1px solid #133553; }
+.admin-section-nav a { padding: 9px 13px; border: 1px solid #1a466d; border-radius: 7px; color: #82a7c8; background: #07182b; font-size: 10px; text-decoration: none; }
+.admin-section-nav a:hover { border-color: #168fff; color: #d9efff; background: #0a2949; }
 .admin-page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 27px; }
 .admin-page-header h1 { margin: 8px 0 7px; font-size: clamp(24px, 3vw, 34px); }
 .admin-page-header p { margin: 0; color: #8097b2; font-size: 12px; }
@@ -520,6 +523,61 @@ button { color: inherit; }
 .admin-panel-card p { margin: 0; color: #91a7c0; font-size: 11px; line-height: 1.55; }
 .admin-panel-card small { color: #577591; font-size: 9px; }
 .admin-panel-card > a { position: absolute; right: 20px; bottom: 18px; color: #55b8ff; font-size: 10px; text-decoration: none; }
+
+.admin-case-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.admin-case-summary article { padding: 16px 18px; border: 1px solid #163a5e; border-radius: 10px; background: #07182c; }
+.admin-case-summary span { display: block; color: #7691ab; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+.admin-case-summary strong { display: block; margin-top: 5px; color: #65bfff; font-size: 25px; }
+.admin-case-table-wrap { overflow-x: auto; border: 1px solid #173e61; border-radius: 13px; background: #061527; }
+.admin-case-table { width: 100%; min-width: 1000px; border-collapse: collapse; }
+.admin-case-table th { padding: 13px 15px; border-bottom: 1px solid #1a4367; color: #6486a5; background: #081c32; font-size: 8px; text-align: left; text-transform: uppercase; letter-spacing: .08em; }
+.admin-case-table td { padding: 16px 15px; border-bottom: 1px solid #112e49; color: #9bb0c5; font-size: 10px; vertical-align: top; }
+.admin-case-table tbody tr:last-child td { border-bottom: 0; }
+.admin-case-table td > strong { display: block; max-width: 270px; color: #e2edf7; font-size: 12px; }
+.admin-case-table td > small { display: block; margin-top: 4px; color: #5e7992; }
+.admin-case-state, .admin-media-state { display: inline-flex; margin-top: 7px; padding: 4px 7px; border: 1px solid #265476; border-radius: 12px; color: #86a9c5; font-size: 8px; }
+.admin-case-state.published, .admin-media-state.ready { border-color: #15765f; color: #4ed4a9; background: rgba(17, 109, 83, .12); }
+.admin-case-state.archived, .admin-media-state.failed { border-color: #84453f; color: #f08d82; }
+.admin-media-state.processing { border-color: #2f6e9c; color: #65bfff; }
+.admin-role-statuses { display: flex; flex-wrap: wrap; gap: 5px; max-width: 300px; margin-top: 8px; }
+.admin-role-statuses span { padding: 3px 6px; border-radius: 5px; color: #728ca5; background: #0a2036; font-size: 8px; }
+.admin-role-statuses .ready { color: #55d6ae; }
+.admin-play-count { color: #6bc1ff !important; font-size: 20px !important; }
+.admin-case-actions { display: flex; gap: 7px; }
+.admin-case-actions a, .admin-case-actions button { padding: 8px 9px; border: 1px solid #26608e; border-radius: 6px; color: #9ed5ff; background: #0a2845; font-size: 8px; text-decoration: none; cursor: pointer; }
+.admin-case-actions button { border-color: #713d3b; color: #ed9088; background: #2b171b; }
+
+.admin-success-banner { margin-bottom: 14px; padding: 12px 15px; border: 1px solid #19765f; border-radius: 9px; color: #61d7b4; background: rgba(15, 93, 72, .18); font-size: 10px; }
+.admin-case-editor { display: grid; gap: 15px; }
+.admin-editor-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid #183e60; border-radius: 10px; background: #07182b; }
+.admin-editor-toolbar > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-editor-toolbar span { color: #5f7c97; font-size: 8px; }
+.admin-editor-toolbar button, .admin-editor-bottom button { min-height: 38px; padding: 0 14px; border: 1px solid #266fa8; border-radius: 7px; color: #d9efff; background: #0a4f91; font-size: 9px; font-weight: 800; cursor: pointer; }
+.admin-editor-toolbar button.danger { border-color: #7d403d; color: #ffaaa2; background: #34191c; }
+.admin-editor-toolbar button:disabled, .admin-editor-bottom button:disabled { opacity: .55; cursor: wait; }
+.admin-editor-section { padding: 20px; border: 1px solid #173f63; border-radius: 12px; background: linear-gradient(145deg, #081c33, #061426); }
+.admin-editor-section h2 { margin: 0 0 16px; font-size: 17px; }
+.admin-editor-section-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-editor-section-title button, .admin-role-editor header button, .admin-methodology-editor button { padding: 7px 9px; border: 1px solid #285f89; border-radius: 6px; color: #84caff; background: #092642; font-size: 8px; cursor: pointer; }
+.admin-editor-grid { display: grid; gap: 12px; }
+.admin-editor-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-editor-grid .wide { grid-column: 1 / -1; }
+.admin-editor-grid label { display: grid; gap: 6px; color: #75a1c6; font-size: 8px; text-transform: uppercase; letter-spacing: .05em; }
+.admin-editor-grid input, .admin-editor-grid select, .admin-editor-grid textarea, .admin-methodology-editor input, .admin-methodology-editor textarea { width: 100%; border: 1px solid #1d496f; border-radius: 7px; color: #dfebf5; background: #061426; outline: none; }
+.admin-editor-grid input, .admin-editor-grid select, .admin-methodology-editor input { min-height: 42px; padding: 0 11px; }
+.admin-editor-grid textarea, .admin-methodology-editor textarea { min-height: 95px; padding: 10px 11px; resize: vertical; line-height: 1.5; }
+.admin-editor-grid input:focus, .admin-editor-grid select:focus, .admin-editor-grid textarea:focus { border-color: #168fff; }
+.admin-role-editor-list { display: grid; gap: 12px; }
+.admin-role-editor { padding: 16px; border: 1px solid #173b5c; border-radius: 10px; background: #061526; }
+.admin-role-editor header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px; }
+.admin-role-editor header span { display: block; color: #4faef0; font-size: 8px; }
+.admin-role-editor header strong { display: block; margin-top: 3px; font-size: 13px; }
+.admin-role-editor header button, .admin-methodology-editor button { border-color: #6f3b39; color: #e88b83; background: #2d181b; }
+.admin-methodology-editor { display: grid; gap: 10px; }
+.admin-methodology-editor > div { display: grid; grid-template-columns: .6fr 1fr 2fr auto; gap: 8px; align-items: start; }
+.admin-methodology-editor p { color: #637f98; font-size: 10px; }
+.admin-editor-bottom { display: flex; justify-content: flex-end; }
+.admin-editor-bottom button { min-height: 46px; }
 .admin-progress, .review-progress { height: 5px; overflow: hidden; border-radius: 5px; background: #102b45; }
 .admin-progress { margin: 17px 0 7px; }
 .admin-progress i, .review-progress i { display: block; height: 100%; background: linear-gradient(90deg, #087df3, #26d5b0); }
@@ -583,6 +641,10 @@ button { color: inherit; }
   .admin-main { padding-inline: 18px; }
   .admin-metrics { grid-template-columns: 1fr 1fr; }
   .admin-dashboard-grid { grid-template-columns: 1fr; }
+  .admin-case-summary { grid-template-columns: 1fr 1fr; }
+  .admin-editor-grid.two { grid-template-columns: 1fr; }
+  .admin-editor-grid .wide { grid-column: auto; }
+  .admin-methodology-editor > div { grid-template-columns: 1fr; }
   .methodology-workspace { grid-template-columns: 260px 1fr; }
 }
 
@@ -598,6 +660,8 @@ button { color: inherit; }
   .admin-page-header { display: block; }
   .admin-primary-link { display: inline-block; margin-top: 16px; }
   .admin-metrics { grid-template-columns: 1fr 1fr; }
+  .admin-section-nav { overflow-x: auto; }
+  .admin-editor-toolbar { align-items: flex-start; flex-direction: column; }
   .review-summary { grid-template-columns: 1fr 1fr; }
   .review-progress { grid-column: 1 / -1; }
   .methodology-workspace { display: block; }
