@@ -6,13 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src tests && node --check scripts/ingest-methodology.mjs && node --check scripts/seed-harvard-core-atoms.mjs",
+    "lint": "eslint src tests && node --check scripts/ingest-methodology.mjs && node --check scripts/seed-harvard-core-atoms.mjs && node --check scripts/set-harvard-review-status.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "npm run lint && npm run typecheck && npm test",
     "methodology:ingest": "node scripts/ingest-methodology.mjs",
     "methodology:extract": "node scripts/ingest-methodology.mjs --extract-atoms",
-    "methodology:seed-harvard": "node scripts/seed-harvard-core-atoms.mjs"
+    "methodology:seed-harvard": "node scripts/seed-harvard-core-atoms.mjs",
+    "methodology:harvard:verify": "node scripts/set-harvard-review-status.mjs verify",
+    "methodology:harvard:review": "node scripts/set-harvard-review-status.mjs review"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
