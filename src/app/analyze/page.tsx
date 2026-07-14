@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { DuelFileAnalysis, DuelParticipantFeedback } from "@/lib/duel-file-analysis-types";
+import { DEFAULT_METHODOLOGY_ID, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
 
 type Status = "idle" | "loading" | "ready" | "error";
 
@@ -10,6 +11,7 @@ export default function AnalyzePage() {
   const [transcript, setTranscript] = useState<File | null>(null);
   const [participant1Name, setParticipant1Name] = useState("Участник 1");
   const [participant2Name, setParticipant2Name] = useState("Участник 2");
+  const [methodologyId, setMethodologyId] = useState<MethodologyId>(DEFAULT_METHODOLOGY_ID);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
   const [analysis, setAnalysis] = useState<DuelFileAnalysis | null>(null);
@@ -26,6 +28,7 @@ export default function AnalyzePage() {
     form.set("transcript", transcript);
     form.set("participant1Name", participant1Name);
     form.set("participant2Name", participant2Name);
+    form.set("methodologyId", methodologyId);
     try {
       const response = await fetch("/api/duel-analysis", { method: "POST", body: form });
       const payload = await response.json() as { analysis?: DuelFileAnalysis; error?: string };
@@ -56,6 +59,7 @@ export default function AnalyzePage() {
           <label><span>УЧАСТНИК 1</span><input value={participant1Name} onChange={(event) => setParticipant1Name(event.target.value)} maxLength={80} required /></label>
           <label><span>УЧАСТНИК 2</span><input value={participant2Name} onChange={(event) => setParticipant2Name(event.target.value)} maxLength={80} required /></label>
         </div>
+        <label className="analysis-methodology-field"><span>МЕТОДОЛОГИЯ ПЕРЕГОВОРОВ</span><select value={methodologyId} onChange={(event) => setMethodologyId(event.target.value as MethodologyId)}>{methodologyOptions().map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <p className="analysis-format-note">Форматы: TXT, MD, CSV, RTF, DOCX, PDF, JSON, XML, HTML и LOG. Общий размер — до 4 МБ.</p>
         <button className="analysis-submit" disabled={!caseFile || !transcript || status === "loading"}>
           {status === "loading" ? "АНАЛИЗИРУЕМ…" : "ПРОАНАЛИЗИРОВАТЬ"}

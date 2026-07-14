@@ -137,6 +137,7 @@ button { color: inherit; }
 .settings-panel > h2, .opponent-panel > h2 { margin: 22px 0 20px; font-size: 15px; letter-spacing: .08em; }
 .settings-panel > h2 span { color: var(--cyan); margin-right: 7px; }
 .setting-group { display: block; margin: 0 0 20px; }
+.methodology-setting select { width: 100%; height: 40px; margin-top: 9px; padding: 0 34px 0 11px; border: 1px solid #1a4266; border-radius: 7px; color: #d9e6f5; background: #071a30; color-scheme: dark; font-size: 11px; }
 .setting-label { display: block; margin-bottom: 9px; color: #7dc2ff; font-size: 11px; font-weight: 700; letter-spacing: .07em; }
 .style-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 .style-options button { min-height: 36px; padding: 7px 9px; border: 1px solid #1c3b5d; border-radius: 8px; color: #8497b0; background: #07162a; font-size: 9px; font-weight: 700; cursor: pointer; }
@@ -320,6 +321,8 @@ button { color: inherit; }
 .analysis-upload-hero h1 { margin: 10px 0 12px; font-size: clamp(26px, 4vw, 42px); line-height: 1.12; }
 .analysis-upload-hero p { margin: 0; color: #8fa5bd; font-size: 13px; line-height: 1.65; }
 .analysis-upload-form { padding: 24px; }
+.analysis-methodology-field { display: grid; gap: 8px; margin-top: 18px; color: #87b9e8; font-size: 10px; letter-spacing: .08em; }
+.analysis-methodology-field select { height: 44px; padding: 0 12px; border: 1px solid #1a4266; border-radius: 8px; color: #d9e6f5; background: #071a30; color-scheme: dark; font-size: 13px; }
 .analysis-upload-files { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .analysis-file-field { min-height: 116px; display: grid; grid-template-columns: 44px 1fr 38px; align-items: center; gap: 14px; padding: 20px; border: 1px dashed #28628f; border-radius: 12px; background: rgba(4, 20, 38, .8); cursor: pointer; transition: .2s ease; }
 .analysis-file-field:hover, .analysis-file-field.selected { border-style: solid; border-color: #1592ef; background: rgba(8, 41, 73, .72); box-shadow: inset 0 0 24px rgba(0, 126, 255, .08); }
@@ -666,6 +669,8 @@ button { color: inherit; }
 .admin-progress i, .review-progress i { display: block; height: 100%; background: linear-gradient(90deg, #087df3, #26d5b0); }
 
 .methodology-header { margin-bottom: 18px; }
+.methodology-admin-select { display: grid; gap: 6px; max-width: 390px; margin-top: 16px; color: #87b9e8; font-size: 9px; letter-spacing: .08em; }
+.methodology-admin-select select { height: 40px; padding: 0 11px; border: 1px solid #1a4266; border-radius: 7px; color: #d9e6f5; background: #071a30; color-scheme: dark; }
 .method-version { min-width: 205px; display: grid; justify-items: end; gap: 4px; }
 .method-version span { color: #e6b64b; font-size: 8px; letter-spacing: .1em; }
 .method-version strong { color: #9ecfff; font-size: 15px; }

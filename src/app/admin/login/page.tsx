@@ -13,7 +13,7 @@ export default async function AdminLoginPage({
         <div className="admin-login-mark">D</div>
         <span className="admin-eyebrow">ЗАКРЫТАЯ ЗОНА</span>
         <h1>Админ-панель</h1>
-        <p>Управление методической базой и проверкой правил Владимира Тарасова.</p>
+        <p>Управление методическими базами и проверкой правил переговоров.</p>
         <form action="/api/admin/login" method="post">
           <label htmlFor="admin-password">Пароль администратора</label>
           <input id="admin-password" name="password" type="password" autoComplete="current-password" required autoFocus />

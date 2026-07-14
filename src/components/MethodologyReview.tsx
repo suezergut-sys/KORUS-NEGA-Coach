@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import type { Methodology } from "@/lib/methodologies";
 
 type AtomStatus = "candidate" | "verified" | "rejected";
 type AtomKind = "principle" | "stratagem" | "case_rule" | "evaluation_criterion" | "example";
@@ -73,11 +74,15 @@ export default function MethodologyReview({
   sourceStatus,
   sourceVersion,
   initialSelectedId,
+  methodology,
+  methodologyOptions,
 }: {
   initialAtoms: ReviewAtom[];
   sourceStatus: AtomStatus;
   sourceVersion: string;
   initialSelectedId?: string;
+  methodology: Methodology;
+  methodologyOptions: { id: string; name: string }[];
 }) {
   const [atoms, setAtoms] = useState(initialAtoms);
   const initialSelection = initialAtoms.find((atom) => atom.id === initialSelectedId) || initialAtoms[0];
@@ -135,9 +140,9 @@ export default function MethodologyReview({
         signals,
         counterexamples,
         verificationStatus,
-        methodologyVersion: "tarasov-v0-candidate",
+        methodologyVersion: methodology.candidateVersion,
       } : atom));
-      setReleaseStatus({ status: "candidate", version: "tarasov-v0-candidate" });
+      setReleaseStatus({ status: "candidate", version: methodology.candidateVersion });
       setNotice(verificationStatus === "verified" ? "Атом подтверждён." : verificationStatus === "rejected" ? "Атом отклонён." : "Изменения сохранены, решение отложено.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Ошибка сохранения.");
@@ -147,16 +152,20 @@ export default function MethodologyReview({
   }
 
   async function releaseVersion() {
-    if (busy || !window.confirm("Зафиксировать проверенный набор как tarasov-v1? После новых правок версия снова станет предварительной.")) return;
+    if (busy || !window.confirm(`Зафиксировать проверенный набор как ${methodology.releaseVersion}? После новых правок версия снова станет предварительной.`)) return;
     setBusy(true);
     setNotice("");
     try {
-      const response = await fetch("/api/admin/methodology/release", { method: "POST" });
+      const response = await fetch("/api/admin/methodology/release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ methodologyId: methodology.id }),
+      });
       const payload = (await response.json()) as { error?: string; methodologyVersion?: string };
       if (!response.ok) throw new Error(payload.error || "Не удалось зафиксировать версию.");
-      setReleaseStatus({ status: "verified", version: payload.methodologyVersion || "tarasov-v1" });
-      setAtoms((current) => current.map((atom) => atom.verificationStatus === "verified" ? { ...atom, methodologyVersion: "tarasov-v1" } : atom));
-      setNotice("Версия tarasov-v1 зафиксирована и будет использоваться в оценке.");
+      setReleaseStatus({ status: "verified", version: payload.methodologyVersion || methodology.releaseVersion });
+      setAtoms((current) => current.map((atom) => atom.verificationStatus === "verified" ? { ...atom, methodologyVersion: methodology.releaseVersion } : atom));
+      setNotice(`Версия ${methodology.releaseVersion} зафиксирована и будет использоваться в оценке.`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Ошибка фиксации версии.");
     } finally {
@@ -164,12 +173,12 @@ export default function MethodologyReview({
     }
   }
 
-  if (!selected) return <div className="admin-empty">Методические атомы пока не импортированы.</div>;
+  if (!selected) return <div className="admin-empty">Методические атомы для «{methodology.shortName}» пока не импортированы.</div>;
 
   return (
     <>
       <header className="admin-page-header methodology-header">
-        <div><span className="admin-eyebrow">МЕТОДИЧЕСКИЙ КОНТРОЛЬ</span><h1>Верификация правил Тарасова</h1><p>Сверяйте формулировку с контекстом книги и фиксируйте экспертное решение.</p></div>
+        <div><span className="admin-eyebrow">МЕТОДИЧЕСКИЙ КОНТРОЛЬ</span><h1>Верификация методологии</h1><p>Сверяйте формулировку с контекстом источника и фиксируйте экспертное решение.</p><label className="methodology-admin-select"><span>Методология для валидации</span><select value={methodology.id} onChange={(event) => { window.location.href = `/admin/methodology?methodology=${event.target.value}`; }}>{methodologyOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
         <div className="method-version"><span>{releaseStatus.status === "verified" ? "ВЕРИФИЦИРОВАНА" : "ПРЕДВАРИТЕЛЬНАЯ"}</span><strong>{releaseStatus.version}</strong><button onClick={releaseVersion} disabled={busy || releaseStatus.status === "verified"}>Зафиксировать v1</button></div>
       </header>
 
@@ -205,7 +214,7 @@ export default function MethodologyReview({
           <label>Формулировка правила<textarea rows={4} value={draft.statement} onChange={(event) => setDraft({ ...draft, statement: event.target.value })} /></label>
 
           <section className="source-context-card">
-            <header><span>ИСТОЧНИК: SRC-001</span><strong>{selected.sectionPath}</strong></header>
+            <header><span>ИСТОЧНИК: {methodology.sourceCode}</span><strong>{selected.sectionPath}</strong></header>
             <SourceContext atom={selected} />
             <blockquote>Цитата-кандидат: «{selected.sourceQuote}»</blockquote>
           </section>

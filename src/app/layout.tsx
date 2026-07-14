@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "KORUS NEGA AI 2.0 — тренажёр переговоров",
-  description: "Русскоязычный голосовой тренажёр управленческих переговоров по методике Владимира Тарасова",
+  description: "Русскоязычный голосовой тренажёр с анализом по разным методологиям переговоров",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

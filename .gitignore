@@ -16,6 +16,7 @@
 
 # licensed/private source materials (kept locally, never committed)
 /private-sources/
+/supabase/.temp/
 
 # vercel
 .vercel
