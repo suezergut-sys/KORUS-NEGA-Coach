@@ -1,5 +1,6 @@
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { getMethodology } from "@/lib/methodologies";
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) return Response.json({ error: "Требуется вход." }, { status: 401 });
@@ -9,10 +10,12 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseAdmin();
+  const body = await request.json().catch(() => ({})) as { methodologyId?: string };
+  const methodology = getMethodology(body.methodologyId);
   const { data: source, error: sourceLookupError } = await supabase
     .from("method_sources")
     .select("id")
-    .eq("code", "SRC-001")
+    .eq("code", methodology.sourceCode)
     .single();
   if (sourceLookupError) return Response.json({ error: sourceLookupError.message }, { status: 500 });
   const { data: atoms, error } = await supabase
@@ -33,16 +36,16 @@ export async function POST(request: Request) {
   const releasedAt = new Date().toISOString();
   const { error: atomsError } = await supabase
     .from("method_atoms")
-    .update({ methodology_version: "tarasov-v1" })
+    .update({ methodology_version: methodology.releaseVersion })
     .eq("verification_status", "verified")
     .eq("source_id", source.id);
   if (atomsError) return Response.json({ error: atomsError.message }, { status: 500 });
 
   const { error: sourceError } = await supabase
     .from("method_sources")
-    .update({ verification_status: "verified", methodology_version: "tarasov-v1", updated_at: releasedAt })
-    .eq("code", "SRC-001");
+    .update({ verification_status: "verified", methodology_version: methodology.releaseVersion, updated_at: releasedAt })
+    .eq("code", methodology.sourceCode);
   if (sourceError) return Response.json({ error: sourceError.message }, { status: 500 });
 
-  return Response.json({ methodologyVersion: "tarasov-v1", verifiedAtoms: verified, releasedAt });
+  return Response.json({ methodologyVersion: methodology.releaseVersion, verifiedAtoms: verified, releasedAt });
 }

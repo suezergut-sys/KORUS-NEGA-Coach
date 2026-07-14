@@ -15,6 +15,7 @@ import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import { realtimeResponseStatus, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
 import { readJsonResponse } from "@/lib/http-response";
 import { resetNegotiationClock } from "@/lib/negotiation-timer";
+import { DEFAULT_METHODOLOGY_ID, getMethodology, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
 
 type Status = "idle" | "connecting" | "connected" | "degraded" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
@@ -119,6 +120,8 @@ export default function VoiceArena() {
   const [negotiationStyle, setNegotiationStyle] = useState<NegotiationStyle>("collaborative");
   const [durationMinutes, setDurationMinutes] = useState<DurationMinutes>(5);
   const [inputMode, setInputMode] = useState<NegotiationInputMode>("duplex");
+  const [methodologyId, setMethodologyId] = useState<MethodologyId>(DEFAULT_METHODOLOGY_ID);
+  const [analysisMethodologyId, setAnalysisMethodologyId] = useState<MethodologyId>(DEFAULT_METHODOLOGY_ID);
   const [pushToTalkActive, setPushToTalkActive] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState("");
@@ -1054,6 +1057,7 @@ export default function VoiceArena() {
     }
     setIsEnding(true);
     setAnalysisStatus("loading");
+    setAnalysisMethodologyId(methodologyId);
     setAnalysisError("");
 
     try {
@@ -1069,6 +1073,7 @@ export default function VoiceArena() {
           startedAt: startedAtRef.current,
           durationSeconds: completedDurationSeconds,
           usedHint: hintUsedRef.current,
+          methodologyId,
           turns: completedLines,
         }),
       });
@@ -1136,6 +1141,13 @@ export default function VoiceArena() {
               <span className="mode-info" tabIndex={0} aria-label="Описание обычного режима">i<span role="tooltip">Микрофон передаёт звук только пока вы удерживаете кнопку. Подходит для шумных помещений и турниров с комментариями ведущего.</span></span>
             </div>
           </div>
+        </section>
+
+        <section className="setting-group methodology-setting">
+          <label className="setting-label" htmlFor="negotiation-methodology">МЕТОДОЛОГИЯ ПЕРЕГОВОРОВ</label>
+          <select id="negotiation-methodology" value={methodologyId} onChange={(event) => setMethodologyId(event.target.value as MethodologyId)} disabled={isLive || isBusy || isEnding || analysisStatus === "loading"}>
+            {methodologyOptions().map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
         </section>
         </>)}
       </aside>
@@ -1240,7 +1252,7 @@ export default function VoiceArena() {
         {analysisStatus !== "idle" && (
           <section className="analysis-card" aria-live="polite" ref={analysisRef}>
             {analysisStatus === "loading" && (
-              <div className="analysis-loading"><span className="analysis-spinner" /><div><strong>АНАЛИЗИРУЕМ ПОЕДИНОК</strong><p>Ищем релевантные фрагменты книги и сопоставляем их со стенограммой…</p></div></div>
+            <div className="analysis-loading"><span className="analysis-spinner" /><div><strong>АНАЛИЗИРУЕМ ПОЕДИНОК</strong><p>Сопоставляем стенограмму с методологией «{getMethodology(analysisMethodologyId).shortName}»…</p></div></div>
             )}
             {analysisStatus === "error" && (
               <div className="analysis-error"><strong>Анализ пока недоступен</strong><p>{analysisError}</p></div>
@@ -1270,7 +1282,7 @@ export default function VoiceArena() {
                 </div>
 
                 {analysis.techniqueReview.length > 0 && (
-                  <section className="technique-review"><h3>ПРИЁМЫ: ЧТО СРАБОТАЛО И ГДЕ НЕДОРАБОТАЛ</h3>{analysis.techniqueReview.map((item, index) => <article key={index} className={item.status}><header><strong>{item.technique}</strong><span>{item.status === "successful" ? "Успешно" : item.status === "partial" ? "Частично" : "Недоработано"}</span></header><div className="quote-pair"><blockquote><small>ВАША РЕПЛИКА</small>«{item.turnQuote}»</blockquote><blockquote><small>МЕТОДОЛОГИЯ ТАРАСОВА</small>«{item.sourceQuote}»</blockquote></div><p>{item.explanation}</p><footer><span>{item.section}</span>{item.methodologyAtomId && <Link href={`/admin/methodology?atom=${item.methodologyAtomId}`}>Открыть методический атом →</Link>}</footer></article>)}</section>
+                  <section className="technique-review"><h3>ПРИЁМЫ: ЧТО СРАБОТАЛО И ГДЕ НЕДОРАБОТАЛ</h3>{analysis.techniqueReview.map((item, index) => <article key={index} className={item.status}><header><strong>{item.technique}</strong><span>{item.status === "successful" ? "Успешно" : item.status === "partial" ? "Частично" : "Недоработано"}</span></header><div className="quote-pair"><blockquote><small>ВАША РЕПЛИКА</small>«{item.turnQuote}»</blockquote><blockquote><small>{getMethodology(analysisMethodologyId).name.toLocaleUpperCase("ru-RU")}</small>«{item.sourceQuote}»</blockquote></div><p>{item.explanation}</p><footer><span>{item.section}</span>{item.methodologyAtomId && <Link href={`/admin/methodology?methodology=${analysisMethodologyId}&atom=${item.methodologyAtomId}`}>Открыть методический атом →</Link>}</footer></article>)}</section>
                 )}
 
                 {analysis.developmentPlan.length > 0 && (

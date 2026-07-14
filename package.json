@@ -6,12 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src tests && node --check scripts/ingest-methodology.mjs",
+    "lint": "eslint src tests && node --check scripts/ingest-methodology.mjs && node --check scripts/seed-harvard-core-atoms.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "npm run lint && npm run typecheck && npm test",
     "methodology:ingest": "node scripts/ingest-methodology.mjs",
-    "methodology:extract": "node scripts/ingest-methodology.mjs --extract-atoms"
+    "methodology:extract": "node scripts/ingest-methodology.mjs --extract-atoms",
+    "methodology:seed-harvard": "node scripts/seed-harvard-core-atoms.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",

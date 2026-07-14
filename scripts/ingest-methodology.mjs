@@ -14,6 +14,11 @@ try {
 
 const args = new Set(process.argv.slice(2));
 const extractAtoms = args.has("--extract-atoms");
+const sourceCode = process.env.METHODOLOGY_CODE || "SRC-001";
+const sourceAuthor = process.env.METHODOLOGY_AUTHOR || "Владимир Тарасов";
+const sourceTitle = process.env.METHODOLOGY_TITLE || "Искусство управленческой борьбы";
+const methodologySlug = process.env.METHODOLOGY_SLUG || "tarasov";
+const candidateVersion = `${methodologySlug}-v0-candidate`;
 const sourcePath = resolve(
   process.cwd(),
   process.env.METHODOLOGY_SOURCE_PATH || "private-sources/Tarasov_Iskusstvo-upravlencheskoy-borby.fb2",
@@ -47,6 +52,30 @@ function decodeXml(buffer) {
   const text = new TextDecoder(bomEncoding, { fatal: bomEncoding === "utf-8" }).decode(bytes.slice(offset)).normalize("NFC");
   if (text.includes("\uFFFD")) throw new Error("FB2 содержит повреждённый текст или неверную декларацию кодировки.");
   return text;
+}
+
+function decodePlainText(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const offset = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf ? 3 : 0;
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes.slice(offset)).normalize("NFC");
+  } catch {
+    return new TextDecoder("windows-1251", { fatal: true }).decode(bytes).normalize("NFC");
+  }
+}
+
+function collectPlainParagraphs(buffer) {
+  const blocks = decodePlainText(buffer).split(/\r?\n\s*\r?\n/).map((item) => item.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const output = [];
+  let sectionPath = "Основной текст";
+  for (const text of blocks) {
+    if (text.length <= 110 && !/[.!?]$/.test(text) && !text.startsWith("•")) {
+      sectionPath = text;
+      continue;
+    }
+    output.push({ sectionPath, text });
+  }
+  return output;
 }
 
 function nodeText(value) {
@@ -184,7 +213,7 @@ async function extractCandidateAtoms(sourceId, chunks, chunkIdByIndex) {
       model: process.env.OPENAI_ANALYSIS_MODEL || "gpt-5.4-mini",
       reasoning: { effort: "low" },
       instructions: `
-Извлеки только явно поддержанные текстом кандидаты в методические атомы Владимира Тарасова.
+Извлеки только явно поддержанные текстом кандидаты в методические атомы для методологии «${sourceTitle}» (${sourceAuthor}).
 Не превращай отдельную сюжетную деталь в универсальное правило. Если явного правила нет, верни пустой массив.
 sourceQuote должна быть короткой дословной цитатой из указанного фрагмента.
 statement формулируй нейтрально и помечай как кандидат, который должен проверить методист.
@@ -205,7 +234,7 @@ statement формулируй нейтрально и помечай как к�
         signals: atom.signals,
         counterexamples: atom.counterexamples,
         source_quote: atom.sourceQuote,
-        methodology_version: "tarasov-v0-candidate",
+        methodology_version: candidateVersion,
         verification_status: "candidate",
       });
     }
@@ -223,37 +252,39 @@ statement формулируй нейтрально и помечай как к�
 
 const sourceBuffer = await readFile(sourcePath);
 const sha256 = createHash("sha256").update(sourceBuffer).digest("hex").toUpperCase();
-const parser = new XMLParser({ preserveOrder: true, ignoreAttributes: false, trimValues: true, processEntities: true, htmlEntities: true });
-const parsed = parser.parse(decodeXml(sourceBuffer));
-const paragraphs = collectParagraphs(parsed);
+const isXmlSource = /\.(fb2|xml)$/i.test(sourcePath);
+const paragraphs = isXmlSource
+  ? collectParagraphs(new XMLParser({ preserveOrder: true, ignoreAttributes: false, trimValues: true, processEntities: true, htmlEntities: true }).parse(decodeXml(sourceBuffer)))
+  : collectPlainParagraphs(sourceBuffer);
 const chunks = createChunks(paragraphs);
 
 console.log(`Источник: ${sourcePath}`);
 console.log(`SHA-256: ${sha256}`);
 console.log(`Абзацев: ${paragraphs.length}; фрагментов: ${chunks.length}`);
 
-const storagePath = `SRC-001/${sha256}.fb2`;
+const extension = isXmlSource ? sourcePath.split(".").pop()?.toLowerCase() || "xml" : "txt";
+const storagePath = `${sourceCode}/${sha256}.${extension}`;
 const { error: uploadError } = await supabase.storage
   .from("methodology-sources")
-  .upload(storagePath, sourceBuffer, { contentType: "application/xml", upsert: true });
+  .upload(storagePath, sourceBuffer, { contentType: isXmlSource ? "application/xml" : "application/octet-stream", upsert: true });
 if (uploadError) throw uploadError;
 
 const { data: source, error: sourceError } = await supabase
   .from("method_sources")
   .upsert(
     {
-      code: "SRC-001",
-      author: "Владимир Тарасов",
-      title: "Искусство управленческой борьбы",
-      source_format: "FB2",
+      code: sourceCode,
+      author: sourceAuthor,
+      title: sourceTitle,
+      source_format: extension.toUpperCase(),
       sha256,
       storage_path: storagePath,
-      methodology_version: "tarasov-v0-candidate",
+      methodology_version: candidateVersion,
       verification_status: "candidate",
       metadata: { paragraph_count: paragraphs.length, chunk_count: chunks.length },
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "sha256" },
+    { onConflict: "code" },
   )
   .select("id")
   .single();
