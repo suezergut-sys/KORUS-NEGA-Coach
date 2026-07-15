@@ -1130,8 +1130,8 @@ export default function VoiceArena() {
         </section>
 
         <section className="setting-group">
-          <div className="setting-label">ВЫБЕРИ РЕЖИМ ПЕРЕГОВОРОВ</div>
-          <div className="input-mode-options" role="group" aria-label="Режим переговоров">
+          <div className="setting-label">ВЫБЕРИ РЕЖИМ МИКРОФОНА</div>
+          <div className="input-mode-options" role="group" aria-label="Режим микрофона">
             <div className={inputMode === "duplex" ? "input-mode-option selected" : "input-mode-option"}>
               <button type="button" onClick={() => chooseInputMode("duplex")} disabled={isLive || isBusy} aria-pressed={inputMode === "duplex"}>Дуплекс</button>
               <span className="mode-info" tabIndex={0} aria-label="Описание режима Дуплекс">i<span role="tooltip">Микрофон работает постоянно: можно говорить одновременно с оппонентом и перебивать его.</span></span>
