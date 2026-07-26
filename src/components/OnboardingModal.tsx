@@ -1,90 +1,138 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { ONBOARDING_STORAGE_KEY, shouldAutoOpenOnboarding } from "@/lib/onboarding";
 
 export const ONBOARDING_OPEN_EVENT = "nega:onboarding:open";
 
-const ONBOARDING_STORAGE_KEY = "korus-nega-onboarding-v1";
+type StepIcon = "navigation" | "case" | "settings" | "live" | "account" | "rating" | "create" | "analyze" | "ready";
 
-const steps = [
+type OnboardingStep = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon?: StepIcon;
+  points: readonly string[];
+};
+
+const steps: readonly OnboardingStep[] = [
   {
     eyebrow: "ДОБРО ПОЖАЛОВАТЬ",
-    title: "Освойтесь в KORUS NEGA AI",
-    description: "Коротко покажем, где находятся основные инструменты и как провести первую тренировку. Это займёт меньше минуты.",
+    title: "Познакомьтесь с KORUS NEGA AI",
+    description: "Пройдём по всем пользовательским разделам и подготовим вас к первой тренировке. Обучение можно пропустить и в любой момент запустить заново из личного кабинета.",
+    points: ["Узнаете, где находятся инструменты", "Настроите переговорный поединок", "Разберётесь с результатами и кейсами"],
   },
   {
-    eyebrow: "НАВИГАЦИЯ",
-    title: "Все разделы всегда под рукой",
-    description: "Используйте панель слева: возвращайтесь к переговорам, следите за прогрессом в личном кабинете, сравнивайте результаты и работайте со своими кейсами.",
+    eyebrow: "ШАГ 1 · НАВИГАЦИЯ",
+    title: "Перемещайтесь между разделами",
+    description: "Компактная панель слева доступна на всех основных страницах. Наведите курсор на значок, чтобы увидеть его название.",
+    icon: "navigation",
+    points: ["Диалоги — вернуться к тренажёру", "Профиль и диаграмма — кабинет и рейтинг", "Стрелка, плюс и документ — работа с кейсами", "Кнопка выхода — завершить пользовательскую сессию"],
   },
   {
-    eyebrow: "НАСТРОЙКА",
-    title: "Подготовьте сценарий переговоров",
-    description: "На главном экране выберите кейс и свою роль. Затем настройте методику, стиль оппонента, длительность разговора и режим микрофона.",
+    eyebrow: "ШАГ 2 · ПЕРЕГОВОРЫ",
+    title: "Выберите кейс и свою роль",
+    description: "Главная страница — рабочее место переговорщика. Сначала задайте ситуацию и сторону, за которую будете играть.",
+    icon: "case",
+    points: ["Откройте список кейсов и выберите сценарий", "Нажмите «Содержание кейса» и изучите вводные", "Выберите свою роль — AI получит одну из остальных", "Проверьте цели, интересы и ограничения своей стороны"],
   },
   {
-    eyebrow: "ПЕРВАЯ ТРЕНИРОВКА",
-    title: "Запустите переговоры",
-    description: "Ознакомьтесь с ситуацией, разрешите доступ к микрофону и нажмите «Начать». После разговора вы получите разбор, рекомендации и результат в личном кабинете.",
+    eyebrow: "ШАГ 3 · НАСТРОЙКА",
+    title: "Настройте формат тренировки",
+    description: "Перед запуском задайте поведение оппонента и удобный способ разговора. Во время активного поединка эти настройки блокируются.",
+    icon: "settings",
+    points: ["Выберите методику, по которой получите разбор", "Задайте стиль AI-оппонента", "Установите длительность переговоров", "Выберите открытый микрофон или режим «Удерживать, чтобы говорить»"],
   },
-] as const;
+  {
+    eyebrow: "ШАГ 4 · ПОЕДИНОК",
+    title: "Проведите и завершите переговоры",
+    description: "Когда всё готово, запускайте голосовой диалог. Реплики появятся в центре экрана, а после завершения система подготовит подробный разбор.",
+    icon: "live",
+    points: ["Нажмите «Начать» и разрешите доступ к микрофону", "Следите за таймером и расшифровкой реплик", "При необходимости используйте одну паузу и подсказку", "Нажмите «Завершить» и дождитесь анализа результата"],
+  },
+  {
+    eyebrow: "ШАГ 5 · ЛИЧНЫЙ КАБИНЕТ",
+    title: "Отслеживайте свой прогресс",
+    description: "Личный кабинет собирает только рейтинговые тренировки и помогает увидеть динамику без ручных записей.",
+    icon: "account",
+    points: ["Смотрите число поединков и процент побед", "Проверяйте дату последней тренировки", "Изучайте три наиболее часто сыгранных кейса", "Открывайте историю с ролью, результатом и баллом"],
+  },
+  {
+    eyebrow: "ШАГ 6 · РЕЙТИНГ",
+    title: "Сравнивайте результаты",
+    description: "Общий рейтинг показывает показатели участников и помогает понять своё место среди коллег.",
+    icon: "rating",
+    points: ["Откройте раздел со значком диаграммы", "Сравните поединки, победы и долю побед", "Посмотрите средний балл последних тренировок", "Нажимайте заголовки таблицы для сортировки"],
+  },
+  {
+    eyebrow: "ШАГ 7 · СВОИ КЕЙСЫ",
+    title: "Загружайте или создавайте сценарии",
+    description: "Для быстрого старта загрузите готовый материал. Если нужен новый сценарий с несколькими вариантами, используйте конструктор.",
+    icon: "create",
+    points: ["Стрелка вверх — быстрая загрузка готового кейса", "Добавьте файл и дождитесь обработки", "Плюс — конструктор нового кейса из материалов и заметок", "Проверьте вариант и опубликуйте его в библиотеке"],
+  },
+  {
+    eyebrow: "ШАГ 8 · ВНЕШНИЙ АНАЛИЗ",
+    title: "Разбирайте проведённые переговоры",
+    description: "Раздел с документом и лупой нужен, когда разговор прошёл вне тренажёра, но вы хотите получить методический разбор.",
+    icon: "analyze",
+    points: ["Загрузите текст кейса", "Добавьте файл с расшифровкой разговора", "Укажите обозначения обоих участников", "Запустите анализ и изучите рекомендации"],
+  },
+  {
+    eyebrow: "ГОТОВО",
+    title: "Можно начинать тренировку",
+    description: "Вернитесь на главную страницу, выберите кейс и проведите первый поединок. Это обучение всегда доступно в блоке «Помощь» личного кабинета.",
+    icon: "ready",
+    points: ["Выберите кейс", "Настройте роль и формат", "Нажмите «Начать»", "Изучите итоговый разбор"],
+  },
+];
 
-function StepVisual({ step }: { step: number }) {
-  if (step === 0) {
-    return (
-      <div className="onboarding-welcome-visual" aria-hidden="true">
-        <span className="onboarding-orbit orbit-one" />
-        <span className="onboarding-orbit orbit-two" />
-        <div className="onboarding-brand-mark">N</div>
-        <span className="onboarding-pulse pulse-one" />
-        <span className="onboarding-pulse pulse-two" />
-        <span className="onboarding-pulse pulse-three" />
-      </div>
-    );
-  }
+function Icon({ children }: { children: ReactNode }) {
+  return <svg viewBox="0 0 24 24" aria-hidden="true">{children}</svg>;
+}
 
-  if (step === 1) {
+const visualIcons: Record<StepIcon, ReactNode> = {
+  navigation: <Icon><path d="M4 5.5h10v7H8l-4 3v-10Z" /><path d="M10 15.5h6l4 3v-10h-3" /></Icon>,
+  case: <Icon><path d="M4 7h16M4 12h11M4 17h8" /><circle cx="18" cy="16" r="3" /></Icon>,
+  settings: <Icon><circle cx="12" cy="12" r="3" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6 8 8m8 8 2.4 2.4m0-12.8L16 8M8 16l-2.4 2.4" /></Icon>,
+  live: <Icon><rect x="8" y="3" width="8" height="12" rx="4" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></Icon>,
+  account: <Icon><circle cx="12" cy="8" r="3" /><path d="M6.5 19c.6-3.2 2.4-5 5.5-5s4.9 1.8 5.5 5" /></Icon>,
+  rating: <Icon><path d="M5 19V12h3v7H5Zm5.5 0V8h3v11h-3ZM16 19V4h3v15h-3Z" /></Icon>,
+  create: <Icon><path d="M12 5v14M5 12h14" /><path d="M4 4h5M4 20h5M15 4h5M15 20h5" /></Icon>,
+  analyze: <Icon><path d="M14 2H6a2 2 0 0 0-2 2v16h8" /><path d="M14 2v5h5m-5-5 5 5v4" /><circle cx="15.5" cy="15.5" r="3.5" /><path d="m18 18 3 3" /></Icon>,
+  ready: <Icon><path d="m5 12 4 4L19 6" /><circle cx="12" cy="12" r="9" /></Icon>,
+};
+
+function StepVisual({ step, index }: { step: OnboardingStep; index: number }) {
+  if (index === 0) {
     return (
-      <div className="onboarding-nav-visual" aria-label="Схема разделов приложения">
-        <div className="onboarding-mini-rail" aria-hidden="true">
-          <b>K</b><i className="active">◫</i><i>♙</i><i>▥</i><i>↑</i><i>＋</i>
+      <div className="onboarding-welcome-visual">
+        <span className="onboarding-orbit orbit-one" aria-hidden="true" />
+        <span className="onboarding-orbit orbit-two" aria-hidden="true" />
+        <div className="onboarding-brand-mark">
+          <Image src="/korus_sign_color.jpg" alt="KORUS Consulting" fill sizes="112px" priority />
         </div>
-        <div className="onboarding-section-list">
-          <div><span>01</span><p><strong>Переговоры</strong><small>Тренировки с AI-оппонентом</small></p></div>
-          <div><span>02</span><p><strong>Личный кабинет</strong><small>Прогресс и история поединков</small></p></div>
-          <div><span>03</span><p><strong>Кейсы и анализ</strong><small>Загрузка, создание и разбор</small></p></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 2) {
-    return (
-      <div className="onboarding-setup-visual" aria-label="Этапы настройки переговоров">
-        {[
-          ["1", "Кейс", "Выберите ситуацию"],
-          ["2", "Роль", "Определите сторону"],
-          ["3", "Формат", "Стиль, время, микрофон"],
-        ].map(([number, title, copy]) => (
-          <div key={number}>
-            <span>{number}</span>
-            <p><strong>{title}</strong><small>{copy}</small></p>
-            {number !== "3" && <b aria-hidden="true">›</b>}
-          </div>
-        ))}
+        <strong>KORUS NEGA AI 2.0</strong>
+        <small>ТРЕНАЖЁР ПЕРЕГОВОРОВ</small>
+        <span className="onboarding-pulse pulse-one" aria-hidden="true" />
+        <span className="onboarding-pulse pulse-two" aria-hidden="true" />
+        <span className="onboarding-pulse pulse-three" aria-hidden="true" />
       </div>
     );
   }
 
   return (
-    <div className="onboarding-launch-visual" aria-label="Схема запуска тренировки">
-      <div className="onboarding-wave" aria-hidden="true">
-        {[28, 52, 72, 42, 86, 60, 34, 68, 48, 78, 38, 58].map((height, index) => <i key={index} style={{ height }} />)}
-      </div>
-      <div className="onboarding-launch-flow">
-        <span><b>1</b> Откройте ситуацию</span>
-        <span><b>2</b> Разрешите микрофон</span>
-        <span className="active"><b>3</b> Нажмите «Начать»</span>
+    <div className="onboarding-detail-visual" aria-label={`Инструкция: ${step.title}`}>
+      <div className="onboarding-detail-icon">{visualIcons[step.icon || "ready"]}</div>
+      <span>{step.eyebrow}</span>
+      <div className="onboarding-visual-steps">
+        {step.points.map((point, pointIndex) => (
+          <div key={point}>
+            <b>{pointIndex + 1}</b>
+            <p>{point}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -108,14 +156,15 @@ export default function OnboardingModal() {
   useEffect(() => {
     const url = new URL(window.location.href);
     const requestedAfterRegistration = url.searchParams.get("onboarding") === "1";
-    const pending = window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "pending";
+    const completed = window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "completed";
+    const shouldAutoOpen = shouldAutoOpenOnboarding({ pathname: url.pathname, requested: requestedAfterRegistration, completed });
 
     if (requestedAfterRegistration) {
-      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "pending");
       url.searchParams.delete("onboarding");
       window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
     }
-    const initialOpenTimer = requestedAfterRegistration || pending ? window.setTimeout(show, 0) : undefined;
+    if (shouldAutoOpen) window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "pending");
+    const initialOpenTimer = shouldAutoOpen ? window.setTimeout(show, 0) : undefined;
 
     window.addEventListener(ONBOARDING_OPEN_EVENT, show);
     return () => {
@@ -162,17 +211,20 @@ export default function OnboardingModal() {
   return (
     <div className="onboarding-overlay" role="presentation">
       <div className="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" aria-describedby="onboarding-description" ref={dialogRef} tabIndex={-1}>
-        <button className="onboarding-skip" type="button" onClick={close}>Пропустить</button>
+        <button className="onboarding-skip" type="button" onClick={close}>Пропустить обучение</button>
         <div className="onboarding-visual">
-          <StepVisual step={step} />
+          <StepVisual step={current} index={step} />
         </div>
         <div className="onboarding-content">
           <span className="onboarding-eyebrow">{current.eyebrow}</span>
           <h2 id="onboarding-title">{current.title}</h2>
           <p id="onboarding-description">{current.description}</p>
+          <ol className="onboarding-instructions">
+            {current.points.map((point) => <li key={point}>{point}</li>)}
+          </ol>
           <div className="onboarding-progress" aria-label={`Шаг ${step + 1} из ${steps.length}`}>
             {steps.map((item, index) => (
-              <button key={item.title} type="button" className={index === step ? "active" : ""} onClick={() => setStep(index)} aria-label={`Перейти к шагу ${index + 1}`} aria-current={index === step ? "step" : undefined} />
+              <button key={item.title} type="button" className={index === step ? "active" : ""} onClick={() => setStep(index)} aria-label={`Перейти к шагу ${index + 1}: ${item.title}`} aria-current={index === step ? "step" : undefined} />
             ))}
           </div>
           <footer className="onboarding-actions">
