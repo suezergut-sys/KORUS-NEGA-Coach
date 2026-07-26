@@ -3,6 +3,13 @@ import { DEFAULT_CASE } from "../src/lib/default-case";
 import { isCanonicalPersonName, normalizePersonName, toPublicCase } from "../src/lib/case-types";
 
 describe("публичная модель кейса", () => {
+  it("согласует краткое описание встроенного кейса с должностями участников", () => {
+    expect(DEFAULT_CASE.summary).toContain("руководителя проекта");
+    expect(DEFAULT_CASE.summary).toContain("руководителем отдела продаж");
+    expect(DEFAULT_CASE.userRole.position).toBe("Руководитель проекта");
+    expect(DEFAULT_CASE.opponentRole.position).toContain("Руководитель отдела продаж");
+  });
+
   it("удаляет скрытые мотивы из всех ролей", () => {
     const publicCase = toPublicCase({
       ...DEFAULT_CASE,
