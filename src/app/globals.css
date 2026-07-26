@@ -584,14 +584,22 @@ button { color: inherit; }
 .pulse-one { top: 37px; left: 69px; }
 .pulse-two { right: 26px; top: 128px; }
 .pulse-three { bottom: 40px; left: 92px; }
-.onboarding-detail-visual { width: min(380px, 100%); display: grid; justify-items: center; position: relative; z-index: 1; }
-.onboarding-detail-icon { width: 82px; height: 82px; display: grid; place-items: center; border: 1px solid #249aff; border-radius: 20px; color: #dff3ff; background: radial-gradient(circle, #146eb7, #082b51 72%); box-shadow: 0 0 32px rgba(0, 126, 255, .28); }
-.onboarding-detail-icon svg { width: 42px; height: 42px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
-.onboarding-detail-visual > span { margin: 17px 0 16px; color: #56baff; font-size: 8px; font-weight: 800; letter-spacing: .14em; }
-.onboarding-visual-steps { width: 100%; display: grid; gap: 9px; }
-.onboarding-visual-steps > div { min-height: 54px; display: grid; grid-template-columns: 31px 1fr; align-items: center; gap: 11px; padding: 9px 12px; border: 1px solid #1a5682; border-radius: 10px; background: linear-gradient(135deg, rgba(7, 41, 73, .96), rgba(4, 21, 39, .96)); box-shadow: 0 8px 20px rgba(0, 0, 0, .16); }
-.onboarding-visual-steps b { width: 29px; height: 29px; display: grid; place-items: center; border: 1px solid #268ed8; border-radius: 50%; color: #87d1ff; background: #0a3155; font-size: 9px; }
-.onboarding-visual-steps p { margin: 0; color: #b8ccdd; font-size: 9px; line-height: 1.35; }
+.onboarding-interface-visual { width: 100%; height: 550px; position: relative; z-index: 1; margin: 0; }
+.onboarding-screenshot-frame { position: absolute; inset: 0 0 28px; overflow: hidden; border: 1px solid #287cb8; border-radius: 15px; background: #03101f; box-shadow: 0 20px 45px rgba(0, 0, 0, .45), 0 0 28px rgba(0, 126, 255, .12); }
+.onboarding-screenshot-frame::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 30px rgba(2, 12, 25, .24); pointer-events: none; }
+.onboarding-screenshot-frame img { object-fit: cover; object-position: center top; }
+.onboarding-interface-visual.navigation .onboarding-screenshot-frame img { object-position: center top; }
+.onboarding-interface-visual.case-selection .onboarding-screenshot-frame img { object-fit: contain; object-position: center; }
+.onboarding-interface-visual.settings .onboarding-screenshot-frame img { object-position: 12% top; }
+.onboarding-interface-visual.live-session .onboarding-screenshot-frame img { object-position: 52% top; }
+.onboarding-interface-visual.account .onboarding-screenshot-frame img { object-position: left center; }
+.onboarding-interface-visual.rating .onboarding-screenshot-frame img { object-position: left center; }
+.onboarding-interface-visual.case-tools .onboarding-screenshot-frame img { object-position: center; }
+.onboarding-interface-visual.external-analysis .onboarding-screenshot-frame img { object-position: 16% top; }
+.onboarding-interface-visual.ready .onboarding-screenshot-frame img { object-position: 42% top; }
+.onboarding-interface-visual .onboarding-screenshot-frame.secondary { width: 62%; height: 38%; inset: auto -12px 42px auto; z-index: 2; border-color: #40aaff; box-shadow: 0 16px 35px rgba(0, 0, 0, .62), 0 0 24px rgba(0, 126, 255, .28); transform: rotate(1.5deg); }
+.onboarding-interface-visual .onboarding-screenshot-frame.secondary img { object-position: left top; }
+.onboarding-interface-visual figcaption { position: absolute; inset: auto 0 0; color: #5ea9dc; font-size: 7px; font-weight: 800; letter-spacing: .16em; text-align: center; }
 @keyframes onboardingFade { from { opacity: 0; } }
 @keyframes onboardingRise { from { opacity: 0; transform: translateY(18px) scale(.985); } }
 
@@ -612,9 +620,9 @@ button { color: inherit; }
   .pulse-three { bottom: 18px; left: 68px; }
   .onboarding-brand-mark { width: 82px; height: 82px; border-radius: 16px; }
   .onboarding-welcome-visual > strong { margin-top: 15px; font-size: 12px; }
-  .onboarding-detail-icon { width: 75px; height: 75px; }
-  .onboarding-detail-visual > span { margin-bottom: 0; }
-  .onboarding-visual-steps { display: none; }
+  .onboarding-interface-visual { height: 190px; }
+  .onboarding-screenshot-frame { inset: 0 0 24px; border-radius: 11px; }
+  .onboarding-interface-visual .onboarding-screenshot-frame.secondary { width: 48%; height: 48%; right: -5px; bottom: 30px; }
 }
 
 @media (max-width: 460px) {

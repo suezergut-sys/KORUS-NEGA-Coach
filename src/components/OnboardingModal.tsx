@@ -1,19 +1,23 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ONBOARDING_STORAGE_KEY, shouldAutoOpenOnboarding } from "@/lib/onboarding";
 
 export const ONBOARDING_OPEN_EVENT = "nega:onboarding:open";
-
-type StepIcon = "navigation" | "case" | "settings" | "live" | "account" | "rating" | "create" | "analyze" | "ready";
 
 type OnboardingStep = {
   eyebrow: string;
   title: string;
   description: string;
-  icon?: StepIcon;
   points: readonly string[];
+  visual?: {
+    src: string;
+    alt: string;
+    className: string;
+    secondarySrc?: string;
+    secondaryAlt?: string;
+  };
 };
 
 const steps: readonly OnboardingStep[] = [
@@ -27,82 +31,72 @@ const steps: readonly OnboardingStep[] = [
     eyebrow: "ШАГ 1 · НАВИГАЦИЯ",
     title: "Перемещайтесь между разделами",
     description: "Компактная панель слева доступна на всех основных страницах. Наведите курсор на значок, чтобы увидеть его название.",
-    icon: "navigation",
     points: ["Диалоги — вернуться к тренажёру", "Профиль и диаграмма — кабинет и рейтинг", "Стрелка, плюс и документ — работа с кейсами", "Кнопка выхода — завершить пользовательскую сессию"],
+    visual: { src: "/onboarding/navigation.png", alt: "Панель навигации и настройки тренажёра", className: "navigation" },
   },
   {
     eyebrow: "ШАГ 2 · ПЕРЕГОВОРЫ",
     title: "Выберите кейс и свою роль",
     description: "Главная страница — рабочее место переговорщика. Сначала задайте ситуацию и сторону, за которую будете играть.",
-    icon: "case",
     points: ["Откройте список кейсов и выберите сценарий", "Нажмите «Содержание кейса» и изучите вводные", "Выберите свою роль — AI получит одну из остальных", "Проверьте цели, интересы и ограничения своей стороны"],
+    visual: { src: "/onboarding/main-interface.png", alt: "Выбор кейса и роли в настройках переговоров", className: "case-selection" },
   },
   {
     eyebrow: "ШАГ 3 · НАСТРОЙКА",
     title: "Настройте формат тренировки",
     description: "Перед запуском задайте поведение оппонента и удобный способ разговора. Во время активного поединка эти настройки блокируются.",
-    icon: "settings",
     points: ["Выберите методику, по которой получите разбор", "Задайте стиль AI-оппонента", "Установите длительность переговоров", "Выберите открытый микрофон или режим «Удерживать, чтобы говорить»"],
+    visual: { src: "/onboarding/home.png", alt: "Панель настройки формата переговоров", className: "settings" },
   },
   {
     eyebrow: "ШАГ 4 · ПОЕДИНОК",
     title: "Проведите и завершите переговоры",
     description: "Когда всё готово, запускайте голосовой диалог. Реплики появятся в центре экрана, а после завершения система подготовит подробный разбор.",
-    icon: "live",
     points: ["Нажмите «Начать» и разрешите доступ к микрофону", "Следите за таймером и расшифровкой реплик", "При необходимости используйте одну паузу и подсказку", "Нажмите «Завершить» и дождитесь анализа результата"],
+    visual: { src: "/onboarding/home.png", alt: "Область голосовых переговоров с кнопками управления", className: "live-session" },
   },
   {
     eyebrow: "ШАГ 5 · ЛИЧНЫЙ КАБИНЕТ",
     title: "Отслеживайте свой прогресс",
     description: "Личный кабинет собирает только рейтинговые тренировки и помогает увидеть динамику без ручных записей.",
-    icon: "account",
     points: ["Смотрите число поединков и процент побед", "Проверяйте дату последней тренировки", "Изучайте три наиболее часто сыгранных кейса", "Открывайте историю с ролью, результатом и баллом"],
+    visual: { src: "/onboarding/account.png", alt: "Метрики и статистика личного кабинета", className: "account" },
   },
   {
     eyebrow: "ШАГ 6 · РЕЙТИНГ",
     title: "Сравнивайте результаты",
     description: "Общий рейтинг показывает показатели участников и помогает понять своё место среди коллег.",
-    icon: "rating",
     points: ["Откройте раздел со значком диаграммы", "Сравните поединки, победы и долю побед", "Посмотрите средний балл последних тренировок", "Нажимайте заголовки таблицы для сортировки"],
+    visual: { src: "/onboarding/rating.png", alt: "Показатели таблицы рейтинга участников", className: "rating" },
   },
   {
     eyebrow: "ШАГ 7 · СВОИ КЕЙСЫ",
     title: "Загружайте или создавайте сценарии",
     description: "Для быстрого старта загрузите готовый материал. Если нужен новый сценарий с несколькими вариантами, используйте конструктор.",
-    icon: "create",
     points: ["Стрелка вверх — быстрая загрузка готового кейса", "Добавьте файл и дождитесь обработки", "Плюс — конструктор нового кейса из материалов и заметок", "Проверьте вариант и опубликуйте его в библиотеке"],
+    visual: {
+      src: "/onboarding/quick-upload.png",
+      alt: "Окно быстрой загрузки кейса",
+      className: "case-tools",
+      secondarySrc: "/onboarding/case-builder.png",
+      secondaryAlt: "Конструктор собственного кейса",
+    },
   },
   {
     eyebrow: "ШАГ 8 · ВНЕШНИЙ АНАЛИЗ",
     title: "Разбирайте проведённые переговоры",
     description: "Раздел с документом и лупой нужен, когда разговор прошёл вне тренажёра, но вы хотите получить методический разбор.",
-    icon: "analyze",
     points: ["Загрузите текст кейса", "Добавьте файл с расшифровкой разговора", "Укажите обозначения обоих участников", "Запустите анализ и изучите рекомендации"],
+    visual: { src: "/onboarding/external-analysis.png", alt: "Форма анализа проведённого поединка", className: "external-analysis" },
   },
   {
     eyebrow: "ГОТОВО",
     title: "Можно начинать тренировку",
     description: "Вернитесь на главную страницу, выберите кейс и проведите первый поединок. Это обучение всегда доступно в блоке «Помощь» личного кабинета.",
-    icon: "ready",
     points: ["Выберите кейс", "Настройте роль и формат", "Нажмите «Начать»", "Изучите итоговый разбор"],
+    visual: { src: "/onboarding/home.png", alt: "Главный экран тренажёра переговоров", className: "ready" },
   },
 ];
-
-function Icon({ children }: { children: ReactNode }) {
-  return <svg viewBox="0 0 24 24" aria-hidden="true">{children}</svg>;
-}
-
-const visualIcons: Record<StepIcon, ReactNode> = {
-  navigation: <Icon><path d="M4 5.5h10v7H8l-4 3v-10Z" /><path d="M10 15.5h6l4 3v-10h-3" /></Icon>,
-  case: <Icon><path d="M4 7h16M4 12h11M4 17h8" /><circle cx="18" cy="16" r="3" /></Icon>,
-  settings: <Icon><circle cx="12" cy="12" r="3" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6 8 8m8 8 2.4 2.4m0-12.8L16 8M8 16l-2.4 2.4" /></Icon>,
-  live: <Icon><rect x="8" y="3" width="8" height="12" rx="4" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></Icon>,
-  account: <Icon><circle cx="12" cy="8" r="3" /><path d="M6.5 19c.6-3.2 2.4-5 5.5-5s4.9 1.8 5.5 5" /></Icon>,
-  rating: <Icon><path d="M5 19V12h3v7H5Zm5.5 0V8h3v11h-3ZM16 19V4h3v15h-3Z" /></Icon>,
-  create: <Icon><path d="M12 5v14M5 12h14" /><path d="M4 4h5M4 20h5M15 4h5M15 20h5" /></Icon>,
-  analyze: <Icon><path d="M14 2H6a2 2 0 0 0-2 2v16h8" /><path d="M14 2v5h5m-5-5 5 5v4" /><circle cx="15.5" cy="15.5" r="3.5" /><path d="m18 18 3 3" /></Icon>,
-  ready: <Icon><path d="m5 12 4 4L19 6" /><circle cx="12" cy="12" r="9" /></Icon>,
-};
 
 function StepVisual({ step, index }: { step: OnboardingStep; index: number }) {
   if (index === 0) {
@@ -122,19 +116,20 @@ function StepVisual({ step, index }: { step: OnboardingStep; index: number }) {
     );
   }
 
+  if (!step.visual) return null;
+
   return (
-    <div className="onboarding-detail-visual" aria-label={`Инструкция: ${step.title}`}>
-      <div className="onboarding-detail-icon">{visualIcons[step.icon || "ready"]}</div>
-      <span>{step.eyebrow}</span>
-      <div className="onboarding-visual-steps">
-        {step.points.map((point, pointIndex) => (
-          <div key={point}>
-            <b>{pointIndex + 1}</b>
-            <p>{point}</p>
-          </div>
-        ))}
+    <figure className={`onboarding-interface-visual ${step.visual.className}`}>
+      <div className="onboarding-screenshot-frame">
+        <Image src={step.visual.src} alt={step.visual.alt} fill sizes="430px" priority={index === 1} />
       </div>
-    </div>
+      {step.visual.secondarySrc && (
+        <div className="onboarding-screenshot-frame secondary">
+          <Image src={step.visual.secondarySrc} alt={step.visual.secondaryAlt || ""} fill sizes="260px" />
+        </div>
+      )}
+      <figcaption>РЕАЛЬНЫЙ ИНТЕРФЕЙС СЕРВИСА</figcaption>
+    </figure>
   );
 }
 
