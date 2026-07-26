@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     await supabase.auth.admin.deleteUser(data.user.id);
     return registrationError(request, "failed");
   }
-  const response = NextResponse.redirect(new URL("/", request.url), 303);
+  const response = NextResponse.redirect(new URL("/?onboarding=1", request.url), 303);
   response.cookies.set(SITE_COOKIE, createSiteSessionToken(data.user), siteCookieOptions);
   return response;
 }

@@ -1,4 +1,5 @@
 import UserSidebar from "@/components/UserSidebar";
+import OnboardingLauncher from "@/components/OnboardingLauncher";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { getUserDashboard } from "@/lib/user-stats";
 
@@ -20,6 +21,10 @@ export default async function AccountPage() {
           <article><span>СЫГРАНО ПОЕДИНКОВ</span><strong>{dashboard.played}</strong><small>всего тренировок</small></article>
           <article><span>ПОБЕДЫ</span><strong>{dashboard.winRate}%</strong><small>{dashboard.wins} выигранных поединков</small></article>
           <article><span>ПОСЛЕДНИЙ ПОЕДИНОК</span><strong className="metric-date">{dashboard.lastDuel ? fullDate(dashboard.lastDuel) : "—"}</strong><small>{dashboard.lastDuel ? "последняя активность" : "начните первую тренировку"}</small></article>
+        </section>
+        <section className="account-help-card neon-panel">
+          <div><span className="admin-eyebrow">ПОМОЩЬ</span><h2>Знакомство с сервисом</h2><p>Вернитесь к подсказкам по навигации, настройке кейса и запуску переговоров.</p></div>
+          <OnboardingLauncher />
         </section>
         <section className="top-cases-card neon-panel">
           <header><div><span className="admin-eyebrow">ПЕРСОНАЛЬНАЯ СТАТИСТИКА</span><h2>Топ-3 кейсов</h2></div><p>Кейсы, которые вы отыгрывали чаще всего</p></header>
