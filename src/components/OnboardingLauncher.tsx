@@ -8,7 +8,7 @@ export default function OnboardingLauncher() {
       <span aria-hidden="true">?</span>
       <div>
         <strong>Как пользоваться сервисом</strong>
-        <small>Повторно пройти короткое обучение</small>
+        <small>Повторно пройти пошаговое обучение</small>
       </div>
       <b aria-hidden="true">→</b>
     </button>
