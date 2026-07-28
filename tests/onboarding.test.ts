@@ -3,6 +3,7 @@ import {
   ONBOARDING_STEPS,
   ONBOARDING_STORAGE_KEY,
   clampOnboardingStep,
+  getOnboardingFocusWrapTarget,
   getOnboardingStorage,
   readOnboardingCompleted,
   shouldAutoOpenOnboarding,
@@ -77,6 +78,20 @@ describe("onboarding step navigation", () => {
     expect(clampOnboardingStep(-1, ONBOARDING_STEPS.length)).toBe(0);
     expect(clampOnboardingStep(3, ONBOARDING_STEPS.length)).toBe(3);
     expect(clampOnboardingStep(7, ONBOARDING_STEPS.length)).toBe(6);
+  });
+
+  it("keeps reverse tab inside the dialog immediately after opening", () => {
+    const dialog = {};
+    const first = {};
+    const last = {};
+
+    expect(getOnboardingFocusWrapTarget({
+      active: dialog,
+      container: dialog,
+      first,
+      last,
+      shiftKey: true,
+    })).toBe(last);
   });
 });
 

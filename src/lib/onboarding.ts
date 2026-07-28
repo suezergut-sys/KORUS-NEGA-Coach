@@ -176,6 +176,24 @@ export function clampOnboardingStep(index: number, total: number) {
   return Math.min(Math.max(index, 0), Math.max(total - 1, 0));
 }
 
+export function getOnboardingFocusWrapTarget<T>({
+  active,
+  container,
+  first,
+  last,
+  shiftKey,
+}: {
+  active: T | null;
+  container: T;
+  first: T;
+  last: T;
+  shiftKey: boolean;
+}) {
+  if (shiftKey && (active === first || active === container)) return last;
+  if (!shiftKey && active === last) return first;
+  return null;
+}
+
 const PUBLIC_PATHS = new Set(["/login", "/register"]);
 
 export function shouldAutoOpenOnboarding({

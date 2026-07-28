@@ -6,6 +6,7 @@ import OnboardingCard from "@/components/OnboardingCard";
 import {
   ONBOARDING_STEPS,
   clampOnboardingStep,
+  getOnboardingFocusWrapTarget,
   getOnboardingStorage,
   readOnboardingCompleted,
   shouldAutoOpenOnboarding,
@@ -84,13 +85,17 @@ export default function OnboardingModal() {
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      const target = getOnboardingFocusWrapTarget<HTMLElement>({
+        active: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+        container: dialogRef.current,
+        first,
+        last,
+        shiftKey: event.shiftKey,
+      });
 
-      if (event.shiftKey && document.activeElement === first) {
+      if (target) {
         event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
+        target.focus();
       }
     }
 
