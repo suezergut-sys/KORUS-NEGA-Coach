@@ -16,6 +16,8 @@ export default function AppSectionIcon({ name }: { name: AppSectionIconName }) {
       return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>;
     case "analyze":
       return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16h8" /><path d="M14 2v5h5m-5-5 5 5v4" /><circle cx="15.5" cy="15.5" r="3.5" /><path d="m18 18 3 3" /></svg>;
+    case "feedback":
+      return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z" /><path d="M8 9h8M8 12h5" /></svg>;
     case "logout":
       return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4m4-4H9" /></svg>;
     case "admin":
