@@ -5,6 +5,7 @@ export const APP_SECTION_ICON_NAMES = [
   "upload",
   "create",
   "analyze",
+  "feedback",
   "logout",
   "admin",
   "mobile",

@@ -18,6 +18,7 @@ describe("shared application visuals", () => {
       "upload",
       "create",
       "analyze",
+      "feedback",
       "logout",
       "admin",
       "mobile",
