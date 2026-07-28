@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ONBOARDING_STEPS,
   ONBOARDING_STORAGE_KEY,
+  clampOnboardingStep,
   getOnboardingStorage,
   readOnboardingCompleted,
   shouldAutoOpenOnboarding,
@@ -68,6 +69,14 @@ describe("onboarding completion storage", () => {
     };
     expect(readOnboardingCompleted(storage)).toBe(false);
     expect(writeOnboardingCompleted(storage)).toBe(false);
+  });
+});
+
+describe("onboarding step navigation", () => {
+  it("keeps keyboard navigation inside the seven-screen range", () => {
+    expect(clampOnboardingStep(-1, ONBOARDING_STEPS.length)).toBe(0);
+    expect(clampOnboardingStep(3, ONBOARDING_STEPS.length)).toBe(3);
+    expect(clampOnboardingStep(7, ONBOARDING_STEPS.length)).toBe(6);
   });
 });
 

@@ -172,6 +172,10 @@ export function writeOnboardingCompleted(storage: OnboardingStorage | null | und
   }
 }
 
+export function clampOnboardingStep(index: number, total: number) {
+  return Math.min(Math.max(index, 0), Math.max(total - 1, 0));
+}
+
 const PUBLIC_PATHS = new Set(["/login", "/register"]);
 
 export function shouldAutoOpenOnboarding({
