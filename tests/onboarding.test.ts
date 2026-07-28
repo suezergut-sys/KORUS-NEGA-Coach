@@ -1,11 +1,77 @@
 import { describe, expect, it } from "vitest";
-import { ONBOARDING_STORAGE_KEY, shouldAutoOpenOnboarding } from "../src/lib/onboarding";
+import {
+  ONBOARDING_STEPS,
+  ONBOARDING_STORAGE_KEY,
+  getOnboardingStorage,
+  readOnboardingCompleted,
+  shouldAutoOpenOnboarding,
+  writeOnboardingCompleted,
+} from "../src/lib/onboarding";
 
-describe("onboarding auto-launch", () => {
-  it("uses a new versioned completion key", () => {
-    expect(ONBOARDING_STORAGE_KEY).toBe("korus-nega-onboarding-v2");
+describe("onboarding content", () => {
+  it("uses the v3 completion key and the approved seven-screen order", () => {
+    expect(ONBOARDING_STORAGE_KEY).toBe("korus-nega-onboarding-v3");
+    expect(ONBOARDING_STEPS.map((step) => step.id)).toEqual([
+      "welcome",
+      "capabilities",
+      "negotiations",
+      "progress",
+      "cases",
+      "analysis",
+      "ready",
+    ]);
   });
 
+  it("does not depend on interface screenshots", () => {
+    expect(JSON.stringify(ONBOARDING_STEPS)).not.toContain("/onboarding/");
+    expect(JSON.stringify(ONBOARDING_STEPS)).not.toContain(".png");
+  });
+
+  it("uses informal address and includes mobile access without VPN", () => {
+    const copy = JSON.stringify(ONBOARDING_STEPS);
+    expect(copy).not.toMatch(/(^|[\s«„"])вы([\s»“".,!?:;]|$)/iu);
+    expect(copy).toContain("без VPN");
+    expect(copy).toContain("телефона");
+    expect(copy).toContain("дополнительная установка не требуется");
+  });
+});
+
+describe("onboarding completion storage", () => {
+  it("resolves localStorage without leaking a browser security error", () => {
+    const blockedWindow = Object.defineProperty({}, "localStorage", {
+      get: () => { throw new Error("blocked"); },
+    });
+    expect(getOnboardingStorage(blockedWindow)).toBeNull();
+  });
+
+  it("reads and writes the completed mark", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        values.set(key, value);
+      },
+    };
+    expect(readOnboardingCompleted(storage)).toBe(false);
+    expect(writeOnboardingCompleted(storage)).toBe(true);
+    expect(readOnboardingCompleted(storage)).toBe(true);
+  });
+
+  it("does not throw when browser storage is unavailable", () => {
+    const storage = {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
+    };
+    expect(readOnboardingCompleted(storage)).toBe(false);
+    expect(writeOnboardingCompleted(storage)).toBe(false);
+  });
+});
+
+describe("onboarding auto-launch", () => {
   it("opens once for an existing authenticated user without the current completion mark", () => {
     expect(shouldAutoOpenOnboarding({ pathname: "/", requested: false, completed: false })).toBe(true);
     expect(shouldAutoOpenOnboarding({ pathname: "/account", requested: false, completed: false })).toBe(true);
