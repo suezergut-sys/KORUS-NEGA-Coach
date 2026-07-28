@@ -628,7 +628,7 @@ button { color: inherit; }
   .onboarding-dialog { width: 100%; height: calc(100dvh - 20px); min-height: 0; max-height: none; grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto auto; border-radius: 16px; }
   .onboarding-skip { top: 10px; right: 14px; color: #cbc8e4; }
   .onboarding-skip:hover { color: white; }
-  .onboarding-card-visual { min-height: 150px; max-height: 180px; grid-column: 1; grid-row: 1; padding: 45px 24px 20px; }
+  .onboarding-card-visual { height: 180px; min-height: 180px; max-height: 180px; grid-column: 1; grid-row: 1; padding: 45px 24px 20px; }
   .onboarding-card-copy { grid-column: 1; grid-row: 2; padding: 24px 22px 18px; }
   .onboarding-card-copy > h2 { margin-block: 9px 11px; font-size: 27px; }
   .onboarding-card-copy > p { font-size: 12px; }

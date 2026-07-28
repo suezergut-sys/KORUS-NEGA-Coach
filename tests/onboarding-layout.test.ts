@@ -16,7 +16,7 @@ describe("onboarding layout", () => {
 
   it("keeps every mobile step at the same available viewport height", () => {
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.onboarding-dialog\s*\{[^}]*height:\s*calc\(100dvh - 20px\)/);
-    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.onboarding-card-visual\s*\{[^}]*grid-row:\s*1/);
+    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.onboarding-card-visual\s*\{\s*height:\s*180px[^}]*grid-row:\s*1/);
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.onboarding-actions\s*\{[^}]*grid-row:\s*4/);
   });
 });
