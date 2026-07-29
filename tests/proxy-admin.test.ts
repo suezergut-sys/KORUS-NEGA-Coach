@@ -43,4 +43,9 @@ describe("admin gateway", () => {
     const response = proxy(request("/admin/cases", true));
     expect(response.status).toBe(200);
   });
+
+  it("lets the media worker reach its own Bearer-protected route", () => {
+    const response = proxy(new NextRequest("https://example.test/api/cron/case-media"));
+    expect(response.status).toBe(200);
+  });
 });
