@@ -12,7 +12,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="ru">
       <body>
         {children}
-        <OnboardingModal />
+        {process.env.E2E_TEST_MODE !== "1" && <OnboardingModal />}
       </body>
     </html>
   );

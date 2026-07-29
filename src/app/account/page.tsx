@@ -4,6 +4,7 @@ import LearningPlan from "@/components/LearningPlan";
 import Link from "next/link";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { getUserDashboard } from "@/lib/user-stats";
+import PrivacyControls from "@/components/PrivacyControls";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,10 @@ export default async function AccountPage() {
           {!dashboard.skillProgress.length && <div className="dashboard-empty">Карта навыков появится после первого анализа по новой рубрике.</div>}
         </section>
         <LearningPlan initialGoal={dashboard.learningGoal} initialTasks={dashboard.tasks} skills={dashboard.skillProgress} />
+        <PrivacyControls
+          initialConsent={Boolean(dashboard.profile.transcript_consent_at)}
+          initialRetentionDays={dashboard.profile.transcript_retention_days || 365}
+        />
         <section className="account-help-card neon-panel">
           <div><span className="admin-eyebrow">ПОМОЩЬ</span><h2>Знакомство с сервисом</h2><p>Вернитесь к подсказкам по навигации, настройке кейса и запуску переговоров.</p></div>
           <OnboardingLauncher />

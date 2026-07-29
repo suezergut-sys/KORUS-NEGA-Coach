@@ -4,30 +4,27 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AppNavRail from "@/components/AppNavRail";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
-import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import type { CanonicalCase } from "@/lib/case-types";
-import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
 import { shouldEnableMicrophone, type NegotiationInputMode } from "@/lib/negotiation-input-mode";
-import { hasEnoughUserTurnsForAnalysis, INSUFFICIENT_ANALYSIS_MESSAGE } from "@/lib/transcript";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import type { CaseVisibility } from "@/lib/case-visibility";
 import { realtimeResponseStatus, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
-import { readJsonResponse } from "@/lib/http-response";
-import { resetNegotiationClock } from "@/lib/negotiation-timer";
 import { DEFAULT_METHODOLOGY_ID, getMethodology, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
 import NegotiationReport from "@/components/NegotiationReport";
+import { useNegotiationMachine } from "@/hooks/useNegotiationMachine";
+import { useNegotiationTranscript, type TranscriptLine as Line } from "@/hooks/useNegotiationTranscript";
+import { useNegotiationTimer } from "@/hooks/useNegotiationTimer";
+import { useNegotiationReport } from "@/hooks/useNegotiationReport";
+import { useCaseComic } from "@/hooks/useCaseComic";
+import { useCaseNarration } from "@/hooks/useCaseNarration";
+import { closeRealtimeConnection, fetchWithTimeout, updateTurnDetection, waitForDataChannelOpen } from "@/lib/realtime-webrtc";
 
-type Status = "idle" | "connecting" | "connected" | "degraded" | "error";
-type Speaker = "Вы" | "Оппонент" | "Система";
-type Line = { id: string; author: Speaker; text: string; time: string };
 type VoiceMode = "female" | "male";
 type NegotiationStyle = "collaborative" | "hard";
 type DurationMinutes = 3 | 5 | 10 | 15;
 type EndReason = "user" | "timer";
-type AnalysisStatus = "idle" | "loading" | "ready" | "error";
-type NarrationStatus = "idle" | "loading" | "playing" | "error";
 type HintStatus = "idle" | "loading" | "ready" | "error";
 
 const OPPONENTS = {
@@ -56,88 +53,33 @@ function roleVoiceGender(role: CanonicalCase["userRole"]): VoiceMode {
   const firstName = role.name.trim().split(/\s+/)[0].toLowerCase();
   return /[ая]$/.test(firstName) ? "female" : "male";
 }
-function panelAudio(panel: ComicPanel, voiceMode: VoiceMode) {
-  return typeof panel.audio === "string" ? panel.audio : panel.audio[voiceMode];
-}
-
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
 }
 
-function clockTime() {
-  return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(new Date());
-}
-
-function updateTurnDetection(channel: RTCDataChannel | null, eagerness: "low" | "high") {
-  if (channel?.readyState !== "open") return;
-  channel.send(JSON.stringify({
-    type: "session.update",
-    session: {
-      type: "realtime",
-      audio: { input: { turn_detection: { type: "semantic_vad", eagerness, create_response: true, interrupt_response: true } } },
-    },
-  }));
-}
-
-async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 25_000) {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } finally {
-    window.clearTimeout(timer);
-  }
-}
-
-function waitForDataChannelOpen(channel: RTCDataChannel, timeoutMs = 25_000) {
-  if (channel.readyState === "open") return Promise.resolve();
-  if (channel.readyState !== "connecting") return Promise.reject(new Error("Голосовой канал закрылся до подключения."));
-  return new Promise<void>((resolve, reject) => {
-    const cleanup = () => {
-      window.clearTimeout(timer);
-      channel.removeEventListener("open", opened);
-      channel.removeEventListener("close", closed);
-      channel.removeEventListener("error", failed);
-    };
-    const opened = () => { cleanup(); resolve(); };
-    const closed = () => { cleanup(); reject(new Error("Голосовой канал закрылся до подключения.")); };
-    const failed = () => { cleanup(); reject(new Error("Не удалось открыть голосовой канал.")); };
-    const timer = window.setTimeout(() => {
-      cleanup();
-      reject(new Error("Подключение заняло слишком много времени. Проверьте сеть и попробуйте снова."));
-    }, timeoutMs);
-    channel.addEventListener("open", opened);
-    channel.addEventListener("close", closed);
-    channel.addEventListener("error", failed);
-  });
-}
-
 export default function VoiceArena() {
-  const [status, setStatus] = useState<Status>("idle");
-  const [seconds, setSeconds] = useState(0);
+  const {
+    state: lifecycleState,
+    dispatch: lifecycleDispatch,
+    isActive: isLive,
+    isPaused,
+    isEnding,
+  } = useNegotiationMachine();
+  const transcript = useNegotiationTranscript();
+  const { lines, linesRef, transcriptEndRef, setLines, replaceLine, appendDelta, clockTime } = transcript;
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("male");
   const [negotiationStyle, setNegotiationStyle] = useState<NegotiationStyle>("collaborative");
   const [durationMinutes, setDurationMinutes] = useState<DurationMinutes>(5);
   const [inputMode, setInputMode] = useState<NegotiationInputMode>("duplex");
   const [methodologyId, setMethodologyId] = useState<MethodologyId>(DEFAULT_METHODOLOGY_ID);
-  const [analysisMethodologyId, setAnalysisMethodologyId] = useState<MethodologyId>(DEFAULT_METHODOLOGY_ID);
   const [pushToTalkActive, setPushToTalkActive] = useState(false);
-  const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState("");
-  const [pauseRemaining, setPauseRemaining] = useState(0);
-  const [pauseUsed, setPauseUsed] = useState(false);
-  const [isEnding, setIsEnding] = useState(false);
   const [settingsCollapsed, setSettingsCollapsed] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [opponentSpeaking, setOpponentSpeaking] = useState(false);
   const [realtimeNotice, setRealtimeNotice] = useState("");
-  const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
-  const [analysis, setAnalysis] = useState<NegotiationAnalysis | null>(null);
-  const [analysisError, setAnalysisError] = useState("");
-  const [analysisSessionId, setAnalysisSessionId] = useState("");
-  const [canRetryAnalysis, setCanRetryAnalysis] = useState(false);
   const [hintStatus, setHintStatus] = useState<HintStatus>("idle");
   const [hint, setHint] = useState<NegotiationHint | null>(null);
   const [hintError, setHintError] = useState("");
@@ -146,8 +88,6 @@ export default function VoiceArena() {
   const [selectedCaseId, setSelectedCaseId] = useState(DEFAULT_CASE.id);
   const [selectedRoleIndex, setSelectedRoleIndex] = useState(0);
   const [opponentRoleIndex, setOpponentRoleIndex] = useState(1);
-  const [remoteComic, setRemoteComic] = useState<ComicPanel[] | null>(null);
-  const [comicMediaStatus, setComicMediaStatus] = useState("ready");
   const [casesError, setCasesError] = useState("");
   const [quickUploadOpen, setQuickUploadOpen] = useState(false);
   const [quickFile, setQuickFile] = useState<File | null>(null);
@@ -155,7 +95,6 @@ export default function VoiceArena() {
   const [quickStatus, setQuickStatus] = useState<"idle" | "loading" | "error">("idle");
   const [quickError, setQuickError] = useState("");
   const [caseContentOpen, setCaseContentOpen] = useState(false);
-  const [narrationStatus, setNarrationStatus] = useState<NarrationStatus>("idle");
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -165,9 +104,6 @@ export default function VoiceArena() {
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     return () => window.clearTimeout(timer);
   }, []);
-  const [narrationError, setNarrationError] = useState("");
-  const [comicPanelIndex, setComicPanelIndex] = useState(0);
-  const [comicDetailsOpen, setComicDetailsOpen] = useState(false);
 
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -180,30 +116,12 @@ export default function VoiceArena() {
   const hintUsedRef = useRef(false);
   const endSessionRef = useRef<(reason?: EndReason) => Promise<void>>(async () => undefined);
   const opponentTurnCountRef = useRef(0);
-  const linesRef = useRef<Line[]>([]);
-  const transcriptEndRef = useRef<HTMLDivElement | null>(null);
-  const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
   const trainingSessionIdRef = useRef("");
-  const completedSessionRef = useRef<{
-    sessionId: string;
-    durationSeconds: number;
-    turns: Line[];
-    metrics: Record<string, unknown>;
-  } | null>(null);
-  const narrationAudioRef = useRef<HTMLAudioElement | null>(null);
-  const narrationUrlRef = useRef<string | null>(null);
-  const comicAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
-  const playNarrationRef = useRef<(panelIndex?: number) => Promise<void>>(async () => undefined);
   const startPendingRef = useRef(false);
   const quickUploadPendingRef = useRef(false);
   const hintPendingRef = useRef(false);
-  const narrationPendingRef = useRef(false);
-  const narrationAbortRef = useRef<AbortController | null>(null);
   const quickFileInputRef = useRef<HTMLInputElement | null>(null);
-  const elapsedActiveMsRef = useRef(0);
-  const activeRunStartedAtRef = useRef<number | null>(null);
-  const pauseEndsAtRef = useRef<number | null>(null);
   const diagnosticSessionIdRef = useRef("");
   const userSpeakingRef = useRef(false);
   const opponentSpeakingRef = useRef(false);
@@ -224,6 +142,24 @@ export default function VoiceArena() {
   const interruptionCountRef = useRef(0);
   const connectionErrorCountRef = useRef(0);
 
+  const report = useNegotiationReport({
+    methodologyId,
+    onAnalyze: () => lifecycleDispatch({ type: "ANALYZE" }),
+    onComplete: () => lifecycleDispatch({ type: "COMPLETE" }),
+  });
+  const {
+    status: analysisStatus,
+    analysis,
+    error: analysisError,
+    sessionId: analysisSessionId,
+    canRetry: canRetryAnalysis,
+    analysisMethodologyId,
+    analysisRef,
+    analyze: persistAndAnalyze,
+    retry: retryAnalysis,
+    reset: resetReport,
+  } = report;
+
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
   const allRoles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
   const participantRole = allRoles[selectedRoleIndex] || allRoles[0];
@@ -234,15 +170,39 @@ export default function VoiceArena() {
     name: aiRole.name,
     title: aiRole.position,
   };
-  const isLive = status === "connected" || status === "degraded";
-  const isBusy = status === "connecting";
-  const isPaused = pauseRemaining > 0;
+  const comic = useCaseComic(selectedCase, selectedRoleIndex);
+  const {
+    panels: comicPanels,
+    activePanel: activeComicPanel,
+    mediaStatus: comicMediaStatus,
+    panelIndex: comicPanelIndex,
+    setPanelIndex: setComicPanelIndex,
+    detailsOpen: comicDetailsOpen,
+    setDetailsOpen: setComicDetailsOpen,
+    error: comicError,
+    reset: resetComic,
+  } = comic;
+  const narration = useCaseNarration({
+    caseId: selectedCase.id,
+    participantRoleIndex: selectedRoleIndex,
+    opponentRoleIndex,
+    opponentVoice: opponent.voice,
+    voiceMode,
+    panels: comicPanels,
+    panelIndex: comicPanelIndex,
+    setPanelIndex: setComicPanelIndex,
+    modalOpen: caseContentOpen,
+  });
+  const {
+    status: narrationStatus,
+    error: narrationError,
+    stop: stopNarration,
+    toggle: toggleNarration,
+  } = narration;
+  const isBusy = lifecycleState.phase === "connecting";
   const isDuelMode = isBusy || isLive || isEnding;
   const isSettingsCollapsed = isDuelMode && settingsCollapsed;
   const totalDurationSeconds = durationMinutes * 60;
-  const remainingSeconds = Math.max(0, totalDurationSeconds - seconds);
-  const comicPanels = remoteComic || getCaseComic(selectedCase);
-  const activeComicPanel = comicPanels[comicPanelIndex];
 
   const reportRealtimeDiagnostic = useCallback((event: string, details: Record<string, string | number | boolean | null> = {}) => {
     if (!diagnosticSessionIdRef.current) return;
@@ -276,33 +236,34 @@ export default function VoiceArena() {
     if (audio) void audio.play().catch(() => undefined);
   }, [syncMicrophoneTrack]);
 
+  const timer = useNegotiationTimer({
+    active: isLive,
+    paused: isPaused,
+    ending: isEnding,
+    totalSeconds: totalDurationSeconds,
+    onExpire: () => void endSessionRef.current("timer"),
+    onPause: () => applyMediaPaused(true),
+    onResume: () => {
+      applyMediaPaused(false);
+      lifecycleDispatch({ type: "RESUME" });
+    },
+  });
+  const {
+    pauseRemaining,
+    pauseUsed,
+    remainingSeconds,
+    start: startTimer,
+    reset: resetTimer,
+    pause: pauseTimer,
+    resume: resumeTimer,
+    freeze: freezeTimer,
+  } = timer;
+
   const setPushToTalkCapture = useCallback((active: boolean) => {
     pushToTalkActiveRef.current = active;
     setPushToTalkActive(active);
     syncMicrophoneTrack();
   }, [syncMicrophoneTrack]);
-
-  const currentActiveSeconds = useCallback(() => {
-    const runningMs = activeRunStartedAtRef.current === null ? 0 : Date.now() - activeRunStartedAtRef.current;
-    return Math.max(0, Math.floor((elapsedActiveMsRef.current + runningMs) / 1000));
-  }, []);
-
-  const freezeActiveTimer = useCallback(() => {
-    if (activeRunStartedAtRef.current !== null) {
-      elapsedActiveMsRef.current += Date.now() - activeRunStartedAtRef.current;
-      activeRunStartedAtRef.current = null;
-    }
-    const elapsed = currentActiveSeconds();
-    setSeconds(elapsed);
-    return elapsed;
-  }, [currentActiveSeconds]);
-
-  const resumeSession = useCallback(() => {
-    pauseEndsAtRef.current = null;
-    if (activeRunStartedAtRef.current === null) activeRunStartedAtRef.current = Date.now();
-    applyMediaPaused(false);
-    setPauseRemaining(0);
-  }, [applyMediaPaused]);
 
   const announceTimeExpired = useCallback(() => new Promise<void>((resolve) => {
     if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
@@ -325,138 +286,6 @@ export default function VoiceArena() {
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   }), []);
-
-  useEffect(() => {
-    if (!caseContentOpen || !comicPanels.length) return;
-    comicPanels.forEach((panel) => {
-      const source = panelAudio(panel, voiceMode);
-      if (comicAudioCacheRef.current.has(source)) return;
-      const audio = new Audio();
-      audio.preload = "auto";
-      audio.src = source;
-      audio.load();
-      comicAudioCacheRef.current.set(source, audio);
-    });
-  }, [caseContentOpen, comicPanels, voiceMode]);
-
-  const stopNarration = useCallback(() => {
-    narrationAbortRef.current?.abort();
-    narrationAbortRef.current = null;
-    narrationPendingRef.current = false;
-    narrationAudioRef.current?.pause();
-    narrationAudioRef.current = null;
-    if (narrationUrlRef.current) URL.revokeObjectURL(narrationUrlRef.current);
-    narrationUrlRef.current = null;
-    setNarrationStatus("idle");
-  }, []);
-
-  const playNarration = useCallback(async (panelIndex?: number) => {
-    if (narrationPendingRef.current) return;
-    if (narrationStatus === "loading" || narrationStatus === "playing") {
-      stopNarration();
-      return;
-    }
-    narrationPendingRef.current = true;
-    const controller = new AbortController();
-    narrationAbortRef.current = controller;
-    setNarrationStatus("loading");
-    setNarrationError("");
-    try {
-      const preparedIndex = typeof panelIndex === "number" ? panelIndex : -1;
-      const preparedPanel = preparedIndex >= 0 ? comicPanels[preparedIndex] : undefined;
-      if (preparedPanel) {
-        const source = panelAudio(preparedPanel, voiceMode);
-        const audio = comicAudioCacheRef.current.get(source) || new Audio(source);
-        audio.currentTime = 0;
-        narrationAudioRef.current = audio;
-        audio.onended = () => {
-          stopNarration();
-          if (preparedIndex < comicPanels.length - 1) {
-            const next = preparedIndex + 1;
-            setComicPanelIndex(next);
-            window.setTimeout(() => void playNarrationRef.current(next), 50);
-          }
-        };
-        audio.onerror = () => {
-          stopNarration();
-          setNarrationStatus("error");
-          setNarrationError("Не удалось воспроизвести подготовленное аудио.");
-        };
-        await audio.play();
-        setNarrationStatus("playing");
-        return;
-      }
-      const response = await fetch("/api/cases/narration", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId: selectedCase.id, participantRoleIndex: selectedRoleIndex, opponentRoleIndex, voice: opponent.voice, panelIndex }),
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string };
-        throw new Error(payload.error || "Не удалось озвучить кейс.");
-      }
-      const url = URL.createObjectURL(await response.blob());
-      const audio = new Audio(url);
-      narrationUrlRef.current = url;
-      narrationAudioRef.current = audio;
-      audio.onended = () => {
-        stopNarration();
-        if (typeof panelIndex === "number" && panelIndex < comicPanels.length - 1) {
-          const next = panelIndex + 1;
-          setComicPanelIndex(next);
-          window.setTimeout(() => void playNarrationRef.current(next), 250);
-        }
-      };
-      audio.onerror = () => {
-        stopNarration();
-        setNarrationStatus("error");
-        setNarrationError("Не удалось воспроизвести аудио.");
-      };
-      await audio.play();
-      setNarrationStatus("playing");
-    } catch (caught) {
-      if (controller.signal.aborted) return;
-      stopNarration();
-      setNarrationStatus("error");
-      setNarrationError(caught instanceof Error ? caught.message : "Не удалось озвучить кейс.");
-    } finally {
-      if (narrationAbortRef.current === controller) narrationAbortRef.current = null;
-      narrationPendingRef.current = false;
-    }
-  }, [comicPanels, narrationStatus, opponent.voice, opponentRoleIndex, selectedCase.id, selectedRoleIndex, stopNarration, voiceMode]);
-
-  useEffect(() => {
-    playNarrationRef.current = playNarration;
-  }, [playNarration]);
-
-  useEffect(() => {
-    if (selectedCase.id.startsWith("default-")) return;
-    let cancelled = false;
-    let timer: number | undefined;
-    const load = async () => {
-      try {
-        const response = await fetch(`/api/cases/${selectedCase.id}/comic`, { cache: "no-store" });
-        const payload = await response.json() as { status?: string; error?: string; versions?: Record<string, ComicPanel[]> };
-        if (!response.ok) throw new Error(payload.error || "Не удалось проверить готовность комикса.");
-        if (cancelled) return;
-        setComicMediaStatus(payload.status || "pending");
-        setRemoteComic(payload.versions?.[String(selectedRoleIndex)] || null);
-        if (payload.status === "pending" || payload.status === "processing") timer = window.setTimeout(load, 5000);
-      } catch (caught) {
-        if (cancelled) return;
-        setComicMediaStatus("failed");
-        setNarrationError(caught instanceof Error ? caught.message : "Не удалось проверить готовность комикса.");
-      }
-    };
-    void load();
-    return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
-  }, [selectedCase.id, selectedRoleIndex]);
-
-  const toggleNarration = useCallback(() => {
-    if (narrationStatus === "loading" || narrationStatus === "playing") return stopNarration();
-    return playNarration(comicPanels.length ? comicPanelIndex : undefined);
-  }, [comicPanelIndex, comicPanels.length, narrationStatus, playNarration, stopNarration]);
 
   const loadCases = useCallback(async (preferredId?: string) => {
     try {
@@ -484,58 +313,23 @@ export default function VoiceArena() {
     return () => window.clearTimeout(timer);
   }, [loadCases]);
 
-  useEffect(() => {
-    if (!isLive || isPaused || isEnding) return;
-    const tick = () => setSeconds(Math.min(totalDurationSeconds, currentActiveSeconds()));
-    tick();
-    const timer = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timer);
-  }, [currentActiveSeconds, isEnding, isLive, isPaused, totalDurationSeconds]);
-
-  useEffect(() => {
-    if (!isLive || isPaused || isEnding || remainingSeconds > 0) return;
-    const timer = window.setTimeout(() => void endSessionRef.current("timer"), 0);
-    return () => window.clearTimeout(timer);
-  }, [isEnding, isLive, isPaused, remainingSeconds]);
-
-  useEffect(() => {
-    if (!isLive || pauseRemaining <= 0) return;
-    const timer = window.setInterval(() => {
-      const remaining = Math.max(0, Math.ceil(((pauseEndsAtRef.current || Date.now()) - Date.now()) / 1000));
-      if (remaining <= 0) resumeSession();
-      else setPauseRemaining(remaining);
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [isLive, pauseRemaining, resumeSession]);
-
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    linesRef.current = lines;
-  }, [lines]);
-
-  useEffect(() => {
-    if (analysisStatus === "ready") analysisRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [analysisStatus]);
-
   function chooseCase(caseId: string) {
     if (isLive || isBusy) return;
     stopNarration();
     setSelectedCaseId(caseId);
-    setComicPanelIndex(0);
-    setComicDetailsOpen(false);
+    resetComic();
     setSelectedRoleIndex(0);
     const nextCase = cases.find((item) => item.id === caseId);
     const nextRoles = nextCase ? [nextCase.userRole, nextCase.opponentRole, ...(nextCase.additionalRoles || [])] : [];
     const randomOpponent = nextRoles.length > 1 ? 1 + Math.floor(Math.random() * (nextRoles.length - 1)) : 0;
     setOpponentRoleIndex(randomOpponent);
-    setRemoteComic(null);
     if (nextCase) {
       const nextAiRole = nextRoles[randomOpponent];
       setVoiceMode(roleVoiceGender(nextAiRole));
     }
     setLines([]);
-    setAnalysis(null);
-    setAnalysisStatus("idle");
+    resetReport();
+    lifecycleDispatch({ type: "RESET" });
     const url = new URL(window.location.href);
     url.searchParams.set("case", caseId);
     window.history.replaceState(null, "", url);
@@ -544,6 +338,7 @@ export default function VoiceArena() {
   function chooseRole(index: number) {
     if (isLive || isBusy) return;
     stopNarration();
+    resetComic();
     setSelectedRoleIndex(index);
     const candidates = allRoles.map((_, roleIndex) => roleIndex).filter((roleIndex) => roleIndex !== index);
     const nextOpponentIndex = candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
@@ -551,8 +346,8 @@ export default function VoiceArena() {
     const nextAiRole = allRoles[nextOpponentIndex];
     setVoiceMode(roleVoiceGender(nextAiRole));
     setLines([]);
-    setAnalysis(null);
-    setAnalysisStatus("idle");
+    resetReport();
+    lifecycleDispatch({ type: "RESET" });
   }
 
   function chooseInputMode(mode: NegotiationInputMode) {
@@ -584,7 +379,7 @@ export default function VoiceArena() {
       setQuickFile(null);
       if (quickFileInputRef.current) quickFileInputRef.current.value = "";
       setQuickUploadOpen(false);
-      setLines([{ id: crypto.randomUUID(), author: "Система", text: `Кейс «${payload.case.title}» добавлен в базу и выбран.`, time: clockTime() }]);
+      setLines([{ id: crypto.randomUUID(), author: "Система", text: `Кейс «${payload.case.title}» добавлен и выбран. Изображения и озвучка появятся не сразу: они генерируются в фоне и могут потребовать несколько минут.`, time: clockTime() }]);
     } catch (caught) {
       setQuickStatus("error");
       setQuickError(caught instanceof Error ? caught.message : "Не удалось загрузить кейс.");
@@ -607,13 +402,15 @@ export default function VoiceArena() {
     }
   }
 
-  const closeSession = useCallback(() => {
+  const closeSession = useCallback((resetLifecycle = true) => {
     if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
     if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
-    channelRef.current?.close();
-    peerRef.current?.close();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    if (audioRef.current) audioRef.current.srcObject = null;
+    closeRealtimeConnection({
+      channel: channelRef.current,
+      peer: peerRef.current,
+      stream: streamRef.current,
+      audio: audioRef.current,
+    });
     window.speechSynthesis?.cancel();
     channelRef.current = null;
     peerRef.current = null;
@@ -629,21 +426,14 @@ export default function VoiceArena() {
     recoveryTimerRef.current = null;
     recoveryPendingRef.current = false;
     disconnectedTimerRef.current = null;
-    resetNegotiationClock({
-      elapsedActiveMs: elapsedActiveMsRef,
-      activeRunStartedAt: activeRunStartedAtRef,
-      pauseEndsAt: pauseEndsAtRef,
-    }, setSeconds);
-    setPauseRemaining(0);
-    setPauseUsed(false);
-    setIsEnding(false);
+    resetTimer();
     setSettingsCollapsed(false);
     setUserSpeaking(false);
     setOpponentSpeaking(false);
     setPushToTalkActive(false);
     setRealtimeNotice("");
-    setStatus("idle");
-  }, []);
+    if (resetLifecycle) lifecycleDispatch({ type: "RESET" });
+  }, [lifecycleDispatch, resetTimer]);
 
   useEffect(() => () => closeSession(), [closeSession]);
   useEffect(() => () => stopNarration(), [stopNarration]);
@@ -652,39 +442,6 @@ export default function VoiceArena() {
     window.addEventListener("blur", release);
     return () => window.removeEventListener("blur", release);
   }, [setPushToTalkCapture]);
-
-  const replaceLine = useCallback((author: Speaker, text: string, id: string) => {
-    if (!text.trim()) return;
-    setLines((current) => {
-      const existing = current.findIndex((line) => line.id === id);
-      const line = { id, author, text: text.trim(), time: clockTime() };
-      if (existing === -1) {
-        const next = [...current, line];
-        linesRef.current = next;
-        return next;
-      }
-      const next = [...current];
-      next[existing] = { ...next[existing], text: text.trim() };
-      linesRef.current = next;
-      return next;
-    });
-  }, []);
-
-  const appendDelta = useCallback((author: Speaker, delta: string, id: string) => {
-    if (!delta) return;
-    setLines((current) => {
-      const existing = current.findIndex((line) => line.id === id);
-      if (existing === -1) {
-        const next = [...current, { id, author, text: delta, time: clockTime() }];
-        linesRef.current = next;
-        return next;
-      }
-      const next = [...current];
-      next[existing] = { ...next[existing], text: `${next[existing].text}${delta}` };
-      linesRef.current = next;
-      return next;
-    });
-  }, []);
 
   const scheduleResponseRecovery = useCallback((reason: string, responseId: string, transcriptVersion: number, delayMs = 3500) => {
     if (recoveryPendingRef.current || endingRef.current || pausedRef.current) return;
@@ -840,7 +597,7 @@ export default function VoiceArena() {
   function togglePause() {
     if (!isLive) return;
     if (isPaused) {
-      resumeSession();
+      resumeTimer();
       return;
     }
     if (pauseUsed) return;
@@ -850,11 +607,7 @@ export default function VoiceArena() {
       channel.send(JSON.stringify({ type: "input_audio_buffer.clear" }));
       if (opponentSpeaking) channel.send(JSON.stringify({ type: "response.cancel" }));
     }
-    freezeActiveTimer();
-    setPauseUsed(true);
-    pauseEndsAtRef.current = Date.now() + 60_000;
-    setPauseRemaining(60);
-    applyMediaPaused(true);
+    if (pauseTimer()) lifecycleDispatch({ type: "PAUSE" });
   }
 
   async function requestHint() {
@@ -892,19 +645,13 @@ export default function VoiceArena() {
     stopNarration();
     setCaseContentOpen(false);
     setSettingsCollapsed(true);
-    setStatus("connecting");
+    lifecycleDispatch({ type: "START" });
     setError("");
     setRealtimeNotice("");
-    setSeconds(0);
-    setPauseRemaining(0);
-    setPauseUsed(false);
-    setIsEnding(false);
     pausedRef.current = false;
     pushToTalkActiveRef.current = false;
     setPushToTalkActive(false);
-    elapsedActiveMsRef.current = 0;
-    activeRunStartedAtRef.current = null;
-    pauseEndsAtRef.current = null;
+    resetTimer();
     endingRef.current = false;
     opponentTurnCountRef.current = 0;
     diagnosticSessionIdRef.current = crypto.randomUUID();
@@ -917,11 +664,7 @@ export default function VoiceArena() {
     interruptedResponseRef.current = null;
     recoveryPendingRef.current = false;
     recoveryAttemptsRef.current = 0;
-    setAnalysisStatus("idle");
-    setAnalysis(null);
-    setAnalysisError("");
-    setAnalysisSessionId("");
-    setCanRetryAnalysis(false);
+    resetReport();
     setHintStatus("idle");
     setHint(null);
     setHintError("");
@@ -929,7 +672,6 @@ export default function VoiceArena() {
     hintUsedRef.current = false;
     startedAtRef.current = null;
     trainingSessionIdRef.current = "";
-    completedSessionRef.current = null;
     setupLatencyMsRef.current = 0;
     userSpeechStoppedAtRef.current = 0;
     replyLatenciesMsRef.current = [];
@@ -941,6 +683,11 @@ export default function VoiceArena() {
     setLines(connectingLines);
 
     try {
+      const privacyResponse = await fetchWithTimeout("/api/account/privacy", { cache: "no-store" }, 10_000);
+      const privacy = await privacyResponse.json().catch(() => ({})) as { consent?: boolean; error?: string };
+      if (!privacyResponse.ok || !privacy.consent) {
+        throw new Error(privacy.error || "Перед запуском подтвердите согласие на сохранение стенограммы в разделе «Личный кабинет → Приватность и данные».");
+      }
       const health = await fetchWithTimeout("/api/realtime/session", { cache: "no-store" }, 10_000);
       if (!health.ok) throw new Error("На сервере не настроен OpenAI API key.");
 
@@ -952,19 +699,22 @@ export default function VoiceArena() {
         if (pc.connectionState === "connected") {
           if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
           disconnectedTimerRef.current = null;
-          if (channelRef.current?.readyState === "open") setStatus("connected");
+          if (channelRef.current?.readyState === "open") {
+            lifecycleDispatch({ type: "CONNECTED" });
+            lifecycleDispatch({ type: "CONNECTION_DEGRADED", degraded: false });
+          }
           setRealtimeNotice("");
         } else if (pc.connectionState === "disconnected") {
           if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
           disconnectedTimerRef.current = window.setTimeout(() => {
             if (peerRef.current === pc && pc.connectionState === "disconnected" && !endingRef.current) {
-              setStatus("degraded");
+              lifecycleDispatch({ type: "CONNECTION_DEGRADED" });
               setRealtimeNotice("Голосовая связь нестабильна. Ожидаем восстановления; при необходимости завершите поединок для анализа.");
             }
           }, 4000);
         } else if (pc.connectionState === "failed") {
           connectionErrorCountRef.current += 1;
-          setStatus("degraded");
+          lifecycleDispatch({ type: "CONNECTION_DEGRADED" });
           setRealtimeNotice("Голосовая связь прервалась. Завершите поединок — сохранённые реплики попадут в анализ.");
         }
       });
@@ -987,7 +737,7 @@ export default function VoiceArena() {
         track.addEventListener("ended", () => {
           if (endingRef.current) return;
           reportRealtimeDiagnostic("audio_track_ended", { peerState: pc.connectionState });
-          setStatus("degraded");
+          lifecycleDispatch({ type: "CONNECTION_DEGRADED" });
           setRealtimeNotice("Аудиоканал оппонента закрылся. Завершите поединок — сохранённые реплики попадут в анализ.");
         });
       };
@@ -1019,16 +769,14 @@ export default function VoiceArena() {
       }
       trainingSessionIdRef.current = sessionPayload.sessionId;
       startedAtRef.current = sessionPayload.startedAt || new Date().toISOString();
-      setAnalysisSessionId(sessionPayload.sessionId);
 
       const channel = pc.createDataChannel("oai-events");
       channelRef.current = channel;
       channel.addEventListener("message", handleEvent);
       channel.addEventListener("open", () => {
         setupLatencyMsRef.current = Math.max(0, Date.now() - setupStartedAtRef.current);
-        elapsedActiveMsRef.current = 0;
-        activeRunStartedAtRef.current = Date.now();
-        setStatus("connected");
+        startTimer();
+        lifecycleDispatch({ type: "CONNECTED" });
         reportRealtimeDiagnostic("session_started", { peerState: pc.connectionState, channelState: channel.readyState, inputMode: inputModeRef.current });
         const readyLines: Line[] = [{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }];
         linesRef.current = readyLines;
@@ -1039,7 +787,7 @@ export default function VoiceArena() {
         if (channelRef.current === channel && !endingRef.current) {
           connectionErrorCountRef.current += 1;
           reportRealtimeDiagnostic("channel_closed", { peerState: pc.connectionState });
-          setStatus("degraded");
+          lifecycleDispatch({ type: "CONNECTION_DEGRADED" });
           setRealtimeNotice("Канал событий закрылся. Завершите поединок — сохранённые реплики попадут в анализ.");
         }
       });
@@ -1047,7 +795,7 @@ export default function VoiceArena() {
         if (endingRef.current) return;
         connectionErrorCountRef.current += 1;
         reportRealtimeDiagnostic("channel_error", { peerState: pc.connectionState, channelState: channel.readyState });
-        setStatus("degraded");
+        lifecycleDispatch({ type: "CONNECTION_DEGRADED" });
         setRealtimeNotice("Ошибка голосового канала. Если связь не восстановится, завершите поединок для анализа.");
       });
 
@@ -1077,7 +825,7 @@ export default function VoiceArena() {
       await waitForDataChannelOpen(channel);
     } catch (caught) {
       closeSession();
-      setStatus("error");
+      lifecycleDispatch({ type: "RESET" });
       setError(caught instanceof Error ? caught.message : "Не удалось запустить микрофон.");
       linesRef.current = [];
       setLines([]);
@@ -1086,63 +834,11 @@ export default function VoiceArena() {
     }
   }
 
-  async function persistAndAnalyze(snapshot: NonNullable<typeof completedSessionRef.current>) {
-    setIsEnding(true);
-    setAnalysisStatus("loading");
-    setAnalysisMethodologyId(methodologyId);
-    setAnalysisSessionId(snapshot.sessionId);
-    setCanRetryAnalysis(hasEnoughUserTurnsForAnalysis(snapshot.turns));
-    setAnalysisError("");
-    try {
-      const finalizeResponse = await fetch(`/api/sessions/${snapshot.sessionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          durationSeconds: snapshot.durationSeconds,
-          turns: snapshot.turns,
-          metrics: snapshot.metrics,
-        }),
-      });
-      const finalizeResult = await readJsonResponse<{ error?: string }>(finalizeResponse);
-      if (!finalizeResult.isJson || !finalizeResponse.ok) {
-        throw new Error(finalizeResult.payload?.error || "Не удалось сохранить стенограмму. Попробуйте ещё раз.");
-      }
-      if (!hasEnoughUserTurnsForAnalysis(snapshot.turns)) {
-        setAnalysisStatus("error");
-        setCanRetryAnalysis(false);
-        setAnalysisError(`${INSUFFICIENT_ANALYSIS_MESSAGE} Стенограмма и технические метрики сохранены.`);
-        return;
-      }
-
-      const response = await fetch("/api/analysis", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: snapshot.sessionId }),
-      });
-      const { payload, isJson } = await readJsonResponse<{ analysis?: NegotiationAnalysis; error?: string; diagnosticId?: string }>(response);
-      if (!isJson) throw new Error("Сервис анализа временно недоступен. Стенограмма сохранена — попробуйте ещё раз.");
-      if (!response.ok || !payload?.analysis) throw new Error(payload?.error || "Не удалось получить оценку. Стенограмма сохранена.");
-      setAnalysis(payload.analysis);
-      setAnalysisStatus("ready");
-      setCanRetryAnalysis(false);
-    } catch (caught) {
-      setAnalysisStatus("error");
-      setAnalysisError(caught instanceof Error ? caught.message : "Не удалось выполнить анализ. Стенограмма сохранена.");
-    } finally {
-      setIsEnding(false);
-    }
-  }
-
-  async function retryAnalysis() {
-    if (!completedSessionRef.current || analysisStatus === "loading") return;
-    await persistAndAnalyze(completedSessionRef.current);
-  }
-
   async function endSession(reason: EndReason = "user") {
     if (!isLive || endingRef.current) return;
     endingRef.current = true;
-    setIsEnding(true);
-    const completedDurationSeconds = Math.min(totalDurationSeconds, freezeActiveTimer());
+    lifecycleDispatch({ type: "END" });
+    const completedDurationSeconds = Math.min(totalDurationSeconds, freezeTimer());
     const completedLines = [
       ...linesRef.current,
       { id: crypto.randomUUID(), author: "Система" as const, text: reason === "timer" ? TIME_EXPIRED_MESSAGE : "Переговоры завершены пользователем.", time: clockTime() },
@@ -1166,12 +862,11 @@ export default function VoiceArena() {
         connectionErrorCount: connectionErrorCountRef.current,
       },
     };
-    completedSessionRef.current = snapshot;
-    closeSession();
+    closeSession(false);
     if (!sessionId) {
-      setAnalysisStatus("error");
-      setAnalysisError("Серверная сессия не была создана. Запустите новый поединок.");
-      setIsEnding(false);
+      resetReport();
+      setError("Серверная сессия не была создана. Запустите новый поединок.");
+      lifecycleDispatch({ type: "COMPLETE" });
       return;
     }
     await persistAndAnalyze(snapshot);
@@ -1247,7 +942,7 @@ export default function VoiceArena() {
           </div>
           <div className="live-status">
             <span className={isLive && !isPaused ? "status-dot live" : "status-dot"} />
-            <span>{isBusy ? "ПОДКЛЮЧЕНИЕ" : isEnding ? "ЗАВЕРШЕНИЕ" : status === "degraded" ? "СБОЙ СВЯЗИ" : isPaused ? "ПАУЗА" : isLive ? "В ЭФИРЕ" : "ГОТОВ"}</span>
+            <span>{isBusy ? "ПОДКЛЮЧЕНИЕ" : isEnding ? "ЗАВЕРШЕНИЕ" : lifecycleState.connectionDegraded ? "СБОЙ СВЯЗИ" : isPaused ? "ПАУЗА" : isLive ? "В ЭФИРЕ" : "ГОТОВ"}</span>
             <strong>{formatTime(remainingSeconds)}</strong>
           </div>
         </header>
@@ -1388,7 +1083,7 @@ export default function VoiceArena() {
           <button className="case-modal-backdrop" aria-label="Закрыть" onClick={() => quickStatus !== "loading" && setQuickUploadOpen(false)} />
           <section>
             <header><div><span>БЫСТРОЕ ДОБАВЛЕНИЕ</span><h2 id="quick-case-title">Загрузить кейс</h2></div><button onClick={() => setQuickUploadOpen(false)} disabled={quickStatus === "loading"} aria-label="Закрыть">×</button></header>
-            <p>Выберите один файл. Система сохранит оригинал, извлечёт факты, приведёт ситуацию и роли к каноническому виду и добавит готовый кейс в список.</p>
+            <p>Выберите один файл. Система сохранит оригинал, извлечёт факты, приведёт ситуацию и роли к каноническому виду и добавит готовый кейс в список. Изображения и озвучка появятся не сразу — их фоновая генерация занимает дополнительное время.</p>
             <label className="quick-file-drop"><input ref={quickFileInputRef} type="file" accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" disabled={quickStatus === "loading"} onChange={(event) => chooseQuickFile(event.target.files?.[0] || null)} /><strong>{quickFile ? quickFile.name : "ВЫБРАТЬ ФАЙЛ"}</strong><small>TXT, MD, CSV, JSON, XML, HTML, RTF, PDF или DOCX · до 3 МБ</small></label>
             <CaseVisibilityPicker value={quickVisibility} onChange={setQuickVisibility} disabled={quickStatus === "loading"} compact />
             {quickError && <div className="error-banner"><strong>Не удалось загрузить кейс</strong><span>{quickError}</span></div>}
@@ -1427,7 +1122,7 @@ export default function VoiceArena() {
               {selectedCase.stakes.length > 0 && <CaseBlock icon="◆" title="СТАВКИ"><ul>{selectedCase.stakes.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock>}
               <CaseBlock icon="▶" title="НАЧАЛЬНАЯ СИТУАЦИЯ">{selectedCase.startSituation}</CaseBlock>
             </div>}
-            {narrationError && <p className="narration-error">{narrationError}</p>}
+            {(narrationError || comicError) && <p className="narration-error">{narrationError || comicError}</p>}
             <footer>
               {comicDetailsOpen && comicPanels.length > 0 && <button className="comic-details-link" onClick={() => setComicDetailsOpen(false)}>← Вернуться к комиксу</button>}
               <span>Голос: {voiceMode === "female" ? "Marin" : "Cedar"}</span>
