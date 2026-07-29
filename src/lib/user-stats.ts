@@ -2,18 +2,35 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import { averageLatestScores } from "@/lib/user-stats-core";
+import { canAccessCase } from "@/lib/case-visibility";
+import { getCurrentUserSession } from "@/lib/user-auth";
 
 type ProfileRow = { id: string; first_name: string; last_name: string; email: string; created_at: string };
 type SessionRow = { id: string; user_id: string; case_id: string | null; case_code: string; participant_role_name: string | null; opponent_name: string; ended_at: string };
 type EvaluationRow = { session_id: string; overall_score: number | null; result: { outcome?: { winner?: string } } | null };
-type CaseRow = { id: string; title: string; user_role: { name?: string }; opponent_role: { name?: string }; additional_roles: Array<{ name?: string }> | null };
+type CaseRow = {
+  id: string;
+  title: string;
+  user_role: { name?: string };
+  opponent_role: { name?: string };
+  additional_roles: Array<{ name?: string }> | null;
+  visibility?: string;
+  owner_user_id?: string | null;
+};
 
 export type DuelHistoryItem = {
   id: string; endedAt: string; caseName: string; participantRole: string; result: "Победа" | "Поражение" | "Ничья" | "Не определён"; score: number | null;
 };
 
 export type UserStanding = {
-  id: string; name: string; played: number; wins: number; winRate: number; averageScore: number | null; lastDuel: string | null;
+  id: string;
+  name: string;
+  played: number;
+  wins: number;
+  winRate: number;
+  averageScore: number | null;
+  lastDuel: string | null;
+  cases: Array<{ id: string | null; name: string; playable: boolean; private: boolean }>;
 };
 
 function evaluationMap(rows: EvaluationRow[]) {
@@ -84,6 +101,7 @@ export async function getUserDashboard(userId: string) {
 
 export async function getRating(): Promise<UserStanding[]> {
   const supabase = getSupabaseAdmin();
+  const currentSession = await getCurrentUserSession();
   const [{ data: profiles, error: profilesError }, { data: sessions, error: sessionsError }] = await Promise.all([
     supabase.from("user_profiles").select("id, first_name, last_name, email, created_at").eq("role", "user"),
     supabase.from("training_sessions").select("id, user_id, case_id, case_code, participant_role_name, opponent_name, ended_at").not("user_id", "is", null).eq("is_ranked", true),
@@ -91,14 +109,45 @@ export async function getRating(): Promise<UserStanding[]> {
   if (profilesError || sessionsError) throw new Error("Не удалось сформировать рейтинг пользователей.");
   const sessionRows = (sessions || []) as SessionRow[];
   const ids = sessionRows.map((item) => item.id);
-  const { data: evaluations } = ids.length
-    ? await supabase.from("evaluations").select("session_id, overall_score, result").in("session_id", ids)
-    : { data: [] };
+  const caseIds = [...new Set(sessionRows.map((item) => item.case_id).filter(Boolean))] as string[];
+  const [{ data: evaluations }, { data: cases }] = await Promise.all([
+    ids.length
+      ? supabase.from("evaluations").select("session_id, overall_score, result").in("session_id", ids)
+      : Promise.resolve({ data: [] }),
+    caseIds.length
+      ? supabase.from("negotiation_cases").select("id,title,user_role,opponent_role,additional_roles,visibility,owner_user_id").in("id", caseIds)
+      : Promise.resolve({ data: [] }),
+  ]);
   const evaluationBySession = evaluationMap((evaluations || []) as EvaluationRow[]);
+  const casesById = new Map(((cases || []) as CaseRow[]).map((item) => [item.id, item]));
   return ((profiles || []) as ProfileRow[]).map((profile) => {
     const userSessions = sessionRows.filter((item) => item.user_id === profile.id).sort((a, b) => b.ended_at.localeCompare(a.ended_at));
     const wins = userSessions.filter((item) => evaluationBySession.get(item.id)?.winner === "user").length;
     const averageScore = averageLatestScores(userSessions.map((item) => evaluationBySession.get(item.id)?.score ?? null));
-    return { id: profile.id, name: `${profile.first_name} ${profile.last_name}`, played: userSessions.length, wins, winRate: userSessions.length ? Math.round((wins / userSessions.length) * 100) : 0, averageScore, lastDuel: userSessions[0]?.ended_at || null };
+    const standingCases = new Map<string, UserStanding["cases"][number]>();
+    for (const session of userSessions) {
+      if (standingCases.size >= 5) break;
+      const storedCase = session.case_id ? casesById.get(session.case_id) : null;
+      const key = session.case_id || session.case_code;
+      if (standingCases.has(key)) continue;
+      const isDefault = !session.case_id && session.case_code === DEFAULT_CASE.slug;
+      const isPrivate = storedCase?.visibility === "private";
+      standingCases.set(key, {
+        id: storedCase?.id || (isDefault ? DEFAULT_CASE.id : null),
+        name: storedCase?.title || (isDefault ? DEFAULT_CASE.title : session.case_code),
+        playable: isDefault || Boolean(storedCase && canAccessCase(storedCase, currentSession?.userId)),
+        private: isPrivate,
+      });
+    }
+    return {
+      id: profile.id,
+      name: `${profile.first_name} ${profile.last_name}`,
+      played: userSessions.length,
+      wins,
+      winRate: userSessions.length ? Math.round((wins / userSessions.length) * 100) : 0,
+      averageScore,
+      lastDuel: userSessions[0]?.ended_at || null,
+      cases: [...standingCases.values()],
+    };
   });
 }

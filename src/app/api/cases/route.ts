@@ -1,9 +1,13 @@
 import { mapCaseRow, toPublicCase } from "@/lib/case-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { canAccessCase } from "@/lib/case-visibility";
+import { getCurrentUserSession } from "@/lib/user-auth";
 
 export const runtime = "nodejs";
 
 export async function GET() {
+  const session = await getCurrentUserSession();
+  if (!session) return Response.json({ error: "Требуется авторизация." }, { status: 401 });
   try {
     const { data, error } = await getSupabaseAdmin()
       .from("negotiation_cases")
@@ -13,7 +17,7 @@ export async function GET() {
       .limit(100);
     if (error) throw error;
     return Response.json({
-      cases: (data || []).map((row) => {
+      cases: (data || []).filter((row) => canAccessCase(row, session.userId)).map((row) => {
         return toPublicCase(mapCaseRow(row));
       }),
     });

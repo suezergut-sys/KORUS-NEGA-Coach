@@ -36,4 +36,5 @@ export const DEFAULT_CASE: CanonicalCase = {
   evaluationFocus: ["Управление позицией", "Выяснение интересов", "Работа с ответственностью"],
   methodologyBasis: [],
   origin: "seed",
+  visibility: "public",
 };

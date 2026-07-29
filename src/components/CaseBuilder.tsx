@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import type { CanonicalCase, CaseWorkspaceView } from "@/lib/case-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
+import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
+import type { CaseVisibility } from "@/lib/case-visibility";
 
 type BuilderStatus = "idle" | "analyzing" | "approving" | "error";
 
@@ -20,6 +22,7 @@ export default function CaseBuilder() {
   const [status, setStatus] = useState<BuilderStatus>("idle");
   const [error, setError] = useState("");
   const [approvedCase, setApprovedCase] = useState<CanonicalCase | null>(null);
+  const [visibility, setVisibility] = useState<CaseVisibility>("public");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const actionPendingRef = useRef(false);
 
@@ -59,7 +62,7 @@ export default function CaseBuilder() {
       const response = await fetch("/api/case-builder/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ variantId }),
+        body: JSON.stringify({ variantId, visibility }),
       });
       const payload = (await response.json()) as { case?: CanonicalCase; error?: string };
       if (!response.ok || !payload.case) throw new Error(payload.error || "Не удалось утвердить кейс.");
@@ -119,7 +122,7 @@ export default function CaseBuilder() {
 
       {approvedCase && (
         <section className="case-approved-banner">
-          <div><span>✓ КЕЙС ДОБАВЛЕН В БАЗУ</span><strong>{approvedCase.title}</strong><p>Он уже доступен в выпадающем списке тренажёра.</p></div>
+          <div><span>✓ КЕЙС ДОБАВЛЕН В БАЗУ</span><strong>{approvedCase.title}</strong><p>{approvedCase.visibility === "private" ? "Приватный кейс доступен в тренажёре только вам." : "Общедоступный кейс уже появился у всех пользователей."}</p></div>
           <Link href={`/?case=${approvedCase.id}`}>ВЫБРАТЬ И НАЧАТЬ ПЕРЕГОВОРЫ →</Link>
         </section>
       )}
@@ -127,6 +130,7 @@ export default function CaseBuilder() {
       {workspace?.variants.length ? (
         <section className="case-variants-section">
           <header><div><span className="admin-eyebrow">ПРЕДЛОЖЕННЫЕ СЦЕНАРИИ</span><h2>Выберите управленческий поединок</h2></div><small>Можно дополнить описание выше и снова запустить анализ — новые варианты добавятся к списку.</small></header>
+          <CaseVisibilityPicker value={visibility} onChange={setVisibility} disabled={status === "approving"} />
           <div className="case-variant-grid">
             {workspace.variants.map((variant) => (
               <article className="case-variant-card" key={variant.id}>
