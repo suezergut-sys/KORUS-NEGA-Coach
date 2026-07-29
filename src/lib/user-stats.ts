@@ -2,7 +2,7 @@ import "server-only";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { DEFAULT_CASE } from "@/lib/default-case";
-import { averageLatestScores } from "@/lib/user-stats-core";
+import { averageLatestScores, calculateSkillProgress } from "@/lib/user-stats-core";
 import { canAccessCase } from "@/lib/case-visibility";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import type { MethodologyId } from "@/lib/methodologies";
@@ -107,25 +107,6 @@ function participantRole(session: SessionRow, cases: Map<string, CaseRow>) {
   return candidates.length === 1 ? candidates[0] : "Не сохранена";
 }
 
-function skillProgress(evaluationsNewestFirst: EvaluationRow[]): SkillProgressItem[] {
-  const values = new Map<string, { label: string; scores: number[] }>();
-  for (const evaluation of evaluationsNewestFirst) {
-    for (const item of evaluation.result?.scoreBreakdown || []) {
-      const current = values.get(item.id) || { label: item.criterion, scores: [] };
-      current.scores.push(item.score);
-      values.set(item.id, current);
-    }
-  }
-  return [...values.entries()].map(([id, value]) => ({
-    id,
-    label: value.label,
-    average: Math.round(value.scores.reduce((sum, score) => sum + score, 0) / value.scores.length),
-    latest: value.scores[0],
-    delta: value.scores.length > 1 ? value.scores[0] - value.scores[1] : null,
-    attempts: value.scores.length,
-  })).sort((left, right) => left.average - right.average);
-}
-
 async function loadCases(caseIds: string[]) {
   if (!caseIds.length) return [] as CaseRow[];
   const { data } = await getSupabaseAdmin()
@@ -191,7 +172,7 @@ export async function getUserDashboard(userId: string) {
     lastDuel: sessionRows[0]?.ended_at || null,
     topCases: [...caseCounts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ru")).slice(0, 3),
     history,
-    skillProgress: skillProgress(orderedEvaluations),
+    skillProgress: calculateSkillProgress(orderedEvaluations.map((item) => item.result)) as SkillProgressItem[],
     learningGoal: (learningGoal || { focus_skill: "", goal_text: "", next_session_target: "", updated_at: null }) as LearningGoal,
     tasks: (tasks || []) as PracticeTask[],
   };

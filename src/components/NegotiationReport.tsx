@@ -12,6 +12,10 @@ export default function NegotiationReport({
   opponentName: string;
 }) {
   const methodology = getMethodology(methodologyId);
+  const confidence = Number(analysis.outcome.confidence);
+  const confidenceLabel = Number.isFinite(confidence)
+    ? `${Math.round(Math.min(1, Math.max(0, confidence)) * 100)}%`
+    : "НЕТ ДАННЫХ";
   return (
     <>
       <header className="analysis-header">
@@ -22,7 +26,7 @@ export default function NegotiationReport({
       <section className={`duel-outcome ${analysis.outcome.winner}`}>
         <div className="outcome-symbol">{analysis.outcome.winner === "user" ? "★" : analysis.outcome.winner === "opponent" ? "◆" : "="}</div>
         <div>
-          <span>РЕЗУЛЬТАТ ПОЕДИНКА · УВЕРЕННОСТЬ {Math.round(analysis.outcome.confidence * 100)}%</span>
+          <span>РЕЗУЛЬТАТ ПОЕДИНКА · УВЕРЕННОСТЬ {confidenceLabel}</span>
           <h3>{analysis.outcome.winner === "user" ? "Победил участник" : analysis.outcome.winner === "opponent" ? `Победил оппонент — ${opponentName}` : "Ничья — явного победителя нет"}</h3>
           <p>{analysis.outcome.verdict}</p>
           <ul>{analysis.outcome.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>
@@ -37,7 +41,7 @@ export default function NegotiationReport({
         <section className="score-breakdown">
           <h3>ОЦЕНКА ПО ЕДИНОЙ РУБРИКЕ</h3>
           <div>{analysis.scoreBreakdown.map((item) => (
-            <article key={item.id}>
+            <article key={`${item.id || item.criterion}-${item.criterion}`}>
               <header><strong>{item.criterion}</strong><span>{item.score} / {item.maxScore}</span></header>
               <i><b style={{ width: `${Math.min(100, (item.score / item.maxScore) * 100)}%` }} /></i>
               <p>{item.explanation}</p>
