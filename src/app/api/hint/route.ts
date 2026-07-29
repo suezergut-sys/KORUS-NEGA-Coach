@@ -3,15 +3,13 @@ import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
 import { createNegotiationHintSchema, type NegotiationHint } from "@/lib/hint-types";
 import { formatAnalysisTranscript, normalizeAnalysisTurns, type TranscriptTurn } from "@/lib/transcript";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 type HintRequest = {
-  caseId?: string;
-  caseCode?: string;
-  participantRoleIndex?: number;
-  opponentRoleIndex?: number;
+  sessionId?: string;
   turns?: TranscriptTurn[];
 };
 
@@ -27,10 +25,24 @@ export async function POST(request: Request) {
     const body = (await request.json()) as HintRequest;
     const turns = normalizeAnalysisTurns(body.turns);
     if (!turns.length) return Response.json({ error: "Для подсказки нужна хотя бы одна реплика поединка." }, { status: 400 });
-
-    const negotiationCase = await resolvePublishedCase(clean(body.caseId, 80), clean(body.caseCode));
+    const sessionId = clean(body.sessionId, 80);
+    const db = getSupabaseAdmin();
+    const { data: trainingSession, error: sessionError } = await db
+      .from("training_sessions")
+      .select("id,case_id,case_code,participant_role_name,opponent_name,status")
+      .eq("id", sessionId)
+      .eq("user_id", userSession.userId)
+      .maybeSingle();
+    if (sessionError) throw new Error(sessionError.message);
+    if (!trainingSession || trainingSession.status !== "live") {
+      return Response.json({ error: "Активная тренировочная сессия не найдена." }, { status: 409 });
+    }
+    const negotiationCase = await resolvePublishedCase(trainingSession.case_id || undefined, trainingSession.case_code);
     if (!negotiationCase) return Response.json({ error: "Опубликованный кейс не найден." }, { status: 404 });
-    const selected = selectCaseRoles(negotiationCase, Number(body.participantRoleIndex), Number(body.opponentRoleIndex));
+    const roles = [negotiationCase.userRole, negotiationCase.opponentRole, ...negotiationCase.additionalRoles];
+    const participantIndex = Math.max(0, roles.findIndex((role) => role.name === trainingSession.participant_role_name));
+    const opponentIndex = roles.findIndex((role) => role.name === trainingSession.opponent_name);
+    const selected = selectCaseRoles(negotiationCase, participantIndex, opponentIndex);
     const transcript = formatAnalysisTranscript(turns);
 
     const response = await getOpenAI().responses.create({
@@ -71,6 +83,12 @@ ${transcript}
     });
 
     const hint = JSON.parse(response.output_text) as NegotiationHint;
+    const { error: rankedError } = await db
+      .from("training_sessions")
+      .update({ is_ranked: false })
+      .eq("id", trainingSession.id)
+      .eq("user_id", userSession.userId);
+    if (rankedError) throw new Error(`Статус подсказки: ${rankedError.message}`);
     return Response.json({ hint });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Не удалось сформировать подсказку.";
