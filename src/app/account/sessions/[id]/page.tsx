@@ -44,7 +44,7 @@ export default async function SessionReportPage({ params }: { params: Promise<{ 
         )}
         {report.analysis ? (
           <section className="analysis-card session-saved-report">
-            <NegotiationReport analysis={report.analysis} methodologyId={(report.session.methodology_id || "tarasov") as MethodologyId} opponentName={report.session.opponent_name} />
+            <NegotiationReport analysis={report.analysis} methodologyId={(report.session.methodology_id || "tarasov") as MethodologyId} opponentName={report.session.opponent_name} speechAnalytics={report.speechAnalytics} />
           </section>
         ) : (
           <section className="analysis-card"><div className="analysis-error"><strong>Отчёт ещё не готов</strong><p>Стенограмма сохранена и не потеряется при повторном запуске анализа.</p><AnalysisRetryButton sessionId={report.session.id} /></div></section>

@@ -1,13 +1,28 @@
 "use client";
 
 import { useReducer, useState } from "react";
+import { SpeechAnalyticsPanel } from "@/components/NegotiationReport";
+import type { NegotiationInputMode } from "@/lib/negotiation-input-mode";
 import { initialNegotiationState, negotiationMachineReducer } from "@/lib/negotiation-machine";
+import { summarizeSpeechAnalytics } from "@/lib/speech-analytics";
 
 export default function P2E2EHarness() {
   const [machine, dispatch] = useReducer(negotiationMachineReducer, initialNegotiationState);
   const [analysisFailed, setAnalysisFailed] = useState(false);
   const [analysisReady, setAnalysisReady] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [inputMode, setInputMode] = useState<NegotiationInputMode>("duplex");
+  const speechAnalytics = summarizeSpeechAnalytics({
+    inputMode,
+    turns: [
+      { id: "user-1", author: "Вы", text: "Что необходимо, чтобы согласовать срок?", time: "10:00" },
+      { id: "opponent-1", author: "Оппонент", text: "Потребуется дополнительный ресурс.", time: "10:01" },
+    ],
+    userSpeakingDurationsMs: [4_000],
+    opponentSpeakingDurationsMs: [6_000],
+    userResponseTimesMs: [1_500],
+    interruptionCount: 0,
+  });
 
   function start() {
     dispatch({ type: "START" });
@@ -49,6 +64,11 @@ export default function P2E2EHarness() {
       <section>
         <output data-testid="private-case">{isOwner ? "Секретное сокращение штата" : "Приватный кейс пользователя"}</output>
         <button data-testid="toggle-owner" onClick={() => setIsOwner((value) => !value)}>Сменить пользователя</button>
+      </section>
+      <section>
+        <button data-testid="duplex-mode" onClick={() => setInputMode("duplex")}>Дуплекс</button>
+        <button data-testid="ordinary-mode" onClick={() => setInputMode("push_to_talk")}>Обычный</button>
+        {speechAnalytics && <SpeechAnalyticsPanel analytics={speechAnalytics} />}
       </section>
     </main>
   );

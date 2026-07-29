@@ -6,6 +6,7 @@ import type { TranscriptLine } from "@/hooks/useNegotiationTranscript";
 import { hasEnoughUserTurnsForAnalysis, INSUFFICIENT_ANALYSIS_MESSAGE } from "@/lib/transcript";
 import { readJsonResponse } from "@/lib/http-response";
 import type { MethodologyId } from "@/lib/methodologies";
+import { readSpeechAnalytics, type SpeechAnalytics } from "@/lib/speech-analytics";
 
 export type CompletedNegotiation = {
   sessionId: string;
@@ -26,6 +27,7 @@ export function useNegotiationReport(options: {
   const [sessionId, setSessionId] = useState("");
   const [canRetry, setCanRetry] = useState(false);
   const [analysisMethodologyId, setAnalysisMethodologyId] = useState<MethodologyId>(methodologyId);
+  const [speechAnalytics, setSpeechAnalytics] = useState<SpeechAnalytics | null>(null);
   const completedRef = useRef<CompletedNegotiation | null>(null);
   const analysisRef = useRef<HTMLElement | null>(null);
 
@@ -40,6 +42,7 @@ export function useNegotiationReport(options: {
     setError("");
     setSessionId("");
     setCanRetry(false);
+    setSpeechAnalytics(null);
   }, []);
 
   const analyze = useCallback(async (snapshot: CompletedNegotiation) => {
@@ -60,10 +63,14 @@ export function useNegotiationReport(options: {
           metrics: snapshot.metrics,
         }),
       });
-      const finalizeResult = await readJsonResponse<{ error?: string }>(finalizeResponse);
+      const finalizeResult = await readJsonResponse<{
+        error?: string;
+        metrics?: { speechAnalytics?: unknown };
+      }>(finalizeResponse);
       if (!finalizeResult.isJson || !finalizeResponse.ok) {
         throw new Error(finalizeResult.payload?.error || "Не удалось сохранить стенограмму. Попробуйте ещё раз.");
       }
+      setSpeechAnalytics(readSpeechAnalytics(finalizeResult.payload?.metrics?.speechAnalytics));
       if (!hasEnoughUserTurnsForAnalysis(snapshot.turns)) {
         setStatus("error");
         setCanRetry(false);
@@ -108,6 +115,7 @@ export function useNegotiationReport(options: {
     sessionId,
     canRetry,
     analysisMethodologyId,
+    speechAnalytics,
     analysisRef,
     completedRef,
     analyze,
