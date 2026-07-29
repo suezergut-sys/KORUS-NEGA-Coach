@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { UserStanding } from "@/lib/user-stats";
 
@@ -18,8 +19,8 @@ export default function RatingTable({ users }: { users: UserStanding[] }) {
   return (
     <div className="rating-table-wrap neon-panel">
       <table className="rating-table">
-        <thead><tr><th>Имя Фамилия</th><th>{label("played", "Поединки")}</th><th>{label("wins", "Победы")}</th><th>{label("winRate", "% побед")}</th><th>{label("averageScore", "Средний балл")}</th><th>Последний поединок</th></tr></thead>
-        <tbody>{sorted.map((user, index) => <tr key={user.id}><td><span className="rating-place">{index + 1}</span><strong>{user.name}</strong></td><td>{user.played}</td><td>{user.wins}</td><td><span className="win-rate">{user.winRate}%</span></td><td><span className="average-score">{user.averageScore ?? "—"}</span></td><td>{shortDate(user.lastDuel)}</td></tr>)}</tbody>
+        <thead><tr><th>Имя Фамилия</th><th>{label("played", "Поединки")}</th><th>{label("wins", "Победы")}</th><th>{label("winRate", "% побед")}</th><th>{label("averageScore", "Средний балл")}</th><th>Кейсы</th><th>Последний поединок</th></tr></thead>
+        <tbody>{sorted.map((user, index) => <tr key={user.id}><td><span className="rating-place">{index + 1}</span><strong>{user.name}</strong></td><td>{user.played}</td><td>{user.wins}</td><td><span className="win-rate">{user.winRate}%</span></td><td><span className="average-score">{user.averageScore ?? "—"}</span></td><td><div className="rating-cases">{user.cases.length ? user.cases.map((item) => item.playable && item.id ? <Link key={`${item.id}-${item.name}`} href={`/?case=${item.id}`}>{item.private ? "🔒 " : ""}{item.name}</Link> : <span key={`${item.id}-${item.name}`} title={item.private ? "Приватный кейс доступен только владельцу" : "Кейс больше недоступен"}>{item.private ? "🔒 " : ""}{item.name}</span>) : "—"}</div></td><td>{shortDate(user.lastDuel)}</td></tr>)}</tbody>
       </table>
       {!users.length && <p className="empty-rating">В рейтинге пока нет участников.</p>}
     </div>

@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { extractUploadedFile, validateFiles } from "@/lib/case-files";
 import { isCanonicalPersonName, mapCaseRow, normalizeCaseRole, type CanonicalCase, type CaseWorkspaceView, type GeneratedCaseVariant } from "@/lib/case-types";
+import type { CaseVisibility } from "@/lib/case-visibility";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 function assertCanonicalRoleNames(...roles: Array<{ name?: string }>) {
@@ -11,13 +12,14 @@ function assertCanonicalRoleNames(...roles: Array<{ name?: string }>) {
   }
 }
 
-export async function createOrUpdateWorkspace(input: { workspaceId?: string; title: string; notes: string }) {
+export async function createOrUpdateWorkspace(input: { workspaceId?: string; title: string; notes: string; ownerUserId: string }) {
   const supabase = getSupabaseAdmin();
   if (input.workspaceId) {
     const { data, error } = await supabase
       .from("case_workspaces")
       .update({ title: input.title || "Новый кейс", notes: input.notes, updated_at: new Date().toISOString() })
       .eq("id", input.workspaceId)
+      .eq("owner_user_id", input.ownerUserId)
       .select("id,title,notes,status")
       .single();
     if (error) throw new Error(`Черновик кейса: ${error.message}`);
@@ -25,16 +27,23 @@ export async function createOrUpdateWorkspace(input: { workspaceId?: string; tit
   }
   const { data, error } = await supabase
     .from("case_workspaces")
-    .insert({ title: input.title || "Новый кейс", notes: input.notes })
+    .insert({ title: input.title || "Новый кейс", notes: input.notes, owner_user_id: input.ownerUserId })
     .select("id,title,notes,status")
     .single();
   if (error) throw new Error(`Создание черновика: ${error.message}`);
   return data;
 }
 
-export async function addWorkspaceFiles(workspaceId: string, files: File[]) {
+export async function addWorkspaceFiles(workspaceId: string, files: File[], ownerUserId: string) {
   if (!files.length) return [];
   const supabase = getSupabaseAdmin();
+  const { data: workspace, error: workspaceError } = await supabase
+    .from("case_workspaces")
+    .select("id")
+    .eq("id", workspaceId)
+    .eq("owner_user_id", ownerUserId)
+    .maybeSingle();
+  if (workspaceError || !workspace) throw new Error("Черновик кейса не найден или принадлежит другому пользователю.");
   const { data: existing, error: existingError } = await supabase
     .from("case_materials")
     .select("size_bytes")
@@ -76,7 +85,15 @@ export async function addWorkspaceFiles(workspaceId: string, files: File[]) {
   }
 }
 
-export async function getWorkspaceMaterials(workspaceId: string) {
+export async function getWorkspaceMaterials(workspaceId: string, ownerUserId: string) {
+  const supabase = getSupabaseAdmin();
+  const { data: workspace, error: workspaceError } = await supabase
+    .from("case_workspaces")
+    .select("id")
+    .eq("id", workspaceId)
+    .eq("owner_user_id", ownerUserId)
+    .maybeSingle();
+  if (workspaceError || !workspace) throw new Error("Черновик кейса не найден или принадлежит другому пользователю.");
   const { data, error } = await getSupabaseAdmin()
     .from("case_materials")
     .select("id,file_name,mime_type,size_bytes,extracted_text")
@@ -86,16 +103,30 @@ export async function getWorkspaceMaterials(workspaceId: string) {
   return data || [];
 }
 
-export async function discardWorkspace(workspaceId: string) {
+export async function discardWorkspace(workspaceId: string, ownerUserId: string) {
   const supabase = getSupabaseAdmin();
+  const { data: workspace } = await supabase
+    .from("case_workspaces")
+    .select("id")
+    .eq("id", workspaceId)
+    .eq("owner_user_id", ownerUserId)
+    .maybeSingle();
+  if (!workspace) return;
   const { data: materials } = await supabase.from("case_materials").select("storage_path").eq("workspace_id", workspaceId);
   const paths = (materials || []).map((item) => item.storage_path).filter((path): path is string => Boolean(path));
   if (paths.length) await supabase.storage.from("case-materials").remove(paths);
   await supabase.from("case_workspaces").delete().eq("id", workspaceId);
 }
 
-export async function saveGeneratedVariants(workspaceId: string, variants: GeneratedCaseVariant[]) {
+export async function saveGeneratedVariants(workspaceId: string, variants: GeneratedCaseVariant[], ownerUserId: string) {
   const supabase = getSupabaseAdmin();
+  const { data: workspace, error: workspaceLookupError } = await supabase
+    .from("case_workspaces")
+    .select("id")
+    .eq("id", workspaceId)
+    .eq("owner_user_id", ownerUserId)
+    .maybeSingle();
+  if (workspaceLookupError || !workspace) throw new Error("Черновик кейса не найден или принадлежит другому пользователю.");
   const normalized = variants.map((variant) => ({
     ...variant,
     userRole: normalizeCaseRole(variant.userRole),
@@ -129,7 +160,13 @@ export async function saveGeneratedVariants(workspaceId: string, variants: Gener
   return data || [];
 }
 
-export async function approveVariant(variantId: string, origin: CanonicalCase["origin"] = "builder", createdBy?: string) {
+export async function approveVariant(
+  variantId: string,
+  origin: CanonicalCase["origin"],
+  createdBy: string,
+  ownerUserId: string,
+  visibility: CaseVisibility,
+) {
   const supabase = getSupabaseAdmin();
   const { data: variant, error: variantError } = await supabase
     .from("case_variants")
@@ -138,9 +175,14 @@ export async function approveVariant(variantId: string, origin: CanonicalCase["o
     .single();
   if (variantError) throw new Error(`Вариант кейса: ${variantError.message}`);
   assertCanonicalRoleNames(variant.user_role, variant.opponent_role, ...(variant.additional_roles || []));
-  const { data: approvedId, error: approvalError } = await supabase.rpc("approve_case_variant", { p_variant_id: variantId, p_origin: origin });
+  const { data: approvedId, error: approvalError } = await supabase.rpc("approve_case_variant", {
+    p_variant_id: variantId,
+    p_origin: origin,
+    p_owner_user_id: ownerUserId,
+    p_visibility: visibility,
+  });
   if (approvalError || !approvedId) throw new Error(`Публикация кейса: ${approvalError?.message || "не получен идентификатор"}`);
-  const author = (createdBy || (origin === "quick_upload" ? "Пользователь (быстрая загрузка)" : "AI-конструктор")).trim().slice(0, 160);
+  const author = createdBy.trim().slice(0, 160);
   const { error: authorError } = await supabase.from("negotiation_cases").update({ created_by: author }).eq("id", approvedId);
   if (authorError) throw new Error(`Автор кейса: ${authorError.message}`);
   const { data: approved, error: lookupError } = await supabase.from("negotiation_cases").select("*").eq("id", approvedId).single();
@@ -148,10 +190,10 @@ export async function approveVariant(variantId: string, origin: CanonicalCase["o
   return mapCaseRow(approved);
 }
 
-export async function getWorkspaceView(workspaceId: string): Promise<CaseWorkspaceView> {
+export async function getWorkspaceView(workspaceId: string, ownerUserId: string): Promise<CaseWorkspaceView> {
   const supabase = getSupabaseAdmin();
   const [{ data: workspace, error: workspaceError }, { data: materials }, { data: variants }] = await Promise.all([
-    supabase.from("case_workspaces").select("id,title,notes,status").eq("id", workspaceId).single(),
+    supabase.from("case_workspaces").select("id,title,notes,status").eq("id", workspaceId).eq("owner_user_id", ownerUserId).single(),
     supabase.from("case_materials").select("id,file_name,mime_type,size_bytes").eq("workspace_id", workspaceId).order("created_at", { ascending: true }),
     supabase.from("case_variants").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false }).limit(9),
   ]);

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AppNavRail from "@/components/AppNavRail";
+import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import type { CanonicalCase } from "@/lib/case-types";
 import { getCaseComic, type ComicPanel } from "@/lib/case-comic";
@@ -12,6 +13,7 @@ import { hasEnoughUserTurnsForAnalysis, INSUFFICIENT_ANALYSIS_MESSAGE } from "@/
 import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
+import type { CaseVisibility } from "@/lib/case-visibility";
 import { realtimeResponseStatus, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
 import { readJsonResponse } from "@/lib/http-response";
 import { resetNegotiationClock } from "@/lib/negotiation-timer";
@@ -148,6 +150,7 @@ export default function VoiceArena() {
   const [casesError, setCasesError] = useState("");
   const [quickUploadOpen, setQuickUploadOpen] = useState(false);
   const [quickFile, setQuickFile] = useState<File | null>(null);
+  const [quickVisibility, setQuickVisibility] = useState<CaseVisibility>("public");
   const [quickStatus, setQuickStatus] = useState<"idle" | "loading" | "error">("idle");
   const [quickError, setQuickError] = useState("");
   const [caseContentOpen, setCaseContentOpen] = useState(false);
@@ -557,6 +560,7 @@ export default function VoiceArena() {
     try {
       const form = new FormData();
       form.set("file", quickFile);
+      form.set("visibility", quickVisibility);
       const response = await fetch("/api/cases/quick-upload", { method: "POST", body: form });
       const payload = (await response.json()) as { case?: CanonicalCase; error?: string };
       if (!response.ok || !payload.case) throw new Error(payload.error || "Не удалось подготовить кейс.");
@@ -1330,6 +1334,7 @@ export default function VoiceArena() {
             <header><div><span>БЫСТРОЕ ДОБАВЛЕНИЕ</span><h2 id="quick-case-title">Загрузить кейс</h2></div><button onClick={() => setQuickUploadOpen(false)} disabled={quickStatus === "loading"} aria-label="Закрыть">×</button></header>
             <p>Выберите один файл. Система сохранит оригинал, извлечёт факты, приведёт ситуацию и роли к каноническому виду и добавит готовый кейс в список.</p>
             <label className="quick-file-drop"><input ref={quickFileInputRef} type="file" accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" disabled={quickStatus === "loading"} onChange={(event) => chooseQuickFile(event.target.files?.[0] || null)} /><strong>{quickFile ? quickFile.name : "ВЫБРАТЬ ФАЙЛ"}</strong><small>TXT, MD, CSV, JSON, XML, HTML, RTF, PDF или DOCX · до 3 МБ</small></label>
+            <CaseVisibilityPicker value={quickVisibility} onChange={setQuickVisibility} disabled={quickStatus === "loading"} compact />
             {quickError && <div className="error-banner"><strong>Не удалось загрузить кейс</strong><span>{quickError}</span></div>}
             <footer><button className="modal-secondary" onClick={() => setQuickUploadOpen(false)} disabled={quickStatus === "loading"}>ОТМЕНА</button><button className="modal-primary" onClick={uploadQuickCase} disabled={!quickFile || quickStatus === "loading"}>{quickStatus === "loading" ? "АНАЛИЗИРУЕМ И СОХРАНЯЕМ…" : "ЗАГРУЗИТЬ И СОЗДАТЬ КЕЙС"}</button></footer>
           </section>
@@ -1385,7 +1390,7 @@ function CaseSelect({ cases, value, onChange, disabled }: { cases: CanonicalCase
   return (
     <label className="setting-group case-select-control">
       <span className="setting-label">ВЫБЕРИ КЕЙС</span>
-      <span className="case-select-shell"><b>▣</b><select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>{cases.map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}</select><i>⌄</i></span>
+      <span className="case-select-shell"><b>▣</b><select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>{cases.map((item) => <option value={item.id} key={item.id}>{item.title}{item.visibility === "private" ? " · приватный" : ""}</option>)}</select><i>⌄</i></span>
     </label>
   );
 }

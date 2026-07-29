@@ -1,16 +1,20 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { generateCaseMedia } from "@/lib/case-media";
 import { after } from "next/server";
+import { canAccessCase } from "@/lib/case-visibility";
+import { getCurrentUserSession } from "@/lib/user-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function GET(_: Request, context: { params: Promise<{ id: string }> }) {
+  const session = await getCurrentUserSession();
+  if (!session) return Response.json({ status: "failed", error: "Требуется авторизация." }, { status: 401 });
   const { id } = await context.params;
   const db = getSupabaseAdmin();
-  const { data: negotiationCase, error: caseError } = await db.from("negotiation_cases").select("id").eq("id", id).eq("status", "published").maybeSingle();
+  const { data: negotiationCase, error: caseError } = await db.from("negotiation_cases").select("id,visibility,owner_user_id").eq("id", id).eq("status", "published").maybeSingle();
   if (caseError) return Response.json({ status: "failed", error: caseError.message }, { status: 500 });
-  if (!negotiationCase) return Response.json({ status: "failed", error: "Опубликованный кейс не найден." }, { status: 404 });
+  if (!negotiationCase || !canAccessCase(negotiationCase, session.userId)) return Response.json({ status: "failed", error: "Кейс не найден или недоступен." }, { status: 404 });
   const { data: job, error: jobError } = await db.from("case_media_jobs").select("status,error,started_at,published_generation_id").eq("case_id", id).maybeSingle();
   if (jobError) return Response.json({ status: "failed", error: jobError.message }, { status: 500 });
   const stale = job?.status === "processing" && job.started_at && Date.parse(job.started_at) < Date.now() - 10 * 60 * 1000;

@@ -1,7 +1,7 @@
 import { getOpenAI } from "@/lib/openai-server";
-import { mapCaseRow, type CaseRole } from "@/lib/case-types";
-import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { type CaseRole } from "@/lib/case-types";
 import { getCaseComic } from "@/lib/case-comic";
+import { resolvePublishedCase } from "@/lib/case-resolver";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -28,15 +28,8 @@ export async function POST(request: Request) {
     const voice: NarrationVoice = body.voice === "cedar" ? "cedar" : "marin";
     if (!caseId) return Response.json({ error: "Не выбран кейс." }, { status: 400 });
 
-    const { data, error } = await getSupabaseAdmin()
-      .from("negotiation_cases")
-      .select("*")
-      .eq("id", caseId)
-      .eq("status", "published")
-      .single();
-    if (error || !data) return Response.json({ error: "Опубликованный кейс не найден." }, { status: 404 });
-
-    const negotiationCase = mapCaseRow(data);
+    const negotiationCase = await resolvePublishedCase(caseId);
+    if (!negotiationCase) return Response.json({ error: "Кейс не найден или недоступен." }, { status: 404 });
     const roles = [negotiationCase.userRole, negotiationCase.opponentRole, ...negotiationCase.additionalRoles];
     const requestedParticipant = Number(body.participantRoleIndex);
     const participantRoleIndex = Number.isInteger(requestedParticipant) && roles[requestedParticipant] ? requestedParticipant : 0;

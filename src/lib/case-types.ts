@@ -25,6 +25,7 @@ export type CanonicalCase = {
   evaluationFocus: string[];
   methodologyBasis: MethodologyBasis[];
   origin: "seed" | "quick_upload" | "builder";
+  visibility: "public" | "private";
 };
 
 export type MethodologyBasis = {
@@ -33,7 +34,7 @@ export type MethodologyBasis = {
   application: string;
 };
 
-export type GeneratedCaseVariant = Omit<CanonicalCase, "id" | "slug" | "origin">;
+export type GeneratedCaseVariant = Omit<CanonicalCase, "id" | "slug" | "origin" | "visibility">;
 
 const NAME_PART = /^\p{Lu}[\p{Ll}\p{M}]*(?:[-'’ʼ]\p{Lu}[\p{Ll}\p{M}]*)*$/u;
 
@@ -91,6 +92,7 @@ export function mapCaseRow(row: Record<string, unknown>): CanonicalCase {
     evaluationFocus: (row.evaluation_focus || []) as string[],
     methodologyBasis: (row.methodology_basis || []) as MethodologyBasis[],
     origin: row.origin as CanonicalCase["origin"],
+    visibility: row.visibility === "private" ? "private" : "public",
   };
 }
 

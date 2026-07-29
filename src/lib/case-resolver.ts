@@ -3,6 +3,8 @@ import "server-only";
 import { DEFAULT_CASE, DEFAULT_CASE_ID } from "@/lib/default-case";
 import { mapCaseRow, type CanonicalCase } from "@/lib/case-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { canAccessCase } from "@/lib/case-visibility";
+import { getCurrentUserSession } from "@/lib/user-auth";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -20,7 +22,9 @@ export async function resolvePublishedCase(caseId?: string, caseCode?: string): 
   }
   const { data, error } = await query.maybeSingle();
   if (error) throw new Error(`Кейс: ${error.message}`);
-  return data ? mapCaseRow(data) : null;
+  if (!data) return null;
+  const session = await getCurrentUserSession();
+  return canAccessCase(data, session?.userId) ? mapCaseRow(data) : null;
 }
 
 export function selectCaseRoles(item: CanonicalCase, participantIndex: number, opponentIndex: number) {
