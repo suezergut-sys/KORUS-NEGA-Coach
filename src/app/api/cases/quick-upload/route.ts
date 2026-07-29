@@ -1,7 +1,6 @@
 import { addWorkspaceFiles, approveVariant, createOrUpdateWorkspace, discardWorkspace, getWorkspaceMaterials, saveGeneratedVariants } from "@/lib/case-db";
 import { generateCaseVariants } from "@/lib/case-generator";
-import { after } from "next/server";
-import { generateCaseMedia } from "@/lib/case-media";
+import { enqueueCaseMedia } from "@/lib/case-media";
 import { toPublicCase } from "@/lib/case-types";
 import { readBoundedFormData } from "@/lib/bounded-form-data";
 import { QUICK_UPLOAD_REQUEST_BYTES, uploadErrorStatus } from "@/lib/case-upload-constraints";
@@ -37,7 +36,7 @@ export async function POST(request: Request) {
     const author = await getCurrentCaseAuthor("Пользователь (быстрая загрузка)");
     const approved = await approveVariant(saved[0].id, "quick_upload", author, session.userId, visibility);
     published = true;
-    after(async () => { try { await generateCaseMedia(approved.id); } catch { /* status is stored */ } });
+    await enqueueCaseMedia(approved.id);
     return Response.json({
       case: toPublicCase(approved),
       alternativesCreated: saved.length - 1,

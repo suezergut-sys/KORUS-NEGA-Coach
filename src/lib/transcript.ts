@@ -23,6 +23,7 @@ function clean(value: unknown, max: number) {
 export function normalizeAnalysisTurns(value: unknown): TranscriptTurn[] {
   if (!Array.isArray(value)) return [];
   return value
+    .slice(0, 500)
     .filter((turn): turn is Record<string, unknown> => Boolean(turn && typeof turn === "object"))
     .map((turn) => ({
       id: clean(turn.id, 120),

@@ -15,9 +15,11 @@ export type NegotiationAnalysis = {
     winner: "user" | "opponent" | "draw";
     verdict: string;
     reasons: string[];
+    confidence: number;
   };
   personalFeedback: string;
   scoreBreakdown: Array<{
+    id: "goal" | "interests" | "control" | "value" | "agreement";
     criterion: string;
     score: number;
     maxScore: number;
@@ -79,26 +81,28 @@ export const negotiationAnalysisSchema = {
     outcome: {
       type: "object",
       additionalProperties: false,
-      required: ["winner", "verdict", "reasons"],
+      required: ["winner", "verdict", "reasons", "confidence"],
       properties: {
         winner: { type: "string", enum: ["user", "opponent", "draw"] },
         verdict: { type: "string" },
         reasons: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 5 },
+        confidence: { type: "number", minimum: 0, maximum: 1 },
       },
     },
     personalFeedback: { type: "string" },
     scoreBreakdown: {
       type: "array",
-      minItems: 3,
-      maxItems: 6,
+      minItems: 5,
+      maxItems: 5,
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["criterion", "score", "maxScore", "explanation"],
+        required: ["id", "criterion", "score", "maxScore", "explanation"],
         properties: {
+          id: { type: "string", enum: ["goal", "interests", "control", "value", "agreement"] },
           criterion: { type: "string" },
-          score: { type: "integer", minimum: 0, maximum: 100 },
-          maxScore: { type: "integer", minimum: 1, maximum: 100 },
+          score: { type: "integer", minimum: 0, maximum: 20 },
+          maxScore: { type: "integer", enum: [20] },
           explanation: { type: "string" },
         },
       },

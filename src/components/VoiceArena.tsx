@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AppNavRail from "@/components/AppNavRail";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
@@ -18,6 +17,7 @@ import { realtimeResponseStatus, shouldRecoverRealtimeResponse } from "@/lib/rea
 import { readJsonResponse } from "@/lib/http-response";
 import { resetNegotiationClock } from "@/lib/negotiation-timer";
 import { DEFAULT_METHODOLOGY_ID, getMethodology, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
+import NegotiationReport from "@/components/NegotiationReport";
 
 type Status = "idle" | "connecting" | "connected" | "degraded" | "error";
 type Speaker = "Вы" | "Оппонент" | "Система";
@@ -56,7 +56,6 @@ function roleVoiceGender(role: CanonicalCase["userRole"]): VoiceMode {
   const firstName = role.name.trim().split(/\s+/)[0].toLowerCase();
   return /[ая]$/.test(firstName) ? "female" : "male";
 }
-
 function panelAudio(panel: ComicPanel, voiceMode: VoiceMode) {
   return typeof panel.audio === "string" ? panel.audio : panel.audio[voiceMode];
 }
@@ -137,6 +136,8 @@ export default function VoiceArena() {
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
   const [analysis, setAnalysis] = useState<NegotiationAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState("");
+  const [analysisSessionId, setAnalysisSessionId] = useState("");
+  const [canRetryAnalysis, setCanRetryAnalysis] = useState(false);
   const [hintStatus, setHintStatus] = useState<HintStatus>("idle");
   const [hint, setHint] = useState<NegotiationHint | null>(null);
   const [hintError, setHintError] = useState("");
@@ -183,6 +184,13 @@ export default function VoiceArena() {
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const analysisRef = useRef<HTMLElement | null>(null);
   const startedAtRef = useRef<string | null>(null);
+  const trainingSessionIdRef = useRef("");
+  const completedSessionRef = useRef<{
+    sessionId: string;
+    durationSeconds: number;
+    turns: Line[];
+    metrics: Record<string, unknown>;
+  } | null>(null);
   const narrationAudioRef = useRef<HTMLAudioElement | null>(null);
   const narrationUrlRef = useRef<string | null>(null);
   const comicAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -208,6 +216,13 @@ export default function VoiceArena() {
   const recoveryPendingRef = useRef(false);
   const recoveryAttemptsRef = useRef(0);
   const disconnectedTimerRef = useRef<number | null>(null);
+  const setupStartedAtRef = useRef(0);
+  const setupLatencyMsRef = useRef(0);
+  const userSpeechStoppedAtRef = useRef(0);
+  const replyLatenciesMsRef = useRef<number[]>([]);
+  const recoveryCountRef = useRef(0);
+  const interruptionCountRef = useRef(0);
+  const connectionErrorCountRef = useRef(0);
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
   const allRoles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
@@ -699,6 +714,7 @@ export default function VoiceArena() {
         return;
       }
       recoveryAttemptsRef.current += 1;
+      recoveryCountRef.current += 1;
       activeResponseIdRef.current = "";
       opponentSpeakingRef.current = false;
       setOpponentSpeaking(false);
@@ -733,16 +749,22 @@ export default function VoiceArena() {
         userSpeakingRef.current = true;
         setUserSpeaking(true);
         if (opponentSpeakingRef.current) {
+          interruptionCountRef.current += 1;
           interruptedResponseRef.current = { responseId: activeResponseIdRef.current, transcriptVersion: userTranscriptVersionRef.current };
           reportRealtimeDiagnostic("speech_started", { duringOpponent: true, responseId: activeResponseIdRef.current });
         }
       }
       if (type === "input_audio_buffer.speech_stopped") {
         userSpeakingRef.current = false;
+        userSpeechStoppedAtRef.current = Date.now();
         setUserSpeaking(false);
         if (interruptedResponseRef.current) reportRealtimeDiagnostic("speech_stopped", { afterInterruption: true });
       }
       if (type === "response.output_audio.delta" || type === "response.output_audio_transcript.delta") {
+        if (!opponentSpeakingRef.current && userSpeechStoppedAtRef.current > 0) {
+          replyLatenciesMsRef.current.push(Math.max(0, Date.now() - userSpeechStoppedAtRef.current));
+          userSpeechStoppedAtRef.current = 0;
+        }
         opponentSpeakingRef.current = true;
         lastOpponentDeltaAtRef.current = Date.now();
         setRealtimeNotice("");
@@ -790,6 +812,7 @@ export default function VoiceArena() {
         }
       }
       if (type === "error") {
+        connectionErrorCountRef.current += 1;
         const nested = event.error as { message?: string } | undefined;
         const message = nested?.message || "Ошибка голосовой Realtime-сессии.";
         setRealtimeNotice(message);
@@ -835,7 +858,7 @@ export default function VoiceArena() {
   }
 
   async function requestHint() {
-    if (!isPaused || hintPendingRef.current || hintUsedRef.current) return;
+    if (!isPaused || hintPendingRef.current || hintUsedRef.current || !trainingSessionIdRef.current) return;
     hintPendingRef.current = true;
     setHintStatus("loading");
     setHintError("");
@@ -844,10 +867,7 @@ export default function VoiceArena() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
-          caseCode: selectedCase.slug,
-          participantRoleIndex: selectedRoleIndex,
-          opponentRoleIndex,
+          sessionId: trainingSessionIdRef.current,
           turns: linesRef.current,
         }),
       });
@@ -868,6 +888,7 @@ export default function VoiceArena() {
   async function startSession() {
     if (startPendingRef.current || isBusy || isLive || analysisStatus === "loading") return;
     startPendingRef.current = true;
+    setupStartedAtRef.current = Date.now();
     stopNarration();
     setCaseContentOpen(false);
     setSettingsCollapsed(true);
@@ -899,12 +920,22 @@ export default function VoiceArena() {
     setAnalysisStatus("idle");
     setAnalysis(null);
     setAnalysisError("");
+    setAnalysisSessionId("");
+    setCanRetryAnalysis(false);
     setHintStatus("idle");
     setHint(null);
     setHintError("");
     setHintUsed(false);
     hintUsedRef.current = false;
-    startedAtRef.current = new Date().toISOString();
+    startedAtRef.current = null;
+    trainingSessionIdRef.current = "";
+    completedSessionRef.current = null;
+    setupLatencyMsRef.current = 0;
+    userSpeechStoppedAtRef.current = 0;
+    replyLatenciesMsRef.current = [];
+    recoveryCountRef.current = 0;
+    interruptionCountRef.current = 0;
+    connectionErrorCountRef.current = 0;
     const connectingLines: Line[] = [{ id: "connecting", author: "Система", text: "Устанавливаем защищённую голосовую связь…", time: clockTime() }];
     linesRef.current = connectingLines;
     setLines(connectingLines);
@@ -932,6 +963,7 @@ export default function VoiceArena() {
             }
           }, 4000);
         } else if (pc.connectionState === "failed") {
+          connectionErrorCountRef.current += 1;
           setStatus("degraded");
           setRealtimeNotice("Голосовая связь прервалась. Завершите поединок — сохранённые реплики попадут в анализ.");
         }
@@ -969,10 +1001,31 @@ export default function VoiceArena() {
       });
       media.getTracks().forEach((track) => pc.addTrack(track, media));
 
+      const sessionResponse = await fetchWithTimeout("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
+          caseCode: selectedCase.slug,
+          participantRoleIndex: selectedRoleIndex,
+          opponentRoleIndex,
+          opponentVoice: opponent.voice,
+          methodologyId,
+        }),
+      }, 15_000);
+      const sessionPayload = await sessionResponse.json() as { sessionId?: string; startedAt?: string; error?: string };
+      if (!sessionResponse.ok || !sessionPayload.sessionId) {
+        throw new Error(sessionPayload.error || "Не удалось создать тренировочную сессию.");
+      }
+      trainingSessionIdRef.current = sessionPayload.sessionId;
+      startedAtRef.current = sessionPayload.startedAt || new Date().toISOString();
+      setAnalysisSessionId(sessionPayload.sessionId);
+
       const channel = pc.createDataChannel("oai-events");
       channelRef.current = channel;
       channel.addEventListener("message", handleEvent);
       channel.addEventListener("open", () => {
+        setupLatencyMsRef.current = Math.max(0, Date.now() - setupStartedAtRef.current);
         elapsedActiveMsRef.current = 0;
         activeRunStartedAtRef.current = Date.now();
         setStatus("connected");
@@ -984,6 +1037,7 @@ export default function VoiceArena() {
       });
       channel.addEventListener("close", () => {
         if (channelRef.current === channel && !endingRef.current) {
+          connectionErrorCountRef.current += 1;
           reportRealtimeDiagnostic("channel_closed", { peerState: pc.connectionState });
           setStatus("degraded");
           setRealtimeNotice("Канал событий закрылся. Завершите поединок — сохранённые реплики попадут в анализ.");
@@ -991,6 +1045,7 @@ export default function VoiceArena() {
       });
       channel.addEventListener("error", () => {
         if (endingRef.current) return;
+        connectionErrorCountRef.current += 1;
         reportRealtimeDiagnostic("channel_error", { peerState: pc.connectionState, channelState: channel.readyState });
         setStatus("degraded");
         setRealtimeNotice("Ошибка голосового канала. Если связь не восстановится, завершите поединок для анализа.");
@@ -1031,6 +1086,58 @@ export default function VoiceArena() {
     }
   }
 
+  async function persistAndAnalyze(snapshot: NonNullable<typeof completedSessionRef.current>) {
+    setIsEnding(true);
+    setAnalysisStatus("loading");
+    setAnalysisMethodologyId(methodologyId);
+    setAnalysisSessionId(snapshot.sessionId);
+    setCanRetryAnalysis(hasEnoughUserTurnsForAnalysis(snapshot.turns));
+    setAnalysisError("");
+    try {
+      const finalizeResponse = await fetch(`/api/sessions/${snapshot.sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          durationSeconds: snapshot.durationSeconds,
+          turns: snapshot.turns,
+          metrics: snapshot.metrics,
+        }),
+      });
+      const finalizeResult = await readJsonResponse<{ error?: string }>(finalizeResponse);
+      if (!finalizeResult.isJson || !finalizeResponse.ok) {
+        throw new Error(finalizeResult.payload?.error || "Не удалось сохранить стенограмму. Попробуйте ещё раз.");
+      }
+      if (!hasEnoughUserTurnsForAnalysis(snapshot.turns)) {
+        setAnalysisStatus("error");
+        setCanRetryAnalysis(false);
+        setAnalysisError(`${INSUFFICIENT_ANALYSIS_MESSAGE} Стенограмма и технические метрики сохранены.`);
+        return;
+      }
+
+      const response = await fetch("/api/analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: snapshot.sessionId }),
+      });
+      const { payload, isJson } = await readJsonResponse<{ analysis?: NegotiationAnalysis; error?: string; diagnosticId?: string }>(response);
+      if (!isJson) throw new Error("Сервис анализа временно недоступен. Стенограмма сохранена — попробуйте ещё раз.");
+      if (!response.ok || !payload?.analysis) throw new Error(payload?.error || "Не удалось получить оценку. Стенограмма сохранена.");
+      setAnalysis(payload.analysis);
+      setAnalysisStatus("ready");
+      setCanRetryAnalysis(false);
+    } catch (caught) {
+      setAnalysisStatus("error");
+      setAnalysisError(caught instanceof Error ? caught.message : "Не удалось выполнить анализ. Стенограмма сохранена.");
+    } finally {
+      setIsEnding(false);
+    }
+  }
+
+  async function retryAnalysis() {
+    if (!completedSessionRef.current || analysisStatus === "loading") return;
+    await persistAndAnalyze(completedSessionRef.current);
+  }
+
   async function endSession(reason: EndReason = "user") {
     if (!isLive || endingRef.current) return;
     endingRef.current = true;
@@ -1046,52 +1153,28 @@ export default function VoiceArena() {
       applyMediaPaused(true);
       await announceTimeExpired();
     }
+    const sessionId = trainingSessionIdRef.current;
+    const snapshot = {
+      sessionId,
+      durationSeconds: completedDurationSeconds,
+      turns: completedLines,
+      metrics: {
+        setupLatencyMs: setupLatencyMsRef.current,
+        replyLatenciesMs: replyLatenciesMsRef.current,
+        recoveryCount: recoveryCountRef.current,
+        interruptionCount: interruptionCountRef.current,
+        connectionErrorCount: connectionErrorCountRef.current,
+      },
+    };
+    completedSessionRef.current = snapshot;
     closeSession();
-    if (!hasEnoughUserTurnsForAnalysis(completedLines)) {
-      const insufficientLines: Line[] = [
-        ...completedLines,
-        { id: crypto.randomUUID(), author: "Система", text: `${INSUFFICIENT_ANALYSIS_MESSAGE} Результат поединка не сохранён.`, time: clockTime() },
-      ];
-      linesRef.current = insufficientLines;
-      setLines(insufficientLines);
+    if (!sessionId) {
       setAnalysisStatus("error");
-      setAnalysisError(INSUFFICIENT_ANALYSIS_MESSAGE);
+      setAnalysisError("Серверная сессия не была создана. Запустите новый поединок.");
       setIsEnding(false);
       return;
     }
-    setIsEnding(true);
-    setAnalysisStatus("loading");
-    setAnalysisMethodologyId(methodologyId);
-    setAnalysisError("");
-
-    try {
-      const response = await fetch("/api/analysis", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
-          caseCode: selectedCase.slug,
-          participantRoleIndex: selectedRoleIndex,
-          opponentRoleIndex,
-          opponentVoice: opponent.voice,
-          startedAt: startedAtRef.current,
-          durationSeconds: completedDurationSeconds,
-          usedHint: hintUsedRef.current,
-          methodologyId,
-          turns: completedLines,
-        }),
-      });
-      const { payload, isJson } = await readJsonResponse<{ analysis?: NegotiationAnalysis; error?: string; diagnosticId?: string }>(response);
-      if (!isJson) throw new Error("Сервис анализа временно недоступен. Попробуйте ещё раз.");
-      if (!response.ok || !payload?.analysis) throw new Error(payload?.error || "Не удалось получить оценку. Попробуйте ещё раз.");
-      setAnalysis(payload.analysis);
-      setAnalysisStatus("ready");
-    } catch (caught) {
-      setAnalysisStatus("error");
-      setAnalysisError(caught instanceof Error ? caught.message : "Не удалось выполнить анализ.");
-    } finally {
-      setIsEnding(false);
-    }
+    await persistAndAnalyze(snapshot);
   }
 
   useEffect(() => {
@@ -1259,43 +1342,16 @@ export default function VoiceArena() {
             <div className="analysis-loading"><span className="analysis-spinner" /><div><strong>АНАЛИЗИРУЕМ ПОЕДИНОК</strong><p>Сопоставляем стенограмму с методологией «{getMethodology(analysisMethodologyId).shortName}»…</p></div></div>
             )}
             {analysisStatus === "error" && (
-              <div className="analysis-error"><strong>Анализ пока недоступен</strong><p>{analysisError}</p></div>
+              <div className="analysis-error">
+                <strong>Анализ пока недоступен</strong>
+                <p>{analysisError}</p>
+                {analysisSessionId && canRetryAnalysis && (
+                  <button type="button" onClick={() => void retryAnalysis()}>ПОВТОРИТЬ АНАЛИЗ</button>
+                )}
+              </div>
             )}
             {analysisStatus === "ready" && analysis && (
-              <>
-                <header className="analysis-header">
-                  <div><span>ИТОГОВЫЙ ОТЧЁТ ПО ПОЕДИНКУ</span><h2>{analysis.summary}</h2></div>
-                  <div className="analysis-score"><strong>{analysis.overallScore}</strong><small>/ 100</small></div>
-                </header>
-                <p className="analysis-disclaimer">{analysis.disclaimer}</p>
-                <section className={`duel-outcome ${analysis.outcome.winner}`}>
-                  <div className="outcome-symbol">{analysis.outcome.winner === "user" ? "★" : analysis.outcome.winner === "opponent" ? "◆" : "="}</div>
-                  <div><span>РЕЗУЛЬТАТ ПОЕДИНКА</span><h3>{analysis.outcome.winner === "user" ? "Победил участник" : analysis.outcome.winner === "opponent" ? `Победил оппонент — ${opponent.name}` : "Ничья — явного победителя нет"}</h3><p>{analysis.outcome.verdict}</p><ul>{analysis.outcome.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>
-                </section>
-
-                <section className="personal-feedback">
-                  <span>ПЕРСОНАЛЬНАЯ ОБРАТНАЯ СВЯЗЬ</span><p>{analysis.personalFeedback}</p>
-                </section>
-
-                {analysis.scoreBreakdown.length > 0 && (
-                  <section className="score-breakdown"><h3>ОЦЕНКА ПО КРИТЕРИЯМ</h3><div>{analysis.scoreBreakdown.map((item, index) => <article key={index}><header><strong>{item.criterion}</strong><span>{item.score} / {item.maxScore}</span></header><i><b style={{ width: `${Math.min(100, (item.score / item.maxScore) * 100)}%` }} /></i><p>{item.explanation}</p></article>)}</div></section>
-                )}
-                <div className="analysis-grid">
-                  <AnalysisList title="СИЛЬНЫЕ ХОДЫ" items={analysis.strengths} tone="positive" />
-                  <AnalysisList title="РИСКИ" items={analysis.risks} tone="negative" />
-                </div>
-
-                {analysis.techniqueReview.length > 0 && (
-                  <section className="technique-review"><h3>ПРИЁМЫ: ЧТО СРАБОТАЛО И ГДЕ НЕДОРАБОТАЛ</h3>{analysis.techniqueReview.map((item, index) => <article key={index} className={item.status}><header><strong>{item.technique}</strong><span>{item.status === "successful" ? "Успешно" : item.status === "partial" ? "Частично" : "Недоработано"}</span></header><div className="quote-pair"><blockquote><small>ВАША РЕПЛИКА</small>«{item.turnQuote}»</blockquote><blockquote><small>{getMethodology(analysisMethodologyId).name.toLocaleUpperCase("ru-RU")}</small>«{item.sourceQuote}»</blockquote></div><p>{item.explanation}</p><footer><span>{item.section}</span>{item.methodologyAtomId && <Link href={`/admin/methodology?methodology=${analysisMethodologyId}&atom=${item.methodologyAtomId}`}>Открыть методический атом →</Link>}</footer></article>)}</section>
-                )}
-
-                {analysis.developmentPlan.length > 0 && (
-                  <section className="development-plan"><h3>ЧТО РАЗВИВАТЬ И ВНЕДРЯТЬ В СВОЙ АРСЕНАЛ</h3><div>{analysis.developmentPlan.map((item, index) => <article key={index}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{item.skill}</strong><p>{item.why}</p><small>Практика: {item.practice}</small></div></article>)}</div></section>
-                )}
-
-                <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
-                <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span><Link href="/admin/methodology">Перейти к базе методологии →</Link></footer>
-              </>
+              <NegotiationReport analysis={analysis} methodologyId={analysisMethodologyId} opponentName={opponent.name} />
             )}
           </section>
         )}
@@ -1416,8 +1472,4 @@ function RoleCaseBlock({ title, role, selected }: { title: string; role: Canonic
       <div><strong>{role.name}</strong><small>{role.position}</small><p><b>Цель:</b> {role.publicGoal}</p><h4>Интересы</h4><ul>{role.interests.map((item) => <li key={item}>{item}</li>)}</ul><h4>Ограничения</h4><ul>{role.constraints.map((item) => <li key={item}>{item}</li>)}</ul></div>
     </div>
   );
-}
-
-function AnalysisList({ title, items, tone }: { title: string; items: string[]; tone: "positive" | "negative" }) {
-  return <div className={`analysis-list ${tone}`}><h3>{title}</h3><ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul></div>;
 }

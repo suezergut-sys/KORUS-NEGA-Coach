@@ -3,14 +3,18 @@ import "server-only";
 import { ANALYSIS_MODEL, getOpenAI } from "@/lib/openai-server";
 import { createCaseVariantsSchema, type GeneratedCaseVariant } from "@/lib/case-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { getMethodology } from "@/lib/methodologies";
+import { getMethodologySource } from "@/lib/methodology-server";
 
 type Material = { fileName: string; text: string };
 
 export async function generateCaseVariants(input: { title: string; notes: string; materials: Material[] }) {
   const supabase = getSupabaseAdmin();
+  const source = await getMethodologySource(supabase, getMethodology("tarasov"));
   const { data: atoms, error } = await supabase
     .from("method_atoms")
     .select("id,kind,title,statement,source_quote")
+    .eq("source_id", source.id)
     .eq("verification_status", "verified")
     .in("kind", ["case_rule", "principle", "stratagem"])
     .limit(24);

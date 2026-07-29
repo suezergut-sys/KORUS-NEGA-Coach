@@ -1,9 +1,8 @@
-import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { parseAdminCaseInput } from "@/lib/admin-case-input";
 import { deleteNegotiationCase } from "@/lib/case-deletion";
-import { generateCaseMedia } from "@/lib/case-media";
+import { enqueueCaseMedia } from "@/lib/case-media";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
@@ -40,8 +39,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       updated_at: new Date().toISOString(),
     }).eq("id", id).select("id").single();
     if (error) throw new Error(error.message);
-    await db.from("case_media_jobs").upsert({ case_id: id, status: "pending", error: null, updated_at: new Date().toISOString() }, { onConflict: "case_id" });
-    if (item.status === "published") after(async () => { try { await generateCaseMedia(id); } catch { /* job stores error */ } });
+    if (item.status === "published") await enqueueCaseMedia(id, true);
     revalidatePath("/admin/cases");
     revalidatePath(`/admin/cases/${id}`);
     revalidatePath("/");

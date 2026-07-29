@@ -1,6 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { generateCaseMedia } from "@/lib/case-media";
-import { after } from "next/server";
+import { enqueueCaseMedia } from "@/lib/case-media";
 import { canAccessCase } from "@/lib/case-visibility";
 import { getCurrentUserSession } from "@/lib/user-auth";
 
@@ -17,10 +16,7 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
   if (!negotiationCase || !canAccessCase(negotiationCase, session.userId)) return Response.json({ status: "failed", error: "Кейс не найден или недоступен." }, { status: 404 });
   const { data: job, error: jobError } = await db.from("case_media_jobs").select("status,error,started_at,published_generation_id").eq("case_id", id).maybeSingle();
   if (jobError) return Response.json({ status: "failed", error: jobError.message }, { status: 500 });
-  const stale = job?.status === "processing" && job.started_at && Date.parse(job.started_at) < Date.now() - 10 * 60 * 1000;
-  if (!job || job.status === "pending" || stale) {
-    after(async () => { try { await generateCaseMedia(id); } catch { /* job stores the error */ } });
-  }
+  if (!job) await enqueueCaseMedia(id);
   if (!job?.published_generation_id) return Response.json({ status: job?.status || "pending", error: job?.error || null, versions: {} });
   const { data: panels, error } = await db
     .from("case_comic_panels")
