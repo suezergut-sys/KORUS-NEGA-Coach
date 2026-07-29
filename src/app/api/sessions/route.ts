@@ -33,12 +33,19 @@ export async function POST(request: Request) {
     );
     const methodology = getMethodology(body.methodologyId);
     const db = getSupabaseAdmin();
-    const { data: goal } = await db
-      .from("user_learning_goals")
-      .select("goal_text,next_session_target")
-      .eq("user_id", user.userId)
-      .maybeSingle();
+    const [{ data: goal }, { data: privacy, error: privacyError }] = await Promise.all([
+      db.from("user_learning_goals").select("goal_text,next_session_target").eq("user_id", user.userId).maybeSingle(),
+      db.from("user_profiles").select("transcript_consent_at,transcript_retention_days").eq("id", user.userId).single(),
+    ]);
+    if (privacyError) throw new Error(privacyError.message);
+    if (!privacy?.transcript_consent_at) {
+      return Response.json(
+        { error: "Для запуска тренировки подтвердите согласие на сохранение стенограммы в личном кабинете." },
+        { status: 412 },
+      );
+    }
     const now = new Date().toISOString();
+    const retentionExpiresAt = new Date(Date.now() + Number(privacy.transcript_retention_days || 365) * 86_400_000).toISOString();
     const { data, error } = await db
       .from("training_sessions")
       .insert({
@@ -57,6 +64,7 @@ export async function POST(request: Request) {
         goal_snapshot: [goal?.goal_text, goal?.next_session_target].filter(Boolean).join("\n").slice(0, 1000) || null,
         is_ranked: true,
         status: "live",
+        retention_expires_at: retentionExpiresAt,
       })
       .select("id,started_at")
       .single();

@@ -3,11 +3,18 @@ import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import { averageLatestScores, calculateSkillProgress } from "@/lib/user-stats-core";
-import { canAccessCase } from "@/lib/case-visibility";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import type { MethodologyId } from "@/lib/methodologies";
 
-type ProfileRow = { id: string; first_name: string; last_name: string; email: string; created_at: string };
+type ProfileRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  created_at: string;
+  transcript_consent_at: string | null;
+  transcript_retention_days: number;
+};
 type SessionRow = {
   id: string;
   user_id: string;
@@ -124,7 +131,7 @@ export async function getUserDashboard(userId: string) {
     { data: learningGoal },
     { data: tasks },
   ] = await Promise.all([
-    supabase.from("user_profiles").select("id, first_name, last_name, email, created_at").eq("id", userId).single<ProfileRow>(),
+    supabase.from("user_profiles").select("id, first_name, last_name, email, created_at, transcript_consent_at, transcript_retention_days").eq("id", userId).single<ProfileRow>(),
     supabase.from("training_sessions").select("id,user_id,case_id,case_code,participant_role_name,opponent_name,ended_at,is_ranked,status,methodology_id").eq("user_id", userId).in("status", ["analyzed", "analysis_failed", "analysis_pending"]).order("ended_at", { ascending: false }).limit(100),
     supabase.from("user_learning_goals").select("focus_skill,goal_text,next_session_target,updated_at").eq("user_id", userId).maybeSingle(),
     supabase.from("practice_tasks").select("id,source_session_id,skill,why,practice,status,completed_at,created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
@@ -217,51 +224,67 @@ export async function getUserSessionReport(userId: string, sessionId: string) {
   };
 }
 
-export async function getRating(): Promise<UserStanding[]> {
+export type RatingSort = "played" | "wins" | "winRate" | "averageScore";
+
+export type RatingPage = {
+  users: UserStanding[];
+  page: number;
+  pageSize: number;
+  total: number;
+  sort: RatingSort;
+  descending: boolean;
+};
+
+type RatingRpcRow = {
+  id: string;
+  name: string;
+  played: number;
+  wins: number;
+  win_rate: number;
+  average_score: number | null;
+  last_duel: string | null;
+  cases: UserStanding["cases"] | null;
+  total_count: number;
+};
+
+export async function getRating(options: {
+  page?: number;
+  pageSize?: number;
+  sort?: RatingSort;
+  descending?: boolean;
+} = {}): Promise<RatingPage> {
   const supabase = getSupabaseAdmin();
   const currentSession = await getCurrentUserSession();
-  const [{ data: profiles, error: profilesError }, { data: sessions, error: sessionsError }] = await Promise.all([
-    supabase.from("user_profiles").select("id, first_name, last_name, email, created_at").eq("role", "user"),
-    supabase.from("training_sessions").select("id,user_id,case_id,case_code,participant_role_name,opponent_name,ended_at,is_ranked,status").not("user_id", "is", null).eq("is_ranked", true).eq("status", "analyzed"),
-  ]);
-  if (profilesError || sessionsError) throw new Error("Не удалось сформировать рейтинг пользователей.");
-  const sessionRows = (sessions || []) as SessionRow[];
-  const ids = sessionRows.map((item) => item.id);
-  const caseIds = [...new Set(sessionRows.map((item) => item.case_id).filter(Boolean))] as string[];
-  const [{ data: evaluations }, cases] = await Promise.all([
-    ids.length ? supabase.from("evaluations").select("session_id,overall_score,result").in("session_id", ids) : Promise.resolve({ data: [] }),
-    loadCases(caseIds),
-  ]);
-  const evaluationBySession = evaluationMap((evaluations || []) as EvaluationRow[]);
-  const casesById = new Map(cases.map((item) => [item.id, item]));
-  return ((profiles || []) as ProfileRow[]).map((profile) => {
-    const userSessions = sessionRows.filter((item) => item.user_id === profile.id).sort((a, b) => b.ended_at.localeCompare(a.ended_at));
-    const wins = userSessions.filter((item) => evaluationBySession.get(item.id)?.winner === "user").length;
-    const averageScore = averageLatestScores(userSessions.map((item) => evaluationBySession.get(item.id)?.score ?? null));
-    const standingCases = new Map<string, UserStanding["cases"][number]>();
-    for (const session of userSessions) {
-      if (standingCases.size >= 5) break;
-      const storedCase = session.case_id ? casesById.get(session.case_id) : null;
-      const key = session.case_id || session.case_code;
-      if (standingCases.has(key)) continue;
-      const isDefault = !session.case_id && session.case_code === DEFAULT_CASE.slug;
-      const isPrivate = storedCase?.visibility === "private";
-      standingCases.set(key, {
-        id: storedCase?.id || (isDefault ? DEFAULT_CASE.id : null),
-        name: storedCase?.title || (isDefault ? DEFAULT_CASE.title : session.case_code),
-        playable: isDefault || Boolean(storedCase && canAccessCase(storedCase, currentSession?.userId)),
-        private: isPrivate,
-      });
-    }
-    return {
-      id: profile.id,
-      name: `${profile.first_name} ${profile.last_name}`,
-      played: userSessions.length,
-      wins,
-      winRate: userSessions.length ? Math.round((wins / userSessions.length) * 100) : 0,
-      averageScore,
-      lastDuel: userSessions[0]?.ended_at || null,
-      cases: [...standingCases.values()],
-    };
+  const page = Math.max(1, Math.floor(options.page || 1));
+  const pageSize = Math.max(1, Math.min(100, Math.floor(options.pageSize || 25)));
+  const sort: RatingSort = ["played", "wins", "winRate", "averageScore"].includes(options.sort || "")
+    ? options.sort as RatingSort
+    : "played";
+  const descending = options.descending !== false;
+  const { data, error } = await supabase.rpc("get_rating_page", {
+    p_requesting_user_id: currentSession?.userId || null,
+    p_limit: pageSize,
+    p_offset: (page - 1) * pageSize,
+    p_sort: sort,
+    p_descending: descending,
   });
+  if (error) throw new Error(`Не удалось сформировать рейтинг пользователей: ${error.message}`);
+  const rows = (data || []) as RatingRpcRow[];
+  return {
+    users: rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      played: Number(row.played),
+      wins: Number(row.wins),
+      winRate: Number(row.win_rate),
+      averageScore: row.average_score === null ? null : Number(row.average_score),
+      lastDuel: row.last_duel,
+      cases: row.cases || [],
+    })),
+    page,
+    pageSize,
+    total: Number(rows[0]?.total_count || 0),
+    sort,
+    descending,
+  };
 }

@@ -1,4 +1,5 @@
 import { processCaseMediaQueue } from "@/lib/case-media";
+import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -10,8 +11,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await processCaseMediaQueue(2);
-    return Response.json({ ok: true, ...result });
+    const [result, retention] = await Promise.all([
+      processCaseMediaQueue(2),
+      getSupabaseAdmin().rpc("purge_expired_training_data"),
+    ]);
+    if (retention.error) throw new Error(retention.error.message);
+    return Response.json({ ok: true, ...result, expiredSessionsDeleted: Number(retention.data || 0) });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Не удалось обработать очередь." },

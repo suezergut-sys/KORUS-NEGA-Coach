@@ -122,7 +122,7 @@ export default function CaseBuilder() {
 
       {approvedCase && (
         <section className="case-approved-banner">
-          <div><span>✓ КЕЙС ДОБАВЛЕН В БАЗУ</span><strong>{approvedCase.title}</strong><p>{approvedCase.visibility === "private" ? "Приватный кейс доступен в тренажёре только вам." : "Общедоступный кейс уже появился у всех пользователей."}</p></div>
+          <div><span>✓ КЕЙС ДОБАВЛЕН В БАЗУ</span><strong>{approvedCase.title}</strong><p>{approvedCase.visibility === "private" ? "Приватный кейс доступен в тренажёре только вам." : "Общедоступный кейс уже появился у всех пользователей."} Изображения и озвучка появятся через несколько минут: они генерируются в фоне.</p></div>
           <Link href={`/?case=${approvedCase.id}`}>ВЫБРАТЬ И НАЧАТЬ ПЕРЕГОВОРЫ →</Link>
         </section>
       )}
@@ -141,7 +141,7 @@ export default function CaseBuilder() {
                   <section><span>ОППОНЕНТ</span><strong>{variant.opponentRole.name}</strong><small>{variant.opponentRole.position}</small><p>{variant.opponentRole.publicGoal}</p><ul>{variant.opponentRole.interests.map((item) => <li key={item}>{item}</li>)}</ul></section>
                 </div>
                 <details><summary>Показать каноническое описание</summary><div><strong>Ситуация</strong><p>{variant.situation}</p><strong>Стартовая позиция</strong><p>{variant.startSituation}</p><strong>Ставки</strong><ul>{variant.stakes.map((item) => <li key={item}>{item}</li>)}</ul><strong>Методическая основа</strong><ul>{variant.methodologyBasis.map((item) => <li key={item.atomId}>{item.title}: {item.application}</li>)}</ul></div></details>
-                <button onClick={() => approve(variant.id)} disabled={Boolean(variant.approvedAt) || status === "approving"}>{variant.approvedAt ? "КЕЙС УЖЕ УТВЕРЖДЁН" : status === "approving" ? "ДОБАВЛЯЕМ…" : "ОДОБРИТЬ И ДОБАВИТЬ В БАЗУ"}</button>
+                <button onClick={() => approve(variant.id)} disabled={Boolean(variant.approvedAt) || status === "approving"}>{variant.approvedAt ? "КЕЙС УЖЕ УТВЕРЖДЁН" : status === "approving" ? "ДОБАВЛЯЕМ… МЕДИА ПОЯВИТСЯ ПОЗЖЕ" : "ОДОБРИТЬ И ДОБАВИТЬ В БАЗУ"}</button>
               </article>
             ))}
           </div>

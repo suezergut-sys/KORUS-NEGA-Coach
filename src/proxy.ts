@@ -14,6 +14,9 @@ const PUBLIC_PATHS = new Set([
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  if (process.env.E2E_TEST_MODE === "1" && pathname.startsWith("/e2e/")) {
+    return NextResponse.next();
+  }
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
 
   const authenticated = verifySiteSessionToken(request.cookies.get(SITE_COOKIE)?.value);

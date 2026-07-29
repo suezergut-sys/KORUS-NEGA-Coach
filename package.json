@@ -4,11 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:e2e": "cross-env E2E_TEST_MODE=1 next dev --hostname 127.0.0.1 --port 3100",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src tests && node --check scripts/ingest-methodology.mjs && node --check scripts/seed-harvard-core-atoms.mjs && node --check scripts/set-harvard-review-status.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:integration": "node --env-file=.env.local ./node_modules/vitest/vitest.mjs run tests/integration",
+    "test:e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm test",
     "methodology:ingest": "node scripts/ingest-methodology.mjs",
     "methodology:extract": "node scripts/ingest-methodology.mjs --extract-atoms",
@@ -26,9 +29,11 @@
     "unpdf": "^1.6.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "cross-env": "^10.1.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.2.10",
     "fast-xml-parser": "^5.9.3",
