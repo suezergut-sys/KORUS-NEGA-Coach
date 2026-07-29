@@ -1,4 +1,5 @@
 import { summarizeRealtimeMetrics } from "@/lib/realtime-metrics";
+import { summarizeSpeechAnalytics } from "@/lib/speech-analytics";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { normalizeAnalysisTurns } from "@/lib/transcript";
 import { getCurrentUserSession } from "@/lib/user-auth";
@@ -26,6 +27,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ? body.metrics as Record<string, unknown>
       : {};
     const metrics = summarizeRealtimeMetrics(metricsInput);
+    const speechAnalytics = summarizeSpeechAnalytics({
+      inputMode: metricsInput.inputMode,
+      turns,
+      userSpeakingDurationsMs: metricsInput.userSpeakingDurationsMs,
+      opponentSpeakingDurationsMs: metricsInput.opponentSpeakingDurationsMs,
+      userResponseTimesMs: metricsInput.userResponseTimesMs,
+      interruptionCount: metrics.interruptionCount,
+    });
     const durationValue = Number(body.durationSeconds);
     const durationSeconds = Number.isFinite(durationValue)
       ? Math.min(21_600, Math.max(0, Math.round(durationValue)))
@@ -54,10 +63,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       p_recovery_count: metrics.recoveryCount,
       p_interruption_count: metrics.interruptionCount,
       p_connection_error_count: metrics.connectionErrorCount,
-      p_metric_details: { replyLatenciesMs: metrics.replyLatenciesMs },
+      p_metric_details: {
+        replyLatenciesMs: metrics.replyLatenciesMs,
+        inputMode: metricsInput.inputMode === "duplex" ? "duplex" : "push_to_talk",
+        speechAnalytics,
+      },
     });
     if (error || !data) throw new Error(error?.message || "Сессию не удалось завершить.");
-    return Response.json({ sessionId: id, status: "analysis_pending", metrics });
+    return Response.json({
+      sessionId: id,
+      status: "analysis_pending",
+      metrics: { ...metrics, speechAnalytics },
+    });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Не удалось сохранить стенограмму." },

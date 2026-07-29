@@ -141,6 +141,12 @@ export default function VoiceArena() {
   const recoveryCountRef = useRef(0);
   const interruptionCountRef = useRef(0);
   const connectionErrorCountRef = useRef(0);
+  const userSpeechStartedAtRef = useRef(0);
+  const opponentSpeechStartedAtRef = useRef(0);
+  const lastOpponentSpeechEndedAtRef = useRef(0);
+  const userSpeakingDurationsMsRef = useRef<number[]>([]);
+  const opponentSpeakingDurationsMsRef = useRef<number[]>([]);
+  const userResponseTimesMsRef = useRef<number[]>([]);
 
   const report = useNegotiationReport({
     methodologyId,
@@ -154,6 +160,7 @@ export default function VoiceArena() {
     sessionId: analysisSessionId,
     canRetry: canRetryAnalysis,
     analysisMethodologyId,
+    speechAnalytics,
     analysisRef,
     analyze: persistAndAnalyze,
     retry: retryAnalysis,
@@ -503,33 +510,64 @@ export default function VoiceArena() {
         interruptedResponseRef.current = null;
       }
       if (type === "input_audio_buffer.speech_started") {
+        const speechStartedAt = Date.now();
+        if (inputModeRef.current === "duplex") {
+          if (!userSpeechStartedAtRef.current) userSpeechStartedAtRef.current = speechStartedAt;
+          if (lastOpponentSpeechEndedAtRef.current) {
+            userResponseTimesMsRef.current.push(Math.max(0, speechStartedAt - lastOpponentSpeechEndedAtRef.current));
+            lastOpponentSpeechEndedAtRef.current = 0;
+          }
+        }
         userSpeakingRef.current = true;
         setUserSpeaking(true);
-        if (opponentSpeakingRef.current) {
+        const opponentIsAudible = inputModeRef.current === "duplex"
+          ? opponentSpeechStartedAtRef.current > 0
+          : opponentSpeakingRef.current;
+        if (opponentIsAudible) {
           interruptionCountRef.current += 1;
           interruptedResponseRef.current = { responseId: activeResponseIdRef.current, transcriptVersion: userTranscriptVersionRef.current };
           reportRealtimeDiagnostic("speech_started", { duringOpponent: true, responseId: activeResponseIdRef.current });
         }
       }
       if (type === "input_audio_buffer.speech_stopped") {
+        const speechStoppedAt = Date.now();
+        if (inputModeRef.current === "duplex" && userSpeechStartedAtRef.current) {
+          userSpeakingDurationsMsRef.current.push(Math.max(0, speechStoppedAt - userSpeechStartedAtRef.current));
+          userSpeechStartedAtRef.current = 0;
+        }
         userSpeakingRef.current = false;
-        userSpeechStoppedAtRef.current = Date.now();
+        userSpeechStoppedAtRef.current = speechStoppedAt;
         setUserSpeaking(false);
         if (interruptedResponseRef.current) reportRealtimeDiagnostic("speech_stopped", { afterInterruption: true });
       }
       if (type === "response.output_audio.delta" || type === "response.output_audio_transcript.delta") {
+        const opponentStartedAt = Date.now();
         if (!opponentSpeakingRef.current && userSpeechStoppedAtRef.current > 0) {
-          replyLatenciesMsRef.current.push(Math.max(0, Date.now() - userSpeechStoppedAtRef.current));
+          replyLatenciesMsRef.current.push(Math.max(0, opponentStartedAt - userSpeechStoppedAtRef.current));
           userSpeechStoppedAtRef.current = 0;
         }
+        if (type === "response.output_audio.delta" && inputModeRef.current === "duplex" && !opponentSpeechStartedAtRef.current) {
+          opponentSpeechStartedAtRef.current = opponentStartedAt;
+        }
         opponentSpeakingRef.current = true;
-        lastOpponentDeltaAtRef.current = Date.now();
+        lastOpponentDeltaAtRef.current = opponentStartedAt;
         setRealtimeNotice("");
         setOpponentSpeaking(true);
       }
       if (type === "response.output_audio.done" || type === "response.output_audio_transcript.done") {
-        opponentSpeakingRef.current = false;
-        setOpponentSpeaking(false);
+        if (type === "response.output_audio.done" && inputModeRef.current === "duplex" && opponentSpeechStartedAtRef.current) {
+          const opponentEndedAt = Date.now();
+          opponentSpeakingDurationsMsRef.current.push(Math.max(0, opponentEndedAt - opponentSpeechStartedAtRef.current));
+          opponentSpeechStartedAtRef.current = 0;
+          lastOpponentSpeechEndedAtRef.current = opponentEndedAt;
+        }
+        const audioIsStillActive = type === "response.output_audio_transcript.done"
+          && inputModeRef.current === "duplex"
+          && opponentSpeechStartedAtRef.current > 0;
+        if (!audioIsStillActive) {
+          opponentSpeakingRef.current = false;
+          setOpponentSpeaking(false);
+        }
       }
       if (type === "conversation.item.input_audio_transcription.delta") {
         appendDelta("Вы", String(event.delta || ""), itemId);
@@ -550,6 +588,12 @@ export default function VoiceArena() {
         }
       }
       if (type === "response.done") {
+        if (inputModeRef.current === "duplex" && opponentSpeechStartedAtRef.current) {
+          const opponentEndedAt = Date.now();
+          opponentSpeakingDurationsMsRef.current.push(Math.max(0, opponentEndedAt - opponentSpeechStartedAtRef.current));
+          opponentSpeechStartedAtRef.current = 0;
+          lastOpponentSpeechEndedAtRef.current = opponentEndedAt;
+        }
         const outcome = realtimeResponseStatus(event);
         const responseId = outcome.responseId || activeResponseIdRef.current;
         const responseDurationMs = responseStartedAtRef.current ? Date.now() - responseStartedAtRef.current : 0;
@@ -607,6 +651,16 @@ export default function VoiceArena() {
       channel.send(JSON.stringify({ type: "input_audio_buffer.clear" }));
       if (opponentSpeaking) channel.send(JSON.stringify({ type: "response.cancel" }));
     }
+    const pausedAt = Date.now();
+    if (inputModeRef.current === "duplex" && userSpeechStartedAtRef.current) {
+      userSpeakingDurationsMsRef.current.push(Math.max(0, pausedAt - userSpeechStartedAtRef.current));
+      userSpeechStartedAtRef.current = 0;
+    }
+    if (inputModeRef.current === "duplex" && opponentSpeechStartedAtRef.current) {
+      opponentSpeakingDurationsMsRef.current.push(Math.max(0, pausedAt - opponentSpeechStartedAtRef.current));
+      opponentSpeechStartedAtRef.current = 0;
+    }
+    lastOpponentSpeechEndedAtRef.current = 0;
     if (pauseTimer()) lifecycleDispatch({ type: "PAUSE" });
   }
 
@@ -678,6 +732,12 @@ export default function VoiceArena() {
     recoveryCountRef.current = 0;
     interruptionCountRef.current = 0;
     connectionErrorCountRef.current = 0;
+    userSpeechStartedAtRef.current = 0;
+    opponentSpeechStartedAtRef.current = 0;
+    lastOpponentSpeechEndedAtRef.current = 0;
+    userSpeakingDurationsMsRef.current = [];
+    opponentSpeakingDurationsMsRef.current = [];
+    userResponseTimesMsRef.current = [];
     const connectingLines: Line[] = [{ id: "connecting", author: "Система", text: "Устанавливаем защищённую голосовую связь…", time: clockTime() }];
     linesRef.current = connectingLines;
     setLines(connectingLines);
@@ -838,6 +898,15 @@ export default function VoiceArena() {
     if (!isLive || endingRef.current) return;
     endingRef.current = true;
     lifecycleDispatch({ type: "END" });
+    const speechEndedAt = Date.now();
+    if (inputModeRef.current === "duplex" && userSpeechStartedAtRef.current) {
+      userSpeakingDurationsMsRef.current.push(Math.max(0, speechEndedAt - userSpeechStartedAtRef.current));
+      userSpeechStartedAtRef.current = 0;
+    }
+    if (inputModeRef.current === "duplex" && opponentSpeechStartedAtRef.current) {
+      opponentSpeakingDurationsMsRef.current.push(Math.max(0, speechEndedAt - opponentSpeechStartedAtRef.current));
+      opponentSpeechStartedAtRef.current = 0;
+    }
     const completedDurationSeconds = Math.min(totalDurationSeconds, freezeTimer());
     const completedLines = [
       ...linesRef.current,
@@ -860,6 +929,10 @@ export default function VoiceArena() {
         recoveryCount: recoveryCountRef.current,
         interruptionCount: interruptionCountRef.current,
         connectionErrorCount: connectionErrorCountRef.current,
+        inputMode: inputModeRef.current,
+        userSpeakingDurationsMs: userSpeakingDurationsMsRef.current,
+        opponentSpeakingDurationsMs: opponentSpeakingDurationsMsRef.current,
+        userResponseTimesMs: userResponseTimesMsRef.current,
       },
     };
     closeSession(false);
@@ -923,6 +996,9 @@ export default function VoiceArena() {
               <span className="mode-info" tabIndex={0} aria-label="Описание обычного режима">i<span role="tooltip">Микрофон передаёт звук только пока вы удерживаете кнопку. Подходит для шумных помещений и турниров с комментариями ведущего.</span></span>
             </div>
           </div>
+          <p className="speech-analytics-availability">
+            Речевая аналитика темпа, пауз, доли говорения и реакции на давление формируется только в режиме «Дуплекс».
+          </p>
         </section>
 
         <section className="setting-group methodology-setting">
@@ -1046,7 +1122,7 @@ export default function VoiceArena() {
               </div>
             )}
             {analysisStatus === "ready" && analysis && (
-              <NegotiationReport analysis={analysis} methodologyId={analysisMethodologyId} opponentName={opponent.name} />
+              <NegotiationReport analysis={analysis} methodologyId={analysisMethodologyId} opponentName={opponent.name} speechAnalytics={speechAnalytics} />
             )}
           </section>
         )}

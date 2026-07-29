@@ -5,6 +5,7 @@ import { DEFAULT_CASE } from "@/lib/default-case";
 import { averageLatestScores, calculateSkillProgress } from "@/lib/user-stats-core";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import type { MethodologyId } from "@/lib/methodologies";
+import { readSpeechAnalytics } from "@/lib/speech-analytics";
 
 type ProfileRow = {
   id: string;
@@ -197,10 +198,11 @@ export async function getUserSessionReport(userId: string, sessionId: string) {
   if (!session) return null;
   const [{ data: evaluation }, { data: metrics }, cases] = await Promise.all([
     db.from("evaluations").select("overall_score,result,created_at").eq("session_id", sessionId).maybeSingle(),
-    db.from("session_metrics").select("setup_latency_ms,reply_latency_p50_ms,reply_latency_p95_ms,reply_latency_samples,recovery_count,interruption_count,connection_error_count").eq("session_id", sessionId).maybeSingle(),
+    db.from("session_metrics").select("setup_latency_ms,reply_latency_p50_ms,reply_latency_p95_ms,reply_latency_samples,recovery_count,interruption_count,connection_error_count,details").eq("session_id", sessionId).maybeSingle(),
     loadCases(session.case_id ? [session.case_id] : []),
   ]);
-  if (!evaluation?.result) return { session, analysis: null, metrics, caseName: caseName(session as SessionRow, new Map(cases.map((item) => [item.id, item]))), previous: null };
+  const speechAnalytics = readSpeechAnalytics((metrics?.details as { speechAnalytics?: unknown } | null)?.speechAnalytics);
+  if (!evaluation?.result) return { session, analysis: null, metrics, speechAnalytics, caseName: caseName(session as SessionRow, new Map(cases.map((item) => [item.id, item]))), previous: null };
 
   const { data: previousSession } = await db
     .from("training_sessions")
@@ -219,6 +221,7 @@ export async function getUserSessionReport(userId: string, sessionId: string) {
     session,
     analysis: evaluation.result as NegotiationAnalysis,
     metrics,
+    speechAnalytics,
     caseName: caseName(session as SessionRow, new Map(cases.map((item) => [item.id, item]))),
     previous: previousEvaluation ? { sessionId: previousSession?.id, score: previousEvaluation.overall_score, analysis: previousEvaluation.result as NegotiationAnalysis } : null,
   };

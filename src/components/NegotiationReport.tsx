@@ -1,15 +1,18 @@
 import Link from "next/link";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import { getMethodology, type MethodologyId } from "@/lib/methodologies";
+import type { SpeechAnalytics } from "@/lib/speech-analytics";
 
 export default function NegotiationReport({
   analysis,
   methodologyId,
   opponentName,
+  speechAnalytics,
 }: {
   analysis: NegotiationAnalysis;
   methodologyId: MethodologyId;
   opponentName: string;
+  speechAnalytics?: SpeechAnalytics | null;
 }) {
   const methodology = getMethodology(methodologyId);
   const confidence = Number(analysis.outcome.confidence);
@@ -36,6 +39,8 @@ export default function NegotiationReport({
       <section className="personal-feedback">
         <span>ПЕРСОНАЛЬНАЯ ОБРАТНАЯ СВЯЗЬ</span><p>{analysis.personalFeedback}</p>
       </section>
+
+      {speechAnalytics && <SpeechAnalyticsPanel analytics={speechAnalytics} />}
 
       {analysis.scoreBreakdown.length > 0 && (
         <section className="score-breakdown">
@@ -115,6 +120,39 @@ export default function NegotiationReport({
       <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span><Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link></footer>
     </>
+  );
+}
+
+function formatSeconds(milliseconds: number) {
+  if (!milliseconds) return "—";
+  return `${(milliseconds / 1000).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} с`;
+}
+
+export function SpeechAnalyticsPanel({ analytics }: { analytics: SpeechAnalytics }) {
+  const fillerSummary = analytics.fillers.length
+    ? analytics.fillers.slice(0, 3).map((item) => `${item.phrase} — ${item.count}`).join(", ")
+    : "не обнаружены";
+  return (
+    <section className="speech-analytics-card">
+      <header>
+        <div><span>РЕЧЕВАЯ АНАЛИТИКА · ДУПЛЕКС</span><h3>Как вы говорили и реагировали</h3></div>
+        <p>Рассчитано по временным событиям голоса и финальной стенограмме. Аудиозапись не сохраняется.</p>
+      </header>
+      <div className="speech-analytics-grid">
+        <article><span>ТЕМП</span><strong>{analytics.tempoWpm || "—"}<small>{analytics.tempoWpm ? " сл/мин" : ""}</small></strong><p>{analytics.words} слов в {analytics.userTurns} репликах</p></article>
+        <article><span>ПАУЗЫ ДО ОТВЕТА</span><strong>{formatSeconds(analytics.averagePauseMs)}</strong><p>длинных пауз от 3 сек.: {analytics.longPauseCount}</p></article>
+        <article><span>ДОЛЯ ГОВОРЕНИЯ</span><strong>{analytics.talkSharePercent}%</strong><p>от суммарного времени речи сторон</p></article>
+        <article><span>ПЕРЕБИВАНИЯ</span><strong>{analytics.interruptionCount}</strong><p>раз начали говорить во время ответа оппонента</p></article>
+        <article><span>ВОПРОСЫ</span><strong>{analytics.questionCount}</strong><p>вопросительных формулировок</p></article>
+        <article><span>СЛОВА-ПАРАЗИТЫ</span><strong>{analytics.fillerCount}</strong><p>{fillerSummary}</p></article>
+        <article><span>ВРЕМЯ ДО ОТВЕТА P50</span><strong>{formatSeconds(analytics.responseTimeP50Ms)}</strong><p>P95: {formatSeconds(analytics.responseTimeP95Ms)}</p></article>
+        <article className={`pressure-reaction ${analytics.pressureReaction.level}`}>
+          <span>РЕАКЦИЯ НА ДАВЛЕНИЕ</span>
+          <strong>{analytics.pressureReaction.label}</strong>
+          <p>{analytics.pressureReaction.explanation}</p>
+        </article>
+      </div>
+    </section>
   );
 }
 
