@@ -2,7 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_COOKIE, verifyAdminSessionToken } from "./lib/admin-session";
 import { SITE_COOKIE, verifySiteSessionToken } from "./lib/site-session";
 
-const PUBLIC_PATHS = new Set(["/login", "/register", "/api/site/login", "/api/site/register", "/api/site/logout"]);
+const PUBLIC_PATHS = new Set([
+  "/login",
+  "/register",
+  "/api/site/login",
+  "/api/site/register",
+  "/api/site/logout",
+  // The route applies its own CRON_SECRET Bearer authentication.
+  "/api/cron/case-media",
+]);
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
