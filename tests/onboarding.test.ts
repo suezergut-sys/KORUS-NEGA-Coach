@@ -11,8 +11,8 @@ import {
 } from "../src/lib/onboarding";
 
 describe("onboarding content", () => {
-  it("uses the v3 completion key and the approved seven-screen order", () => {
-    expect(ONBOARDING_STORAGE_KEY).toBe("korus-nega-onboarding-v3");
+  it("uses the v4 completion key and the approved seven-screen order", () => {
+    expect(ONBOARDING_STORAGE_KEY).toBe("korus-nega-onboarding-v4");
     expect(ONBOARDING_STEPS.map((step) => step.id)).toEqual([
       "welcome",
       "capabilities",
@@ -35,6 +35,16 @@ describe("onboarding content", () => {
     expect(copy).toContain("без VPN");
     expect(copy).toContain("телефона");
     expect(copy).toContain("дополнительная установка не требуется");
+  });
+
+  it("covers the important training, privacy and case-publishing flows", () => {
+    const copy = JSON.stringify(ONBOARDING_STEPS);
+    expect(copy).toContain("речевой аналитики");
+    expect(copy).toContain("AI-подсказка");
+    expect(copy).toContain("личную цель");
+    expect(copy).toContain("экспортируй или удаляй");
+    expect(copy).toContain("приватную видимость");
+    expect(copy).toContain("изображения и озвучка появятся позже");
   });
 });
 

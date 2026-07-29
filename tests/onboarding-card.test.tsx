@@ -10,7 +10,7 @@ describe("OnboardingCard", () => {
     );
     expect(markup).toContain("Развивай навыки переговоров через практику");
     expect(markup).toContain("korus_sign_color.jpg");
-    expect(markup).toContain("безопасная и конфиденциальная среда");
+    expect(markup).toContain("аудио не сохраняется, стенограмма — только с твоего согласия");
   });
 
   it("renders why and action blocks for a feature", () => {
