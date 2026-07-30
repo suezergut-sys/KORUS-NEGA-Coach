@@ -133,7 +133,13 @@ export function SpeechAnalyticsPanel({ analytics }: { analytics: SpeechAnalytics
     ? analytics.fillers.slice(0, 3).map((item) => `${item.phrase} — ${item.count}`).join(", ")
     : "не обнаружены";
   const fillerPercent = `${analytics.fillerPercent.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}%`;
-  const unavailableTiming = analytics.timingAvailable ? null : "Недостаточно данных о звуке оппонента";
+  const unavailableTiming = analytics.timingAvailable
+    ? null
+    : analytics.timingUnavailableReason === "implausible"
+      ? "Аудиометрики отклонены проверкой достоверности"
+      : analytics.timingUnavailableReason === "legacy"
+        ? "Метрики этой сессии собраны устаревшим способом"
+        : "Недостаточно данных о звуке оппонента";
   return (
     <section className="speech-analytics-card">
       <header>
