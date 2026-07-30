@@ -30,4 +30,12 @@ describe("remote speech detector", () => {
     expect(detector.stop(900)).toEqual({ type: "stopped", at: 900 });
     expect(detector.stop(1_000)).toBeNull();
   });
+
+  it("uses the beginning of pending silence when speech is flushed", () => {
+    const detector = createRemoteSpeechDetector({ minimumVoiceMs: 0 });
+
+    expect(detector.sample(0.02, 500)).toEqual({ type: "started", at: 500 });
+    expect(detector.sample(0, 800)).toBeNull();
+    expect(detector.stop(900)).toEqual({ type: "stopped", at: 800 });
+  });
 });

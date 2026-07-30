@@ -16,6 +16,14 @@ describe("realtime diagnostics", () => {
     expect(() => parseRealtimeDiagnostic({ event: "audio.delta", sessionId: "11111111-1111-4111-8111-111111111111" })).toThrow();
   });
 
+  it("accepts response pause diagnostics without audio or transcript content", () => {
+    expect(parseRealtimeDiagnostic({
+      event: "response_pause_recorded",
+      sessionId: "11111111-1111-4111-8111-111111111111",
+      details: { pauseMs: 850 },
+    }).details).toEqual({ pauseMs: 850 });
+  });
+
   it("extracts incomplete response outcome", () => {
     expect(realtimeResponseStatus({ response: { id: "resp-1", status: "incomplete", status_details: { reason: "turn_detected" } } })).toEqual({
       responseId: "resp-1", status: "incomplete", reason: "turn_detected", errorCode: "",

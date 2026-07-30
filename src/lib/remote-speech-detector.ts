@@ -1,3 +1,5 @@
+export const REMOTE_SPEECH_STOP_LEVEL = 0.008;
+
 export type RemoteSpeechTransition =
   | { type: "started"; at: number }
   | { type: "stopped"; at: number };
@@ -11,7 +13,7 @@ type RemoteSpeechDetectorOptions = {
 
 export function createRemoteSpeechDetector(options: RemoteSpeechDetectorOptions = {}) {
   const startLevel = options.startLevel ?? 0.015;
-  const stopLevel = options.stopLevel ?? 0.008;
+  const stopLevel = options.stopLevel ?? REMOTE_SPEECH_STOP_LEVEL;
   const minimumVoiceMs = options.minimumVoiceMs ?? 100;
   const minimumSilenceMs = options.minimumSilenceMs ?? 300;
   let speaking = false;
@@ -50,10 +52,11 @@ export function createRemoteSpeechDetector(options: RemoteSpeechDetectorOptions 
 
     stop(stoppedAt: number): RemoteSpeechTransition | null {
       voiceStartedAt = null;
-      silenceStartedAt = null;
       if (!speaking) return null;
       speaking = false;
-      return { type: "stopped", at: stoppedAt };
+      const transition = { type: "stopped" as const, at: silenceStartedAt ?? stoppedAt };
+      silenceStartedAt = null;
+      return transition;
     },
   };
 }
