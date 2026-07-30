@@ -53,14 +53,65 @@ button, select, textarea, input { font: inherit; }
 button { color: inherit; }
 
 .duel-app {
+  --panel-gap: 14px;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 70px 355px minmax(520px, 1fr) 395px;
-  gap: 14px;
+  gap: var(--panel-gap);
   padding: 24px 24px 24px 12px;
   transition: grid-template-columns .28s ease;
 }
 .duel-app.settings-collapsed { grid-template-columns: 70px 70px minmax(0, 1fr) minmax(0, 1fr); }
+.duel-app > .nav-rail, .duel-app > .settings-panel, .duel-app > .conversation-panel, .duel-app > .opponent-panel, .panel-resize-handle { grid-row: 1; }
+.duel-app > .nav-rail { grid-column: 1; }
+.duel-app > .settings-panel { grid-column: 2; }
+.duel-app > .conversation-panel { grid-column: 3; }
+.duel-app > .opponent-panel { grid-column: 4; }
+
+.panel-resize-handle {
+  width: var(--panel-gap);
+  display: none;
+  z-index: 12;
+  align-self: stretch;
+  justify-self: end;
+  position: relative;
+  margin-right: calc(var(--panel-gap) / -2);
+  border-radius: 8px;
+  outline: none;
+  cursor: col-resize;
+  touch-action: none;
+}
+.settings-resize-handle { grid-column: 2; }
+.opponent-resize-handle { grid-column: 3; }
+.panel-resize-handle span {
+  width: 3px;
+  height: 52px;
+  position: sticky;
+  top: calc(50vh - 26px);
+  display: block;
+  margin: calc(50vh - 26px) auto 0;
+  border-radius: 3px;
+  background: #1f659c;
+  box-shadow: 0 0 0 1px rgba(72, 174, 255, .08);
+  opacity: .34;
+  transition: height .16s ease, opacity .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.panel-resize-handle:hover span, .panel-resize-handle:focus-visible span, .is-resizing-panels .panel-resize-handle span {
+  height: 78px;
+  background: #2aa8ff;
+  box-shadow: 0 0 14px rgba(32, 180, 255, .52);
+  opacity: 1;
+}
+.panel-resize-handle:focus-visible { box-shadow: 0 0 0 2px rgba(42, 168, 255, .55); }
+.settings-collapsed .settings-resize-handle { display: none; }
+.is-resizing-panels { cursor: col-resize; user-select: none; }
+
+@media (min-width: 1361px) {
+  .panel-resize-handle { display: block; }
+  .settings-collapsed .settings-resize-handle { display: none; }
+  .duel-app.panels-resized { grid-template-columns: 70px var(--settings-panel-width) minmax(520px, 1fr) var(--opponent-panel-width); }
+  .duel-app.settings-collapsed.panels-resized { grid-template-columns: 70px 70px minmax(520px, 1fr) var(--opponent-panel-width); }
+}
 
 .neon-panel {
   min-width: 0;
@@ -439,7 +490,7 @@ button { color: inherit; }
 .duel-mode .canonical-role h4 { margin-top: 7px; }
 
 @media (max-width: 1360px) {
-  .duel-app { grid-template-columns: 58px 310px minmax(460px, 1fr) 330px; padding: 14px 14px 14px 8px; gap: 10px; }
+  .duel-app { --panel-gap: 10px; grid-template-columns: 58px 310px minmax(460px, 1fr) 330px; padding: 14px 14px 14px 8px; }
   .duel-app.settings-collapsed { grid-template-columns: 58px 58px minmax(0, 1fr) minmax(0, 1fr); }
   .settings-panel { padding-inline: 14px; }
   .settings-panel.is-collapsed { min-height: calc(100vh - 28px); padding-inline: 0; }
@@ -447,8 +498,16 @@ button { color: inherit; }
   .conversation-header p { max-width: 420px; }
 }
 
+@media (min-width: 1200px) and (max-width: 1360px) {
+  .panel-resize-handle { display: block; }
+  .settings-collapsed .settings-resize-handle { display: none; }
+  .duel-app.panels-resized { grid-template-columns: 58px var(--settings-panel-width) minmax(460px, 1fr) var(--opponent-panel-width); }
+  .duel-app.settings-collapsed.panels-resized { grid-template-columns: 58px 58px minmax(460px, 1fr) var(--opponent-panel-width); }
+}
+
 @media (max-width: 1120px) {
   .duel-app { grid-template-columns: 58px 290px 1fr; }
+  .duel-app > .nav-rail, .duel-app > .settings-panel, .duel-app > .conversation-panel, .duel-app > .opponent-panel { grid-column: auto; grid-row: auto; }
   .opponent-panel { grid-column: 2 / -1; min-height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .opponent-panel > h2 { grid-column: 1 / -1; }
   .opponent-panel .case-title { display: none; }
@@ -474,6 +533,7 @@ button { color: inherit; }
   .settings-panel.is-collapsed { width: 58px; min-height: 58px; display: flex; padding: 5px; }
   .duel-mode .opponent-panel { height: auto; min-height: 0; }
   .duel-mode .case-description { max-height: none; overflow: visible; }
+  .panel-resize-handle { display: none; }
 }
 
 @media (max-width: 560px) {
