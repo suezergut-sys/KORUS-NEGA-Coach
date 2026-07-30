@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import AppNavRail from "@/components/AppNavRail";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { CanonicalCase } from "@/lib/case-types";
@@ -20,6 +21,16 @@ import { useNegotiationReport } from "@/hooks/useNegotiationReport";
 import { useCaseComic } from "@/hooks/useCaseComic";
 import { useCaseNarration } from "@/hooks/useCaseNarration";
 import { closeRealtimeConnection, fetchWithTimeout, updateTurnDetection, waitForDataChannelOpen } from "@/lib/realtime-webrtc";
+import {
+  fitPanelWidths,
+  MIN_COMPACT_CONVERSATION_WIDTH,
+  MIN_OPPONENT_PANEL_WIDTH,
+  MIN_SETTINGS_PANEL_WIDTH,
+  MIN_WIDE_CONVERSATION_WIDTH,
+  resizePanels,
+  type PanelWidths,
+  type ResizablePanel,
+} from "@/lib/panel-resize";
 
 type VoiceMode = "female" | "male";
 type NegotiationStyle = "collaborative" | "hard";
@@ -47,6 +58,8 @@ const OPPONENTS = {
 const WAVE_BARS = [22, 32, 18, 42, 29, 58, 35, 72, 43, 88, 52, 66, 36, 79, 46, 61, 28, 49, 33, 24];
 const DURATION_OPTIONS: DurationMinutes[] = [3, 5, 10, 15];
 const TIME_EXPIRED_MESSAGE = "Время переговоров истекло. Запускаем анализ поединка для определения победителя.";
+const PANEL_WIDTHS_STORAGE_KEY = "korus-nega-panel-widths-v1";
+const MIN_RESIZABLE_VIEWPORT_WIDTH = 1200;
 
 function roleVoiceGender(role: CanonicalCase["userRole"]): VoiceMode {
   if (role.voiceGender === "female" || role.voiceGender === "male") return role.voiceGender;
@@ -95,6 +108,8 @@ export default function VoiceArena() {
   const [quickStatus, setQuickStatus] = useState<"idle" | "loading" | "error">("idle");
   const [quickError, setQuickError] = useState("");
   const [caseContentOpen, setCaseContentOpen] = useState(false);
+  const [panelWidths, setPanelWidths] = useState<PanelWidths | null>(null);
+  const [resizingPanel, setResizingPanel] = useState<ResizablePanel | null>(null);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -147,6 +162,15 @@ export default function VoiceArena() {
   const userSpeakingDurationsMsRef = useRef<number[]>([]);
   const opponentSpeakingDurationsMsRef = useRef<number[]>([]);
   const userResponseTimesMsRef = useRef<number[]>([]);
+  const settingsPanelRef = useRef<HTMLElement | null>(null);
+  const conversationPanelRef = useRef<HTMLElement | null>(null);
+  const opponentPanelRef = useRef<HTMLElement | null>(null);
+  const panelDragRef = useRef<{
+    panel: ResizablePanel;
+    startX: number;
+    widths: PanelWidths;
+    conversationWidth: number;
+  } | null>(null);
 
   const report = useNegotiationReport({
     methodologyId,
@@ -949,11 +973,155 @@ export default function VoiceArena() {
     endSessionRef.current = endSession;
   });
 
+  const maximumCombinedPanelWidth = useCallback(() => {
+    const compact = window.matchMedia("(max-width: 1360px)").matches;
+    const shellWidth = compact
+      ? 8 + 14 + 58 + (3 * 10) + MIN_COMPACT_CONVERSATION_WIDTH
+      : 12 + 24 + 70 + (3 * 14) + MIN_WIDE_CONVERSATION_WIDTH;
+    return Math.max(
+      MIN_SETTINGS_PANEL_WIDTH + MIN_OPPONENT_PANEL_WIDTH,
+      window.innerWidth - shellWidth,
+    );
+  }, []);
+
+  const applyPanelWidths = useCallback((widths: PanelWidths) => {
+    const fittedWidths = fitPanelWidths(widths, maximumCombinedPanelWidth());
+    setPanelWidths(fittedWidths);
+  }, [maximumCombinedPanelWidth]);
+
+  useEffect(() => {
+    if (!panelWidths) return;
+    const timer = window.setTimeout(() => {
+      window.localStorage.setItem(PANEL_WIDTHS_STORAGE_KEY, JSON.stringify(panelWidths));
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [panelWidths]);
+
+  useEffect(() => {
+    const storedWidths = window.localStorage.getItem(PANEL_WIDTHS_STORAGE_KEY);
+    if (!storedWidths) return;
+
+    try {
+      const parsedWidths = JSON.parse(storedWidths) as Partial<PanelWidths>;
+      if (!Number.isFinite(parsedWidths.settings) || !Number.isFinite(parsedWidths.opponent)) return;
+      const timer = window.setTimeout(() => {
+        setPanelWidths(fitPanelWidths(
+          { settings: Number(parsedWidths.settings), opponent: Number(parsedWidths.opponent) },
+          maximumCombinedPanelWidth(),
+        ));
+      }, 0);
+      return () => window.clearTimeout(timer);
+    } catch {
+      window.localStorage.removeItem(PANEL_WIDTHS_STORAGE_KEY);
+    }
+  }, [maximumCombinedPanelWidth]);
+
+  useEffect(() => {
+    const fitSavedWidths = () => {
+      if (window.innerWidth < MIN_RESIZABLE_VIEWPORT_WIDTH) return;
+      setPanelWidths((currentWidths) => currentWidths
+        ? fitPanelWidths(currentWidths, maximumCombinedPanelWidth())
+        : currentWidths);
+    };
+    window.addEventListener("resize", fitSavedWidths);
+    return () => window.removeEventListener("resize", fitSavedWidths);
+  }, [maximumCombinedPanelWidth]);
+
+  useEffect(() => {
+    document.body.classList.toggle("is-resizing-panels", resizingPanel !== null);
+    return () => document.body.classList.remove("is-resizing-panels");
+  }, [resizingPanel]);
+
+  const renderedPanelWidths = useCallback((): PanelWidths | null => {
+    const settingsWidth = settingsPanelRef.current?.getBoundingClientRect().width;
+    const opponentWidth = opponentPanelRef.current?.getBoundingClientRect().width;
+    if (!settingsWidth || !opponentWidth) return null;
+
+    return {
+      settings: isSettingsCollapsed
+        ? (panelWidths?.settings ?? (window.innerWidth <= 1360 ? 310 : 355))
+        : settingsWidth,
+      opponent: opponentWidth,
+    };
+  }, [isSettingsCollapsed, panelWidths]);
+
+  const resizeFromRenderedLayout = useCallback((panel: ResizablePanel, deltaX: number) => {
+    const widths = renderedPanelWidths();
+    const conversationWidth = conversationPanelRef.current?.getBoundingClientRect().width;
+    if (!widths || !conversationWidth) return;
+
+    applyPanelWidths(resizePanels({
+      panel,
+      widths,
+      conversationWidth,
+      deltaX,
+      minimumConversationWidth: window.innerWidth <= 1360
+        ? MIN_COMPACT_CONVERSATION_WIDTH
+        : MIN_WIDE_CONVERSATION_WIDTH,
+    }));
+  }, [applyPanelWidths, renderedPanelWidths]);
+
+  const startPanelResize = useCallback((panel: ResizablePanel, event: ReactPointerEvent<HTMLDivElement>) => {
+    if (window.innerWidth < MIN_RESIZABLE_VIEWPORT_WIDTH || (panel === "settings" && isSettingsCollapsed)) return;
+    const widths = renderedPanelWidths();
+    const conversationWidth = conversationPanelRef.current?.getBoundingClientRect().width;
+    if (!widths || !conversationWidth) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    panelDragRef.current = { panel, startX: event.clientX, widths, conversationWidth };
+    setResizingPanel(panel);
+  }, [isSettingsCollapsed, renderedPanelWidths]);
+
+  const continuePanelResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = panelDragRef.current;
+    if (!drag) return;
+
+    applyPanelWidths(resizePanels({
+      panel: drag.panel,
+      widths: drag.widths,
+      conversationWidth: drag.conversationWidth,
+      deltaX: event.clientX - drag.startX,
+      minimumConversationWidth: window.innerWidth <= 1360
+        ? MIN_COMPACT_CONVERSATION_WIDTH
+        : MIN_WIDE_CONVERSATION_WIDTH,
+    }));
+  }, [applyPanelWidths]);
+
+  const finishPanelResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    panelDragRef.current = null;
+    setResizingPanel(null);
+  }, []);
+
+  const resizePanelWithKeyboard = useCallback((panel: ResizablePanel, event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const step = event.shiftKey ? 48 : 16;
+    resizeFromRenderedLayout(panel, event.key === "ArrowLeft" ? -step : step);
+  }, [resizeFromRenderedLayout]);
+
+  const resetPanelWidths = useCallback(() => {
+    panelDragRef.current = null;
+    setResizingPanel(null);
+    setPanelWidths(null);
+    window.localStorage.removeItem(PANEL_WIDTHS_STORAGE_KEY);
+  }, []);
+
+  const panelWidthStyle = panelWidths ? {
+    "--settings-panel-width": `${panelWidths.settings}px`,
+    "--opponent-panel-width": `${panelWidths.opponent}px`,
+  } as CSSProperties : undefined;
+
   return (
-    <main className={`duel-app ${isDuelMode ? "duel-mode" : ""} ${isSettingsCollapsed ? "settings-collapsed" : ""}`}>
+    <main
+      className={`duel-app ${isDuelMode ? "duel-mode" : ""} ${isSettingsCollapsed ? "settings-collapsed" : ""} ${panelWidths ? "panels-resized" : ""}`}
+      style={panelWidthStyle}
+    >
       <AppNavRail onQuickUpload={() => setQuickUploadOpen(true)} quickUploadDisabled={isLive || isBusy} />
 
-      <aside className={`settings-panel neon-panel ${isSettingsCollapsed ? "is-collapsed" : ""}`}>
+      <aside ref={settingsPanelRef} className={`settings-panel neon-panel ${isSettingsCollapsed ? "is-collapsed" : ""}`}>
         {isSettingsCollapsed ? (
           <button className="rail-button settings-expand-button" onClick={() => setSettingsCollapsed(false)} aria-label="Развернуть настройки" title="Развернуть настройки">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
@@ -1010,7 +1178,24 @@ export default function VoiceArena() {
         </>)}
       </aside>
 
-      <section className="conversation-panel neon-panel" aria-label="Переговоры">
+      <div
+        className="panel-resize-handle settings-resize-handle"
+        role="separator"
+        aria-label="Изменить ширину панели настроек"
+        aria-orientation="vertical"
+        aria-valuemin={MIN_SETTINGS_PANEL_WIDTH}
+        aria-valuenow={Math.round(panelWidths?.settings ?? 355)}
+        tabIndex={isSettingsCollapsed ? -1 : 0}
+        title="Перетащите мышью. Двойной щелчок сбрасывает ширину"
+        onPointerDown={(event) => startPanelResize("settings", event)}
+        onPointerMove={continuePanelResize}
+        onPointerUp={finishPanelResize}
+        onPointerCancel={finishPanelResize}
+        onKeyDown={(event) => resizePanelWithKeyboard("settings", event)}
+        onDoubleClick={resetPanelWidths}
+      ><span /></div>
+
+      <section ref={conversationPanelRef} className="conversation-panel neon-panel" aria-label="Переговоры">
         <header className="conversation-header">
           <div>
             <h1><span className="equalizer-icon">▥</span> ПЕРЕГОВОРЫ</h1>
@@ -1129,7 +1314,24 @@ export default function VoiceArena() {
 
       </section>
 
-      <aside className="opponent-panel neon-panel">
+      <div
+        className="panel-resize-handle opponent-resize-handle"
+        role="separator"
+        aria-label="Изменить ширину панелей переговоров и описания кейса"
+        aria-orientation="vertical"
+        aria-valuemin={MIN_OPPONENT_PANEL_WIDTH}
+        aria-valuenow={Math.round(panelWidths?.opponent ?? 395)}
+        tabIndex={0}
+        title="Перетащите влево, чтобы расширить кейс. Двойной щелчок сбрасывает ширину"
+        onPointerDown={(event) => startPanelResize("opponent", event)}
+        onPointerMove={continuePanelResize}
+        onPointerUp={finishPanelResize}
+        onPointerCancel={finishPanelResize}
+        onKeyDown={(event) => resizePanelWithKeyboard("opponent", event)}
+        onDoubleClick={resetPanelWidths}
+      ><span /></div>
+
+      <aside ref={opponentPanelRef} className="opponent-panel neon-panel">
         <h2>ВАШ ОППОНЕНТ</h2>
         <section className="opponent-profile">
           <div className={`opponent-visual ${opponentSpeaking ? "speaking" : ""}`}>
