@@ -1,5 +1,6 @@
 import { buildRealtimeInstructions } from "@/lib/prompt";
 import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
+import { buildRealtimeSessionConfig } from "@/lib/realtime-session";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -55,29 +56,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Некорректное SDP-предложение." }, { status: 400 });
   }
 
-  const sessionConfig = {
-    type: "realtime",
-    model: "gpt-realtime-2",
-    output_modalities: ["audio"],
-    reasoning: { effort: "low" },
+  const sessionConfig = buildRealtimeSessionConfig({
     instructions,
-    audio: {
-      input: {
-        transcription: {
-          model: "gpt-realtime-whisper",
-          language: "ru",
-          delay: "minimal",
-        },
-        turn_detection: {
-          type: "semantic_vad",
-          eagerness: negotiationStyle === "hard" ? "high" : "low",
-          create_response: true,
-          interrupt_response: true,
-        },
-      },
-      output: { voice },
-    },
-  };
+    negotiationStyle,
+    voice,
+  });
 
   const form = new FormData();
   form.set("sdp", sdp);
