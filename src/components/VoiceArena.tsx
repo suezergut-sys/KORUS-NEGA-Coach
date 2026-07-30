@@ -21,7 +21,8 @@ import { useNegotiationReport } from "@/hooks/useNegotiationReport";
 import { useCaseComic } from "@/hooks/useCaseComic";
 import { useCaseNarration } from "@/hooks/useCaseNarration";
 import { closeRealtimeConnection, fetchWithTimeout, updateTurnDetection, waitForDataChannelOpen } from "@/lib/realtime-webrtc";
-import { createRemoteSpeechDetector, type RemoteSpeechTransition } from "@/lib/remote-speech-detector";
+import { createRemoteSpeechDetector, REMOTE_SPEECH_STOP_LEVEL, type RemoteSpeechTransition } from "@/lib/remote-speech-detector";
+import { completedResponsePauseMs } from "@/lib/speech-timing";
 import {
   fitPanelWidths,
   MIN_COMPACT_CONVERSATION_WIDTH,
@@ -124,6 +125,7 @@ export default function VoiceArena() {
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
   const pausedRef = useRef(false);
   const inputModeRef = useRef<NegotiationInputMode>("duplex");
@@ -163,6 +165,7 @@ export default function VoiceArena() {
   const lastOpponentSpeechEndedAtRef = useRef(0);
   const remoteSpeechDetectorRef = useRef<ReturnType<typeof createRemoteSpeechDetector> | null>(null);
   const remoteSpeechPollRef = useRef<number | null>(null);
+  const remotePlaybackLevelRef = useRef(0);
   const userSpeakingDurationsMsRef = useRef<number[]>([]);
   const opponentSpeakingDurationsMsRef = useRef<number[]>([]);
   const userResponseTimesMsRef = useRef<number[]>([]);
@@ -268,7 +271,10 @@ export default function VoiceArena() {
       return;
     }
     const audio = audioRef.current;
-    if (audio) void audio.play().catch(() => undefined);
+    if (audio) {
+      void audioContextRef.current?.resume().catch(() => undefined);
+      void audio.play().catch(() => undefined);
+    }
   }, [syncMicrophoneTrack]);
 
   const timer = useNegotiationTimer({
@@ -448,6 +454,7 @@ export default function VoiceArena() {
       if (source === "audio" || opponentSpeechTimingSourceRef.current === "none") {
         opponentSpeechTimingSourceRef.current = source;
       }
+      lastOpponentSpeechEndedAtRef.current = 0;
       opponentSpeakingRef.current = true;
       setOpponentSpeaking(true);
       return;
@@ -476,22 +483,25 @@ export default function VoiceArena() {
     remoteSpeechPollRef.current = null;
     flushRemoteSpeech(stoppedAt);
     remoteSpeechDetectorRef.current = null;
+    remotePlaybackLevelRef.current = 0;
   }, [flushRemoteSpeech]);
 
-  const startRemoteSpeechMonitor = useCallback((receiver: RTCRtpReceiver) => {
+  const startRemoteSpeechMonitor = useCallback((analyser: AnalyserNode) => {
     stopRemoteSpeechMonitor();
     const detector = createRemoteSpeechDetector();
+    const samples = new Float32Array(analyser.fftSize);
     remoteSpeechDetectorRef.current = detector;
     remoteSpeechPollRef.current = window.setInterval(() => {
       if (pausedRef.current || endingRef.current) return;
-      const levels = receiver.getSynchronizationSources()
-        .map((source) => source.audioLevel)
-        .filter((level): level is number => typeof level === "number");
-      if (!levels.length) return;
-      const transition = detector.sample(Math.max(...levels), Date.now());
+      analyser.getFloatTimeDomainData(samples);
+      const sumOfSquares = samples.reduce((sum, sample) => sum + (sample * sample), 0);
+      const playbackLevel = Math.sqrt(sumOfSquares / samples.length);
+      remotePlaybackLevelRef.current = playbackLevel;
+      const transition = detector.sample(playbackLevel, Date.now());
       applyOpponentSpeechTransition(transition, "audio");
     }, 50);
-  }, [applyOpponentSpeechTransition, stopRemoteSpeechMonitor]);
+    reportRealtimeDiagnostic("audio_monitor_started", { source: "media_element_playback" });
+  }, [applyOpponentSpeechTransition, reportRealtimeDiagnostic, stopRemoteSpeechMonitor]);
 
   const closeSession = useCallback((resetLifecycle = true) => {
     if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
@@ -503,10 +513,13 @@ export default function VoiceArena() {
       stream: streamRef.current,
       audio: audioRef.current,
     });
+    if (audioContextRef.current) void audioContextRef.current.close().catch(() => undefined);
     window.speechSynthesis?.cancel();
     channelRef.current = null;
     peerRef.current = null;
     streamRef.current = null;
+    audioContextRef.current = null;
+    remotePlaybackLevelRef.current = 0;
     pausedRef.current = false;
     pushToTalkActiveRef.current = false;
     userSpeakingRef.current = false;
@@ -596,18 +609,31 @@ export default function VoiceArena() {
       }
       if (type === "input_audio_buffer.speech_started") {
         const speechStartedAt = Date.now();
+        if (
+          inputModeRef.current === "duplex"
+          && opponentSpeechTimingSourceRef.current === "audio"
+          && remotePlaybackLevelRef.current <= REMOTE_SPEECH_STOP_LEVEL
+        ) {
+          applyOpponentSpeechTransition(remoteSpeechDetectorRef.current?.stop(speechStartedAt) || null, "audio");
+        }
+        const opponentIsAudible = inputModeRef.current === "duplex"
+          ? opponentSpeechStartedAtRef.current > 0
+          : opponentSpeakingRef.current;
         if (inputModeRef.current === "duplex") {
           if (!userSpeechStartedAtRef.current) userSpeechStartedAtRef.current = speechStartedAt;
-          if (lastOpponentSpeechEndedAtRef.current) {
-            userResponseTimesMsRef.current.push(Math.max(0, speechStartedAt - lastOpponentSpeechEndedAtRef.current));
+          const responsePauseMs = completedResponsePauseMs({
+            opponentAudible: opponentIsAudible,
+            opponentEndedAt: lastOpponentSpeechEndedAtRef.current,
+            userStartedAt: speechStartedAt,
+          });
+          if (responsePauseMs !== null) {
+            userResponseTimesMsRef.current.push(responsePauseMs);
+            reportRealtimeDiagnostic("response_pause_recorded", { pauseMs: responsePauseMs });
             lastOpponentSpeechEndedAtRef.current = 0;
           }
         }
         userSpeakingRef.current = true;
         setUserSpeaking(true);
-        const opponentIsAudible = inputModeRef.current === "duplex"
-          ? opponentSpeechStartedAtRef.current > 0
-          : opponentSpeakingRef.current;
         if (opponentIsAudible) {
           interruptionCountRef.current += 1;
           interruptedResponseRef.current = { responseId: activeResponseIdRef.current, transcriptVersion: userTranscriptVersionRef.current };
@@ -860,10 +886,20 @@ export default function VoiceArena() {
       const audio = new Audio();
       audio.autoplay = true;
       audioRef.current = audio;
+      const audioContext = new AudioContext();
+      const playbackSource = audioContext.createMediaElementSource(audio);
+      const playbackAnalyser = audioContext.createAnalyser();
+      playbackAnalyser.fftSize = 512;
+      playbackAnalyser.smoothingTimeConstant = 0.2;
+      playbackSource.connect(playbackAnalyser);
+      playbackAnalyser.connect(audioContext.destination);
+      audioContextRef.current = audioContext;
+      void audioContext.resume().catch(() => undefined);
       pc.ontrack = (event) => {
         audio.srcObject = event.streams[0];
+        void audioContext.resume().catch(() => undefined);
         void audio.play().catch(() => undefined);
-        startRemoteSpeechMonitor(event.receiver);
+        startRemoteSpeechMonitor(playbackAnalyser);
         const track = event.track;
         track.addEventListener("mute", () => {
           reportRealtimeDiagnostic("audio_track_muted", { readyState: track.readyState });

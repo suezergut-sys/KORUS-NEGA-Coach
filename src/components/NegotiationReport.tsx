@@ -147,7 +147,6 @@ export function SpeechAnalyticsPanel({ analytics }: { analytics: SpeechAnalytics
         <article><span>ПЕРЕБИВАНИЯ</span><strong>{analytics.timingAvailable ? analytics.interruptionCount : "—"}</strong><p>{unavailableTiming || "раз начали говорить, пока оппонент ещё говорил"}</p></article>
         <article><span>ВОПРОСЫ</span><strong>{analytics.questionCount}</strong><p>вопросительных формулировок</p></article>
         <article><span>СЛОВА-ПАРАЗИТЫ</span><strong>{fillerPercent}</strong><p>{analytics.fillerWordCount} из {analytics.words} слов · {fillerSummary}</p></article>
-        <article><span>МЕДИАНА ПАУЗ ДО ОТВЕТА</span><strong>{analytics.timingAvailable ? formatSeconds(analytics.responseTimeP50Ms) : "—"}</strong><p>{unavailableTiming || `в 50% смен реплик ответ был быстрее · P95: ${formatSeconds(analytics.responseTimeP95Ms)}`}</p></article>
         <article className={`pressure-reaction ${analytics.pressureReaction.level}`}>
           <span>РЕАКЦИЯ НА ДАВЛЕНИЕ</span>
           <strong>{analytics.pressureReaction.label}</strong>

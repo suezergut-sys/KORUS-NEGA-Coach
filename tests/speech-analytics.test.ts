@@ -38,6 +38,7 @@ describe("speech analytics", () => {
       fillerCount: 2,
       fillerWordCount: 3,
       fillerPercent: 23.1,
+      timingVersion: 2,
       timingAvailable: true,
       interruptionCount: 1,
     });
@@ -79,21 +80,22 @@ describe("speech analytics", () => {
     });
   });
 
-  it("normalizes reports saved before timing validity and filler percentages were added", () => {
+  it("marks reports from the RTP-level timing implementation as unavailable", () => {
     const result = readSpeechAnalytics({
       available: true,
       inputMode: "duplex",
       words: 283,
       userTurns: 8,
       userSpeakingMs: 134_231,
-      opponentSpeakingMs: 0,
+      opponentSpeakingMs: 37_381,
       tempoWpm: 126,
-      talkSharePercent: 100,
-      pauseCount: 0,
-      longPauseCount: 0,
-      averagePauseMs: 0,
-      responseTimeP50Ms: 0,
-      responseTimeP95Ms: 0,
+      timingAvailable: true,
+      talkSharePercent: 78,
+      pauseCount: 6,
+      longPauseCount: 5,
+      averagePauseMs: 20_274,
+      responseTimeP50Ms: 23_107,
+      responseTimeP95Ms: 28_660,
       questionCount: 2,
       fillerCount: 5,
       fillerRatePer100Words: 1.8,
@@ -103,6 +105,7 @@ describe("speech analytics", () => {
     });
 
     expect(result).toMatchObject({
+      timingVersion: 1,
       timingAvailable: false,
       fillerWordCount: 5,
       fillerPercent: 1.8,
