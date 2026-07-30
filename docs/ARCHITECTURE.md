@@ -20,7 +20,7 @@
 |---|---|---|
 | Web | Next.js + TypeScript | интерфейс, серверные маршруты, авторизация |
 | Hosting | Vercel | HTTPS, preview/production deploy, serverless endpoints |
-| Live voice | OpenAI `gpt-realtime-2` + `gpt-live-transcribe`, WebRTC | двусторонний голос, потоковая русская транскрибация, VAD, перебивание, короткие реплики |
+| Live voice | OpenAI `gpt-realtime-2.1` + `gpt-live-transcribe`, WebRTC | двусторонний голос, потоковая русская транскрибация, VAD, перебивание, короткие реплики |
 | Deep analysis | OpenAI Responses API, reasoning model | построение кейса и пост-анализ по методике |
 | Data | Supabase Postgres | пользователи, проекты, кейсы, сессии, оценки |
 | Retrieval | Supabase pgvector | книга, методические атомы и контекст проекта |
@@ -219,7 +219,7 @@ flowchart LR
 
 ### P0 — доказательство голоса
 
-Текущий прототип: WebRTC, `gpt-realtime-2`, потоковая транскрибация `gpt-live-transcribe` с подсказкой русского языка, русский голос, перебивание, transcript и измерение задержки. Критерий выхода — 20 тестовых разговоров без критических обрывов и с приемлемой p50/p95.
+Текущий прототип: WebRTC, `gpt-realtime-2.1`, потоковая транскрибация `gpt-live-transcribe` с подсказкой русского языка, русский голос, перебивание, transcript и измерение задержки. Критерий выхода — 20 тестовых разговоров без критических обрывов и с приемлемой p50/p95.
 
 ### P1 — вертикальный MVP
 

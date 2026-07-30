@@ -11,7 +11,7 @@ export function buildRealtimeSessionConfig({
 }: RealtimeSessionOptions) {
   return {
     type: "realtime",
-    model: "gpt-realtime-2",
+    model: "gpt-realtime-2.1",
     output_modalities: ["audio"],
     reasoning: { effort: "low" },
     instructions,

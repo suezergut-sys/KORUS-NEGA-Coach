@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { buildRealtimeSessionConfig } from "../src/lib/realtime-session";
 
 describe("realtime session config", () => {
+  it("uses GPT Realtime 2.1 for the voice opponent", () => {
+    const session = buildRealtimeSessionConfig({
+      instructions: "Веди переговоры по-русски.",
+      negotiationStyle: "collaborative",
+      voice: "marin",
+    });
+
+    expect(session.model).toBe("gpt-realtime-2.1");
+  });
+
   it("uses GPT Live Transcribe with a Russian language hint", () => {
     const session = buildRealtimeSessionConfig({
       instructions: "Веди переговоры по-русски.",

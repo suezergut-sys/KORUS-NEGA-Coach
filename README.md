@@ -131,7 +131,7 @@ KORUS NEGA AI 2.0 — русскоязычный тренажёр управле
 flowchart LR
     U["Пользователь и микрофон"] --> UI["Next.js Web-клиент<br/>VoiceArena"]
     UI -->|"SDP offer + параметры кейса"| RTAPI["POST /api/realtime/session"]
-    RTAPI -->|"Создание звонка"| OAIR["OpenAI Realtime API<br/>gpt-realtime-2"]
+    RTAPI -->|"Создание звонка"| OAIR["OpenAI Realtime API<br/>gpt-realtime-2.1"]
     OAIR -->|"SDP answer"| UI
     UI <-->|"WebRTC: аудио"| OAIR
     UI <-->|"RTCDataChannel: события и транскрипт"| OAIR
@@ -204,7 +204,7 @@ flowchart LR
 
 | Параметр | Значение |
 |---|---|
-| Модель | `gpt-realtime-2` |
+| Модель | `gpt-realtime-2.1` |
 | Формат ответа | аудио |
 | Reasoning | `low` |
 | Транскрибация | `gpt-live-transcribe`, подсказка языка `ru`, минимальная задержка |
