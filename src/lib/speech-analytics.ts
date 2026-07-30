@@ -9,6 +9,7 @@ export type SpeechAnalytics = {
   userSpeakingMs: number;
   opponentSpeakingMs: number;
   tempoWpm: number;
+  timingAvailable: boolean;
   talkSharePercent: number;
   pauseCount: number;
   longPauseCount: number;
@@ -17,11 +18,13 @@ export type SpeechAnalytics = {
   responseTimeP95Ms: number;
   questionCount: number;
   fillerCount: number;
+  fillerWordCount: number;
+  fillerPercent: number;
   fillerRatePer100Words: number;
   fillers: Array<{ phrase: string; count: number }>;
   interruptionCount: number;
   pressureReaction: {
-    level: "assertive" | "steady" | "hesitant";
+    level: "assertive" | "steady" | "hesitant" | "unavailable";
     label: string;
     explanation: string;
   };
@@ -80,15 +83,22 @@ function countFillers(text: string) {
     .sort((left, right) => right.count - left.count || left.phrase.localeCompare(right.phrase, "ru"));
 }
 
-function pressureReaction(responseP50Ms: number, fillerRate: number, interruptionCount: number) {
-  if (responseP50Ms > 6_000 || fillerRate > 6) {
+function pressureReaction(timingAvailable: boolean, responseP50Ms: number, fillerPercent: number, interruptionCount: number) {
+  if (!timingAvailable) {
+    return {
+      level: "unavailable" as const,
+      label: "Недостаточно данных",
+      explanation: "Не удалось надёжно измерить звук обеих сторон. Текстовые показатели рассчитаны, а реакция на давление не оценивается.",
+    };
+  }
+  if (responseP50Ms > 6_000 || fillerPercent > 6) {
     const responseTiming = responseP50Ms > 0
       ? `Медианное время ответа ${formatSeconds(responseP50Ms)}`
       : "Недостаточно смен реплик для оценки времени ответа";
     return {
       level: "hesitant" as const,
       label: "Теряет темп под давлением",
-      explanation: `${responseTiming}, слов-паразитов ${fillerRate} на 100 слов. Полезно выдерживать короткую осознанную паузу и начинать ответ с тезиса.`,
+      explanation: `${responseTiming}, слова-паразиты составили ${fillerPercent}% речи. Полезно выдерживать короткую осознанную паузу и начинать ответ с тезиса.`,
     };
   }
   if (interruptionCount > 0 && responseP50Ms > 0 && responseP50Ms <= 3_000) {
@@ -121,6 +131,7 @@ export function summarizeSpeechAnalytics(input: {
 }): SpeechAnalytics | null {
   if (input.inputMode !== "duplex") return null;
   const userTurns = input.turns.filter((turn) => turn.author === "Вы");
+  const opponentTurns = input.turns.filter((turn) => turn.author === "Оппонент");
   const userText = userTurns.map((turn) => turn.text).join(" ");
   const wordCount = words(userText).length;
   const userDurations = durations(input.userSpeakingDurationsMs);
@@ -129,9 +140,11 @@ export function summarizeSpeechAnalytics(input: {
   const userSpeakingMs = userDurations.reduce((total, value) => total + value, 0);
   const opponentSpeakingMs = opponentDurations.reduce((total, value) => total + value, 0);
   const totalSpeakingMs = userSpeakingMs + opponentSpeakingMs;
+  const timingAvailable = userDurations.length > 0 && opponentTurns.length > 0 && opponentDurations.length > 0;
   const fillers = countFillers(userText);
   const fillerCount = fillers.reduce((total, item) => total + item.count, 0);
-  const fillerRatePer100Words = wordCount ? Math.round((fillerCount / wordCount) * 1000) / 10 : 0;
+  const fillerWordCount = fillers.reduce((total, item) => total + (words(item.phrase).length * item.count), 0);
+  const fillerPercent = wordCount ? Math.round((fillerWordCount / wordCount) * 1000) / 10 : 0;
   const responseTimeP50Ms = percentile(responseTimes, 50);
   const interruptionCount = bounded(input.interruptionCount, 10_000);
   return {
@@ -142,6 +155,7 @@ export function summarizeSpeechAnalytics(input: {
     userSpeakingMs,
     opponentSpeakingMs,
     tempoWpm: userSpeakingMs ? Math.round(wordCount / (userSpeakingMs / 60_000)) : 0,
+    timingAvailable,
     talkSharePercent: totalSpeakingMs ? Math.round((userSpeakingMs / totalSpeakingMs) * 100) : 0,
     pauseCount: responseTimes.length,
     longPauseCount: responseTimes.filter((value) => value >= 3_000).length,
@@ -152,10 +166,12 @@ export function summarizeSpeechAnalytics(input: {
     responseTimeP95Ms: percentile(responseTimes, 95),
     questionCount: countQuestions(userTurns),
     fillerCount,
-    fillerRatePer100Words,
+    fillerWordCount,
+    fillerPercent,
+    fillerRatePer100Words: fillerPercent,
     fillers,
     interruptionCount,
-    pressureReaction: pressureReaction(responseTimeP50Ms, fillerRatePer100Words, interruptionCount),
+    pressureReaction: pressureReaction(timingAvailable, responseTimeP50Ms, fillerPercent, interruptionCount),
   };
 }
 
@@ -164,5 +180,28 @@ export function readSpeechAnalytics(value: unknown): SpeechAnalytics | null {
   const analytics = value as Partial<SpeechAnalytics>;
   if (analytics.available !== true || analytics.inputMode !== "duplex") return null;
   if (!analytics.pressureReaction || !Array.isArray(analytics.fillers)) return null;
-  return analytics as SpeechAnalytics;
+  const wordCount = bounded(analytics.words, 1_000_000);
+  const fillerWordCount = typeof analytics.fillerWordCount === "number"
+    ? bounded(analytics.fillerWordCount, 1_000_000)
+    : analytics.fillers.reduce((total, item) => total + (words(item.phrase).length * bounded(item.count, 100_000)), 0);
+  const fillerPercent = typeof analytics.fillerPercent === "number"
+    ? Math.max(0, analytics.fillerPercent)
+    : wordCount
+      ? Math.round((fillerWordCount / wordCount) * 1000) / 10
+      : 0;
+  const timingAvailable = typeof analytics.timingAvailable === "boolean"
+    ? analytics.timingAvailable
+    : bounded(analytics.userSpeakingMs) > 0 && bounded(analytics.opponentSpeakingMs) > 0;
+  const responseTimeP50Ms = bounded(analytics.responseTimeP50Ms);
+  const interruptionCount = bounded(analytics.interruptionCount, 10_000);
+
+  return {
+    ...(analytics as SpeechAnalytics),
+    words: wordCount,
+    timingAvailable,
+    fillerWordCount,
+    fillerPercent,
+    fillerRatePer100Words: fillerPercent,
+    pressureReaction: pressureReaction(timingAvailable, responseTimeP50Ms, fillerPercent, interruptionCount),
+  };
 }

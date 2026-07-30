@@ -132,6 +132,8 @@ export function SpeechAnalyticsPanel({ analytics }: { analytics: SpeechAnalytics
   const fillerSummary = analytics.fillers.length
     ? analytics.fillers.slice(0, 3).map((item) => `${item.phrase} — ${item.count}`).join(", ")
     : "не обнаружены";
+  const fillerPercent = `${analytics.fillerPercent.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}%`;
+  const unavailableTiming = analytics.timingAvailable ? null : "Недостаточно данных о звуке оппонента";
   return (
     <section className="speech-analytics-card">
       <header>
@@ -140,12 +142,12 @@ export function SpeechAnalyticsPanel({ analytics }: { analytics: SpeechAnalytics
       </header>
       <div className="speech-analytics-grid">
         <article><span>ТЕМП</span><strong>{analytics.tempoWpm || "—"}<small>{analytics.tempoWpm ? " сл/мин" : ""}</small></strong><p>{analytics.words} слов в {analytics.userTurns} репликах</p></article>
-        <article><span>ПАУЗЫ ДО ОТВЕТА</span><strong>{formatSeconds(analytics.averagePauseMs)}</strong><p>длинных пауз от 3 сек.: {analytics.longPauseCount}</p></article>
-        <article><span>ДОЛЯ ГОВОРЕНИЯ</span><strong>{analytics.talkSharePercent}%</strong><p>от суммарного времени речи сторон</p></article>
-        <article><span>ПЕРЕБИВАНИЯ</span><strong>{analytics.interruptionCount}</strong><p>раз начали говорить во время ответа оппонента</p></article>
+        <article><span>СРЕДНЯЯ ПАУЗА ПЕРЕД ОТВЕТОМ</span><strong>{analytics.timingAvailable ? formatSeconds(analytics.averagePauseMs) : "—"}</strong><p>{unavailableTiming || `длинных пауз от 3 сек.: ${analytics.longPauseCount}`}</p></article>
+        <article><span>ДОЛЯ ГОВОРЕНИЯ</span><strong>{analytics.timingAvailable ? `${analytics.talkSharePercent}%` : "—"}</strong><p>{unavailableTiming || "ваша доля от суммарного времени речи сторон"}</p></article>
+        <article><span>ПЕРЕБИВАНИЯ</span><strong>{analytics.timingAvailable ? analytics.interruptionCount : "—"}</strong><p>{unavailableTiming || "раз начали говорить, пока оппонент ещё говорил"}</p></article>
         <article><span>ВОПРОСЫ</span><strong>{analytics.questionCount}</strong><p>вопросительных формулировок</p></article>
-        <article><span>СЛОВА-ПАРАЗИТЫ</span><strong>{analytics.fillerCount}</strong><p>{fillerSummary}</p></article>
-        <article><span>ВРЕМЯ ДО ОТВЕТА P50</span><strong>{formatSeconds(analytics.responseTimeP50Ms)}</strong><p>P95: {formatSeconds(analytics.responseTimeP95Ms)}</p></article>
+        <article><span>СЛОВА-ПАРАЗИТЫ</span><strong>{fillerPercent}</strong><p>{analytics.fillerWordCount} из {analytics.words} слов · {fillerSummary}</p></article>
+        <article><span>МЕДИАНА ПАУЗ ДО ОТВЕТА</span><strong>{analytics.timingAvailable ? formatSeconds(analytics.responseTimeP50Ms) : "—"}</strong><p>{unavailableTiming || `в 50% смен реплик ответ был быстрее · P95: ${formatSeconds(analytics.responseTimeP95Ms)}`}</p></article>
         <article className={`pressure-reaction ${analytics.pressureReaction.level}`}>
           <span>РЕАКЦИЯ НА ДАВЛЕНИЕ</span>
           <strong>{analytics.pressureReaction.label}</strong>
