@@ -1,5 +1,5 @@
 import { summarizeRealtimeMetrics } from "@/lib/realtime-metrics";
-import { summarizeSpeechAnalytics } from "@/lib/speech-analytics";
+import { createSpeechTimingAudit, summarizeSpeechAnalytics } from "@/lib/speech-analytics";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { normalizeAnalysisTurns } from "@/lib/transcript";
 import { getCurrentUserSession } from "@/lib/user-auth";
@@ -33,8 +33,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       userSpeakingDurationsMs: metricsInput.userSpeakingDurationsMs,
       opponentSpeakingDurationsMs: metricsInput.opponentSpeakingDurationsMs,
       userResponseTimesMs: metricsInput.userResponseTimesMs,
+      opponentTimingSource: metricsInput.opponentTimingSource,
       interruptionCount: metrics.interruptionCount,
     });
+    const speechTiming = createSpeechTimingAudit(metricsInput);
     const durationValue = Number(body.durationSeconds);
     const durationSeconds = Number.isFinite(durationValue)
       ? Math.min(21_600, Math.max(0, Math.round(durationValue)))
@@ -67,6 +69,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         replyLatenciesMs: metrics.replyLatenciesMs,
         inputMode: metricsInput.inputMode === "duplex" ? "duplex" : "push_to_talk",
         speechAnalytics,
+        speechTiming,
       },
     });
     if (error || !data) throw new Error(error?.message || "Сессию не удалось завершить.");

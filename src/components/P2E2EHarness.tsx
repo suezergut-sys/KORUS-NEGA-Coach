@@ -21,6 +21,7 @@ export default function P2E2EHarness() {
     userSpeakingDurationsMs: [4_000],
     opponentSpeakingDurationsMs: [6_000],
     userResponseTimesMs: [1_500],
+    opponentTimingSource: "output_audio_buffer",
     interruptionCount: 0,
   });
 

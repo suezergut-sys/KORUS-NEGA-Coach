@@ -24,6 +24,7 @@ describe("speech analytics", () => {
       userSpeakingDurationsMs: [4_000, 6_000],
       opponentSpeakingDurationsMs: [10_000],
       userResponseTimesMs: [1_000, 4_000],
+      opponentTimingSource: "output_audio_buffer",
       interruptionCount: 1,
     });
     expect(result).toMatchObject({
@@ -38,8 +39,9 @@ describe("speech analytics", () => {
       fillerCount: 2,
       fillerWordCount: 3,
       fillerPercent: 23.1,
-      timingVersion: 2,
+      timingVersion: 3,
       timingAvailable: true,
+      timingUnavailableReason: "none",
       interruptionCount: 1,
     });
     expect(result?.tempoWpm).toBeGreaterThan(0);
@@ -67,16 +69,37 @@ describe("speech analytics", () => {
       userSpeakingDurationsMs: [10_000],
       opponentSpeakingDurationsMs: [],
       userResponseTimesMs: [],
+      opponentTimingSource: "output_audio_buffer",
       interruptionCount: 0,
     });
 
     expect(result).toMatchObject({
       timingAvailable: false,
+      timingUnavailableReason: "insufficient",
       talkSharePercent: 100,
       pressureReaction: {
         level: "unavailable",
         label: "Недостаточно данных",
       },
+    });
+  });
+
+  it("rejects implausible opponent timing instead of publishing a false talk share", () => {
+    const result = summarizeSpeechAnalytics({
+      inputMode: "duplex",
+      turns,
+      userSpeakingDurationsMs: [10_000],
+      opponentSpeakingDurationsMs: [500],
+      userResponseTimesMs: [20_000],
+      opponentTimingSource: "output_audio_buffer",
+      interruptionCount: 0,
+    });
+
+    expect(result).toMatchObject({
+      timingVersion: 3,
+      timingAvailable: false,
+      timingUnavailableReason: "implausible",
+      pressureReaction: { level: "unavailable" },
     });
   });
 

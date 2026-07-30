@@ -9,8 +9,11 @@ export type SpeechAnalytics = {
   userSpeakingMs: number;
   opponentSpeakingMs: number;
   tempoWpm: number;
-  timingVersion: 1 | 2;
+  opponentWords: number;
+  opponentTempoWpm: number;
+  timingVersion: 1 | 2 | 3;
   timingAvailable: boolean;
+  timingUnavailableReason: "none" | "legacy" | "insufficient" | "implausible";
   talkSharePercent: number;
   pauseCount: number;
   longPauseCount: number;
@@ -56,6 +59,17 @@ function durations(value: unknown) {
   return Array.isArray(value)
     ? value.slice(0, 500).map((item) => bounded(item)).filter((item) => item > 0)
     : [];
+}
+
+function speechRate(wordCount: number, speakingMs: number) {
+  return speakingMs > 0 ? Math.round(wordCount / (speakingMs / 60_000)) : 0;
+}
+
+function plausibleSpeechRate(wordCount: number, speakingMs: number) {
+  if (wordCount <= 0 || speakingMs <= 0) return false;
+  const rate = speechRate(wordCount, speakingMs);
+  if (wordCount < 20) return rate <= 360;
+  return rate >= 25 && rate <= 320;
 }
 
 function words(text: string) {
@@ -125,20 +139,35 @@ export function summarizeSpeechAnalytics(input: {
   userSpeakingDurationsMs?: unknown;
   opponentSpeakingDurationsMs?: unknown;
   userResponseTimesMs?: unknown;
+  opponentTimingSource?: unknown;
   interruptionCount?: unknown;
 }): SpeechAnalytics | null {
   if (input.inputMode !== "duplex") return null;
   const userTurns = input.turns.filter((turn) => turn.author === "Вы");
   const opponentTurns = input.turns.filter((turn) => turn.author === "Оппонент");
   const userText = userTurns.map((turn) => turn.text).join(" ");
+  const opponentText = opponentTurns.map((turn) => turn.text).join(" ");
   const wordCount = words(userText).length;
+  const opponentWordCount = words(opponentText).length;
   const userDurations = durations(input.userSpeakingDurationsMs);
   const opponentDurations = durations(input.opponentSpeakingDurationsMs);
   const responseTimes = durations(input.userResponseTimesMs);
   const userSpeakingMs = userDurations.reduce((total, value) => total + value, 0);
   const opponentSpeakingMs = opponentDurations.reduce((total, value) => total + value, 0);
   const totalSpeakingMs = userSpeakingMs + opponentSpeakingMs;
-  const timingAvailable = userDurations.length > 0 && opponentTurns.length > 0 && opponentDurations.length > 0;
+  const authoritativeOpponentTiming = input.opponentTimingSource === "output_audio_buffer";
+  const hasTimingSamples = userDurations.length > 0 && opponentTurns.length > 0 && opponentDurations.length > 0;
+  const plausibleTiming = hasTimingSamples
+    && plausibleSpeechRate(wordCount, userSpeakingMs)
+    && plausibleSpeechRate(opponentWordCount, opponentSpeakingMs);
+  const timingAvailable = authoritativeOpponentTiming && plausibleTiming;
+  const timingUnavailableReason = timingAvailable
+    ? "none"
+    : !authoritativeOpponentTiming
+      ? "insufficient"
+      : !hasTimingSamples
+        ? "insufficient"
+        : "implausible";
   const fillers = countFillers(userText);
   const fillerCount = fillers.reduce((total, item) => total + item.count, 0);
   const fillerWordCount = fillers.reduce((total, item) => total + (words(item.phrase).length * item.count), 0);
@@ -155,9 +184,12 @@ export function summarizeSpeechAnalytics(input: {
     userTurns: userTurns.length,
     userSpeakingMs,
     opponentSpeakingMs,
-    tempoWpm: userSpeakingMs ? Math.round(wordCount / (userSpeakingMs / 60_000)) : 0,
-    timingVersion: 2,
+    tempoWpm: speechRate(wordCount, userSpeakingMs),
+    opponentWords: opponentWordCount,
+    opponentTempoWpm: speechRate(opponentWordCount, opponentSpeakingMs),
+    timingVersion: 3,
     timingAvailable,
+    timingUnavailableReason,
     talkSharePercent: totalSpeakingMs ? Math.round((userSpeakingMs / totalSpeakingMs) * 100) : 0,
     pauseCount: responseTimes.length,
     longPauseCount: responseTimes.filter((value) => value >= 3_000).length,
@@ -189,8 +221,15 @@ export function readSpeechAnalytics(value: unknown): SpeechAnalytics | null {
     : wordCount
       ? Math.round((fillerWordCount / wordCount) * 1000) / 10
       : 0;
-  const timingVersion = analytics.timingVersion === 2 ? 2 : 1;
-  const timingAvailable = timingVersion === 2 && analytics.timingAvailable === true;
+  const timingVersion = analytics.timingVersion === 3 ? 3 : analytics.timingVersion === 2 ? 2 : 1;
+  const timingAvailable = timingVersion === 3 && analytics.timingAvailable === true;
+  const timingUnavailableReason = timingAvailable
+    ? "none"
+    : timingVersion < 3
+      ? "legacy"
+      : analytics.timingUnavailableReason === "implausible"
+        ? "implausible"
+        : "insufficient";
   const averagePauseMs = bounded(analytics.averagePauseMs);
   const interruptionCount = bounded(analytics.interruptionCount, 10_000);
 
@@ -199,9 +238,29 @@ export function readSpeechAnalytics(value: unknown): SpeechAnalytics | null {
     words: wordCount,
     timingVersion,
     timingAvailable,
+    timingUnavailableReason,
+    opponentWords: bounded(analytics.opponentWords, 1_000_000),
+    opponentTempoWpm: bounded(analytics.opponentTempoWpm, 10_000),
     fillerWordCount,
     fillerPercent,
     fillerRatePer100Words: fillerPercent,
     pressureReaction: pressureReaction(timingAvailable, averagePauseMs, fillerPercent, interruptionCount),
+  };
+}
+
+export function createSpeechTimingAudit(input: {
+  opponentTimingSource?: unknown;
+  userSpeakingDurationsMs?: unknown;
+  opponentSpeakingDurationsMs?: unknown;
+  userResponseTimesMs?: unknown;
+}) {
+  return {
+    version: 3 as const,
+    opponentTimingSource: input.opponentTimingSource === "output_audio_buffer"
+      ? "output_audio_buffer" as const
+      : "unavailable" as const,
+    userSpeakingDurationsMs: durations(input.userSpeakingDurationsMs),
+    opponentSpeakingDurationsMs: durations(input.opponentSpeakingDurationsMs),
+    userResponseTimesMs: durations(input.userResponseTimesMs),
   };
 }

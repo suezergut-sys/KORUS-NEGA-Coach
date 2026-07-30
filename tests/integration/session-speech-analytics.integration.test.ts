@@ -46,6 +46,7 @@ describe("session speech analytics API integration", () => {
           userSpeakingDurationsMs: [4_000],
           opponentSpeakingDurationsMs: [6_000],
           userResponseTimesMs: [1_500],
+          opponentTimingSource: "output_audio_buffer",
           interruptionCount: 1,
         },
       }),
@@ -61,7 +62,7 @@ describe("session speech analytics API integration", () => {
           responseTimeP50Ms: 1_500,
           questionCount: 1,
           fillerPercent: 0,
-          timingVersion: 2,
+          timingVersion: 3,
           timingAvailable: true,
           interruptionCount: 1,
         },
@@ -71,6 +72,13 @@ describe("session speech analytics API integration", () => {
       p_metric_details: expect.objectContaining({
         inputMode: "duplex",
         speechAnalytics: expect.objectContaining({ talkSharePercent: 40 }),
+        speechTiming: {
+          version: 3,
+          opponentTimingSource: "output_audio_buffer",
+          userSpeakingDurationsMs: [4_000],
+          opponentSpeakingDurationsMs: [6_000],
+          userResponseTimesMs: [1_500],
+        },
       }),
     }));
   });
