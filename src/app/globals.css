@@ -343,6 +343,8 @@ button { color: inherit; }
 .speech-analytics-grid .pressure-reaction.assertive > strong { color: #8cefc8; }
 .speech-analytics-grid .pressure-reaction.hesitant { border-left-color: #dba747; }
 .speech-analytics-grid .pressure-reaction.hesitant > strong { color: #f2cc7a; }
+.speech-analytics-grid .pressure-reaction.unavailable { border-left-color: #587489; }
+.speech-analytics-grid .pressure-reaction.unavailable > strong { color: #9ab0be; }
 .score-breakdown { margin: 12px 0; }
 .score-breakdown > h3, .technique-review > h3, .development-plan > h3 { margin: 0 0 9px; color: #65baff; font-size: 10px; letter-spacing: .08em; }
 .score-breakdown > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

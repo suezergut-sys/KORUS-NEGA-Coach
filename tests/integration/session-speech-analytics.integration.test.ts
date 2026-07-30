@@ -60,6 +60,8 @@ describe("session speech analytics API integration", () => {
           talkSharePercent: 40,
           responseTimeP50Ms: 1_500,
           questionCount: 1,
+          fillerPercent: 0,
+          timingAvailable: true,
           interruptionCount: 1,
         },
       },

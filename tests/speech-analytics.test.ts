@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeSpeechAnalytics } from "../src/lib/speech-analytics";
+import { readSpeechAnalytics, summarizeSpeechAnalytics } from "../src/lib/speech-analytics";
 import type { TranscriptTurn } from "../src/lib/transcript";
 
 const turns: TranscriptTurn[] = [
@@ -36,6 +36,9 @@ describe("speech analytics", () => {
       responseTimeP95Ms: 4_000,
       questionCount: 2,
       fillerCount: 2,
+      fillerWordCount: 3,
+      fillerPercent: 23.1,
+      timingAvailable: true,
       interruptionCount: 1,
     });
     expect(result?.tempoWpm).toBeGreaterThan(0);
@@ -54,5 +57,56 @@ describe("speech analytics", () => {
     expect(result?.userSpeakingMs).toBe(5_000);
     expect(result?.opponentSpeakingMs).toBe(120_000);
     expect(result?.interruptionCount).toBe(0);
+  });
+
+  it("marks timing metrics unavailable when the opponent audio was not measured", () => {
+    const result = summarizeSpeechAnalytics({
+      inputMode: "duplex",
+      turns,
+      userSpeakingDurationsMs: [10_000],
+      opponentSpeakingDurationsMs: [],
+      userResponseTimesMs: [],
+      interruptionCount: 0,
+    });
+
+    expect(result).toMatchObject({
+      timingAvailable: false,
+      talkSharePercent: 100,
+      pressureReaction: {
+        level: "unavailable",
+        label: "Недостаточно данных",
+      },
+    });
+  });
+
+  it("normalizes reports saved before timing validity and filler percentages were added", () => {
+    const result = readSpeechAnalytics({
+      available: true,
+      inputMode: "duplex",
+      words: 283,
+      userTurns: 8,
+      userSpeakingMs: 134_231,
+      opponentSpeakingMs: 0,
+      tempoWpm: 126,
+      talkSharePercent: 100,
+      pauseCount: 0,
+      longPauseCount: 0,
+      averagePauseMs: 0,
+      responseTimeP50Ms: 0,
+      responseTimeP95Ms: 0,
+      questionCount: 2,
+      fillerCount: 5,
+      fillerRatePer100Words: 1.8,
+      fillers: [{ phrase: "ну", count: 3 }, { phrase: "значит", count: 2 }],
+      interruptionCount: 0,
+      pressureReaction: { level: "steady", label: "Сохраняет рабочий темп", explanation: "" },
+    });
+
+    expect(result).toMatchObject({
+      timingAvailable: false,
+      fillerWordCount: 5,
+      fillerPercent: 1.8,
+      pressureReaction: { level: "unavailable" },
+    });
   });
 });
