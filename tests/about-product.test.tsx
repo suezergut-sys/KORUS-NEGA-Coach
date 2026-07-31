@@ -10,6 +10,9 @@ describe("about product page", () => {
     expect(markup).toContain("О программе");
     expect(markup).toContain("Функциональность");
     expect(markup).toContain("История изменений");
+    expect(markup).not.toContain("<span>01</span>");
+    expect(markup).not.toContain("<span>02</span>");
+    expect(markup).not.toContain("<span>03</span>");
     expect(markup).toContain("Максим Сумин");
     expect(markup).toContain("Corpus Consulting");
     expect(markup).toContain("%2Fabout%2Fmaxim-sumin.png");

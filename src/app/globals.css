@@ -1282,12 +1282,10 @@ button { color: inherit; }
 .about-page { max-width: 1500px; }
 .about-header { max-width: 900px; }
 .about-header p { max-width: 780px; line-height: 1.65; }
-.about-tabs { position: sticky; top: 12px; z-index: 5; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 22px; padding: 7px; border: 1px solid #17456d; border-radius: 13px; background: rgba(4, 18, 35, .94); box-shadow: 0 16px 35px rgba(0, 0, 0, .22); backdrop-filter: blur(12px); }
-.about-tabs button { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 16px; border: 1px solid transparent; border-radius: 9px; color: #6f8ba5; background: transparent; font: inherit; font-size: 10px; font-weight: 800; cursor: pointer; transition: .18s ease; }
-.about-tabs button span { color: #3d6688; font-size: 8px; letter-spacing: .06em; }
-.about-tabs button:hover { color: #c9e9ff; background: rgba(12, 54, 91, .52); }
-.about-tabs button[aria-selected="true"] { border-color: #237ebc; color: #f1f9ff; background: linear-gradient(135deg, #0c416b, #082944); box-shadow: inset 0 0 24px rgba(32, 157, 239, .09); }
-.about-tabs button[aria-selected="true"] span { color: #63c0ff; }
+.about-tabs { display: flex; gap: 7px; margin: -10px 0 27px; padding-bottom: 13px; border-bottom: 1px solid #133553; }
+.about-tabs button { padding: 9px 13px; border: 1px solid #1a466d; border-radius: 7px; color: #82a7c8; background: #07182b; font: inherit; font-size: 10px; cursor: pointer; transition: .18s ease; white-space: nowrap; }
+.about-tabs button:hover { border-color: #168fff; color: #d9efff; background: #0a2949; }
+.about-tabs button[aria-selected="true"] { border-color: #168fff; color: #d9efff; background: #0a2949; }
 .about-tab-panel[hidden] { display: none; }
 .about-intro { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(420px, .8fr); gap: 35px; padding: 30px; }
 .about-intro > div > span { color: #48afff; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
@@ -1344,8 +1342,7 @@ button { color: inherit; }
 }
 
 @media (max-width: 720px) {
-  .about-tabs { position: static; grid-template-columns: 1fr; }
-  .about-tabs button { justify-content: flex-start; }
+  .about-tabs { overflow-x: auto; }
   .about-intro { padding: 20px; }
   .about-intro dl { grid-template-columns: 1fr; }
   .about-intro dl div { min-height: 82px; }
