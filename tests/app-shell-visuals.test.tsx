@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import AppBrandMark from "../src/components/AppBrandMark";
 import AppSectionIcon, { APP_SECTION_ICON_NAMES } from "../src/components/AppSectionIcon";
+import CaseBuilder from "../src/components/CaseBuilder";
 
 describe("shared application visuals", () => {
   it("renders the canonical KORUS logo source", () => {
@@ -26,5 +27,12 @@ describe("shared application visuals", () => {
     for (const name of APP_SECTION_ICON_NAMES) {
       expect(renderToStaticMarkup(<AppSectionIcon name={name} />)).toContain("<svg");
     }
+  });
+
+  it("offers voice input for the case description", () => {
+    const markup = renderToStaticMarkup(<CaseBuilder />);
+    expect(markup).toContain('aria-label="Начать голосовой ввод"');
+    expect(markup).toContain("ГОЛОСОВОЙ ВВОД");
+    expect(markup).toContain("builder-notes-mic");
   });
 });
