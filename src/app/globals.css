@@ -920,7 +920,7 @@ button { color: inherit; }
 .admin-case-summary span { display: block; color: #7691ab; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
 .admin-case-summary strong { display: block; margin-top: 5px; color: #65bfff; font-size: 25px; }
 .admin-case-table-wrap { overflow-x: auto; border: 1px solid #173e61; border-radius: 13px; background: #061527; }
-.admin-case-table { width: 100%; min-width: 1000px; border-collapse: collapse; }
+.admin-case-table { width: 100%; min-width: 1100px; border-collapse: collapse; }
 .admin-case-table th { padding: 13px 15px; border-bottom: 1px solid #1a4367; color: #6486a5; background: #081c32; font-size: 8px; text-align: left; text-transform: uppercase; letter-spacing: .08em; }
 .admin-case-table td { padding: 16px 15px; border-bottom: 1px solid #112e49; color: #9bb0c5; font-size: 10px; vertical-align: top; }
 .admin-case-table tbody tr:last-child td { border-bottom: 0; }
@@ -930,6 +930,8 @@ button { color: inherit; }
 .admin-case-state.published, .admin-media-state.ready { border-color: #15765f; color: #4ed4a9; background: rgba(17, 109, 83, .12); }
 .admin-case-state.archived, .admin-media-state.failed { border-color: #84453f; color: #f08d82; }
 .admin-media-state.processing { border-color: #2f6e9c; color: #65bfff; }
+.admin-visibility-state { display: inline-flex; padding: 4px 7px; border: 1px solid #15765f; border-radius: 12px; color: #4ed4a9; background: rgba(17, 109, 83, .12); font-size: 8px; }
+.admin-visibility-state.private { border-color: #7456a8; color: #c5a9ff; background: rgba(91, 58, 145, .16); }
 .admin-role-statuses { display: flex; flex-wrap: wrap; gap: 5px; max-width: 300px; margin-top: 8px; }
 .admin-role-statuses span { padding: 3px 6px; border-radius: 5px; color: #728ca5; background: #0a2036; font-size: 8px; }
 .admin-role-statuses .ready { color: #55d6ae; }

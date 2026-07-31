@@ -11,6 +11,7 @@ export type AdminCaseListItem = {
   createdBy: string;
   origin: string;
   status: string;
+  visibility: "public" | "private";
   plays: number;
   mediaStatus: string;
   roleStatuses: Array<{ name: string; ready: boolean }>;
@@ -45,13 +46,14 @@ export default function AdminCaseList({ initialCases }: { initialCases: AdminCas
       {error && <div className="error-banner"><strong>Не удалось выполнить действие</strong><span>{error}</span></div>}
       <div className="admin-case-table-wrap">
         <table className="admin-case-table">
-          <thead><tr><th>Кейс</th><th>Загружен</th><th>Автор / источник</th><th>Комикс для ролей</th><th>Отыгрыши</th><th>Действия</th></tr></thead>
+          <thead><tr><th>Кейс</th><th>Загружен</th><th>Автор / источник</th><th>Доступ</th><th>Комикс для ролей</th><th>Отыгрыши</th><th>Действия</th></tr></thead>
           <tbody>
             {cases.map((item) => (
               <tr key={item.id}>
                 <td><strong>{item.title}</strong><span className={`admin-case-state ${item.status}`}>{statusLabels[item.status] || item.status}</span></td>
                 <td><time dateTime={item.createdAt}>{new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Moscow" }).format(new Date(item.createdAt))}</time></td>
                 <td><strong>{item.createdBy}</strong><small>{originLabels[item.origin] || item.origin}</small></td>
+                <td><span className={`admin-visibility-state ${item.visibility}`}>{item.visibility === "private" ? "Приватный" : "Публичный"}</span></td>
                 <td>
                   <span className={`admin-media-state ${item.mediaStatus}`}>{mediaLabels[item.mediaStatus] || item.mediaStatus}</span>
                   <div className="admin-role-statuses">{item.roleStatuses.map((role, index) => <span className={role.ready ? "ready" : "waiting"} key={`${role.name}-${index}`} title={role.ready ? "Комикс готов" : "Комикс ещё не готов"}>{role.ready ? "✓" : "○"} {role.name}</span>)}</div>

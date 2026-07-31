@@ -6,7 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 export default async function AdminCasesPage() {
   const db = getSupabaseAdmin();
   const [{ data: cases, error }, { data: sessions }, { data: jobs }] = await Promise.all([
-    db.from("negotiation_cases").select("id,title,user_role,opponent_role,additional_roles,origin,status,created_by,created_at").order("created_at", { ascending: false }).limit(500),
+    db.from("negotiation_cases").select("id,title,user_role,opponent_role,additional_roles,origin,status,visibility,created_by,created_at").order("created_at", { ascending: false }).limit(500),
     db.from("training_sessions").select("case_id").not("case_id", "is", null).limit(10000),
     db.from("case_media_jobs").select("case_id,status,published_generation_id"),
   ]);
@@ -36,6 +36,7 @@ export default async function AdminCasesPage() {
       createdBy: item.created_by || (item.origin === "seed" ? "Системный кейс" : "Источник не указан"),
       origin: item.origin,
       status: item.status,
+      visibility: item.visibility === "private" ? "private" : "public",
       plays: playCounts.get(item.id) || 0,
       mediaStatus: job?.status || "missing",
       roleStatuses: roles.map((role, index) => ({ name: role.name, ready: (ready.get(index) || 0) >= 4 })),
