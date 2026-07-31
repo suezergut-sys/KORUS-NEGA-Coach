@@ -25,7 +25,6 @@ function historyDate(value: string) {
 export default function AboutPage() {
   const [activeTab, setActiveTab] = useState<AboutTab>("program");
   const historyGroups = groupProductHistory();
-  const firstDate = PRODUCT_HISTORY.at(-1)?.date || "";
   const latestDate = PRODUCT_HISTORY[0]?.date || "";
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -63,7 +62,7 @@ export default function AboutPage() {
           <div>
             <span className="admin-eyebrow">О ПРОГРАММЕ</span>
             <h1>KORUS NEGA AI 2.0</h1>
-            <p>Тренажёр управленческих переговоров: практика с AI-оппонентом, собственные кейсы, методический анализ и персональная траектория развития.</p>
+            <p>Тренажёр управленческих переговоров: практика с AI-оппонентом, собственные кейсы, методический анализ и персональная траектория развития. Платформа помогает руководителям и сотрудникам готовиться к управленческим переговорам, отрабатывать выбранную стратегию в голосовом поединке, превращать разбор каждой попытки в конкретный следующий шаг развития.</p>
           </div>
         </header>
 
@@ -74,19 +73,6 @@ export default function AboutPage() {
           aria-labelledby="about-tab-program"
           hidden={activeTab !== "program"}
         >
-          <section className="about-intro neon-panel">
-            <div>
-              <span>НАЗНАЧЕНИЕ ПЛАТФОРМЫ</span>
-              <h2>Практика сложных разговоров в безопасной AI-среде</h2>
-              <p>KORUS NEGA AI 2.0 помогает руководителям и сотрудникам готовиться к управленческим переговорам, отрабатывать выбранную стратегию в голосовом поединке и превращать разбор каждой попытки в конкретный следующий шаг развития.</p>
-            </div>
-            <dl>
-              <div><dt>{PRODUCT_SECTIONS.length}</dt><dd>функциональных направлений</dd></div>
-              <div><dt>{PRODUCT_HISTORY.length}</dt><dd>объединённых PR в истории</dd></div>
-              <div><dt>{historyDate(firstDate)}</dt><dd>первая зафиксированная версия</dd></div>
-            </dl>
-          </section>
-
           <section className="about-creator neon-panel">
             <div className="about-creator-photo">
               <Image
@@ -105,6 +91,22 @@ export default function AboutPage() {
                 <strong>Внутренний продукт</strong>
                 <p>Платформа создана для внутреннего использования в компании Corpus Consulting.</p>
               </div>
+            </div>
+          </section>
+
+          <section className="about-creator neon-panel">
+            <div className="about-creator-photo about-creator-photo-ksenia">
+              <Image
+                src="/about/ksenia-kolabushkina.png"
+                alt="Ксения Колабушкина — создатель первых прототипов KORUS NEGA AI 2.0"
+                width={640}
+                height={640}
+              />
+            </div>
+            <div className="about-creator-copy">
+              <span className="admin-eyebrow">СОЗДАТЕЛЬ ПРОДУКТА</span>
+              <h2>Ксения Колабушкина</h2>
+              <p>Менеджер Корпоративного университета «КОРУС Консалтинг», создатель первых прототипов продукта и евангелист ИИ-инструментов для прокачки переговоров в компании КОРУС.</p>
             </div>
           </section>
         </section>

@@ -14,8 +14,12 @@ describe("about product page", () => {
     expect(markup).not.toContain("<span>02</span>");
     expect(markup).not.toContain("<span>03</span>");
     expect(markup).toContain("Максим Сумин");
+    expect(markup).toContain("Ксения Колабушкина");
+    expect(markup).toContain("Менеджер Корпоративного университета");
     expect(markup).toContain("Corpus Consulting");
     expect(markup).toContain("%2Fabout%2Fmaxim-sumin.png");
+    expect(markup).toContain("%2Fabout%2Fksenia-kolabushkina.png");
+    expect(markup).not.toContain("НАЗНАЧЕНИЕ ПЛАТФОРМЫ");
     expect(markup).toContain("Возможности по разделам");
     expect(markup).toContain("Тренировки с AI-оппонентом");
     expect(markup).toContain("Приватность, качество и управление");
