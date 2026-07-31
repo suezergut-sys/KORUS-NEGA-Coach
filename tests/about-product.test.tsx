@@ -7,15 +7,21 @@ describe("about product page", () => {
   it("describes the complete service by section", () => {
     expect(PRODUCT_SECTIONS).toHaveLength(8);
     const markup = renderToStaticMarkup(<AboutPage />);
+    expect(markup).toContain("О программе");
+    expect(markup).toContain("Функциональность");
+    expect(markup).toContain("История изменений");
+    expect(markup).toContain("Максим Сумин");
+    expect(markup).toContain("Corpus Consulting");
+    expect(markup).toContain("%2Fabout%2Fmaxim-sumin.png");
     expect(markup).toContain("Возможности по разделам");
     expect(markup).toContain("Тренировки с AI-оппонентом");
     expect(markup).toContain("Приватность, качество и управление");
   });
 
   it("contains every merged PR in newest-first order", () => {
-    expect(PRODUCT_HISTORY).toHaveLength(58);
+    expect(PRODUCT_HISTORY).toHaveLength(59);
     expect(PRODUCT_HISTORY.map((item) => item.pr)).toEqual(
-      Array.from({ length: 58 }, (_, index) => 58 - index),
+      Array.from({ length: 59 }, (_, index) => 59 - index),
     );
     for (let index = 1; index < PRODUCT_HISTORY.length; index += 1) {
       expect(PRODUCT_HISTORY[index - 1].date >= PRODUCT_HISTORY[index].date).toBe(true);
