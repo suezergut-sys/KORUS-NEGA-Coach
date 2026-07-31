@@ -1,5 +1,17 @@
+"use client";
+
+import Image from "next/image";
+import { useState, type KeyboardEvent } from "react";
 import UserSidebar from "@/components/UserSidebar";
 import { groupProductHistory, PRODUCT_HISTORY, PRODUCT_SECTIONS } from "@/lib/about-product";
+
+const ABOUT_TABS = [
+  { id: "program", label: "О программе" },
+  { id: "features", label: "Функциональность" },
+  { id: "history", label: "История изменений" },
+] as const;
+
+type AboutTab = (typeof ABOUT_TABS)[number]["id"];
 
 function historyDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", {
@@ -11,9 +23,19 @@ function historyDate(value: string) {
 }
 
 export default function AboutPage() {
+  const [activeTab, setActiveTab] = useState<AboutTab>("program");
   const historyGroups = groupProductHistory();
   const firstDate = PRODUCT_HISTORY.at(-1)?.date || "";
   const latestDate = PRODUCT_HISTORY[0]?.date || "";
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const nextIndex = (index + direction + ABOUT_TABS.length) % ABOUT_TABS.length;
+    setActiveTab(ABOUT_TABS[nextIndex].id);
+    document.getElementById(`about-tab-${ABOUT_TABS[nextIndex].id}`)?.focus();
+  }
 
   return (
     <main className="admin-shell user-area-shell">
@@ -27,42 +49,105 @@ export default function AboutPage() {
           </div>
         </header>
 
-        <section className="about-intro neon-panel">
-          <div>
-            <span>КАК УСТРОЕН СЕРВИС</span>
-            <h2>От рабочей ситуации — к тренировке и измеримому прогрессу</h2>
-            <p>Платформа объединяет подготовку кейса, голосовой поединок, доказательный разбор и следующий учебный шаг. Ниже — полная карта функций и история того, как продукт развивался.</p>
-          </div>
-          <dl>
-            <div><dt>{PRODUCT_SECTIONS.length}</dt><dd>функциональных направлений</dd></div>
-            <div><dt>{PRODUCT_HISTORY.length}</dt><dd>объединённых PR в истории</dd></div>
-            <div><dt>{historyDate(firstDate)}</dt><dd>первая зафиксированная версия</dd></div>
-          </dl>
+        <nav className="about-tabs" role="tablist" aria-label="Разделы о программе">
+          {ABOUT_TABS.map((tab, index) => (
+            <button
+              id={`about-tab-${tab.id}`}
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-controls={`about-panel-${tab.id}`}
+              aria-selected={activeTab === tab.id}
+              tabIndex={activeTab === tab.id ? 0 : -1}
+              onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(event) => handleTabKeyDown(event, index)}
+            >
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+
+        <section
+          id="about-panel-program"
+          className="about-tab-panel"
+          role="tabpanel"
+          aria-labelledby="about-tab-program"
+          hidden={activeTab !== "program"}
+        >
+          <section className="about-intro neon-panel">
+            <div>
+              <span>НАЗНАЧЕНИЕ ПЛАТФОРМЫ</span>
+              <h2>Практика сложных разговоров в безопасной AI-среде</h2>
+              <p>KORUS NEGA AI 2.0 помогает руководителям и сотрудникам готовиться к управленческим переговорам, отрабатывать выбранную стратегию в голосовом поединке и превращать разбор каждой попытки в конкретный следующий шаг развития.</p>
+            </div>
+            <dl>
+              <div><dt>{PRODUCT_SECTIONS.length}</dt><dd>функциональных направлений</dd></div>
+              <div><dt>{PRODUCT_HISTORY.length}</dt><dd>объединённых PR в истории</dd></div>
+              <div><dt>{historyDate(firstDate)}</dt><dd>первая зафиксированная версия</dd></div>
+            </dl>
+          </section>
+
+          <section className="about-creator neon-panel">
+            <div className="about-creator-photo">
+              <Image
+                src="/about/maxim-sumin.png"
+                alt="Максим Сумин — создатель KORUS NEGA AI 2.0"
+                width={763}
+                height={937}
+                priority
+              />
+            </div>
+            <div className="about-creator-copy">
+              <span className="admin-eyebrow">СОЗДАТЕЛЬ ПРОДУКТА</span>
+              <h2>Максим Сумин</h2>
+              <p>Автор идеи и создатель платформы KORUS NEGA AI 2.0 — цифрового тренажёра, который соединяет практику переговоров, методическую обратную связь и данные о прогрессе пользователя.</p>
+              <div className="about-internal-note">
+                <strong>Внутренний продукт</strong>
+                <p>Платформа создана для внутреннего использования в компании Corpus Consulting.</p>
+              </div>
+            </div>
+          </section>
         </section>
 
-        <section className="about-section">
+        <section
+          id="about-panel-features"
+          className="about-tab-panel about-section"
+          role="tabpanel"
+          aria-labelledby="about-tab-features"
+          hidden={activeTab !== "features"}
+        >
           <header className="about-section-header">
             <span className="admin-eyebrow">ФУНКЦИОНАЛЬНОСТЬ</span>
             <h2>Возможности по разделам</h2>
-            <p>Краткая карта всего, что доступно пользователю и команде сопровождения.</p>
+            <p>Восемь направлений платформы — последовательно, от тренировки до управления качеством и данными.</p>
           </header>
-          <div className="about-feature-grid">
+          <div className="about-feature-list">
             {PRODUCT_SECTIONS.map((section, index) => (
               <article key={section.eyebrow}>
-                <header><span>{String(index + 1).padStart(2, "0")}</span><small>{section.eyebrow}</small></header>
-                <h3>{section.title}</h3>
-                <p>{section.description}</p>
+                <div className="about-feature-number">{index + 1}</div>
+                <div className="about-feature-copy">
+                  <small>{section.eyebrow}</small>
+                  <h3>{section.title}</h3>
+                  <p>{section.description}</p>
+                </div>
                 <ul>{section.capabilities.map((capability) => <li key={capability}>{capability}</li>)}</ul>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="about-section about-history">
+        <section
+          id="about-panel-history"
+          className="about-tab-panel about-section about-history"
+          role="tabpanel"
+          aria-labelledby="about-tab-history"
+          hidden={activeTab !== "history"}
+        >
           <header className="about-section-header">
-            <span className="admin-eyebrow">ИСТОРИЯ ВЕРСИЙ</span>
+            <span className="admin-eyebrow">ИСТОРИЯ ИЗМЕНЕНИЙ</span>
             <h2>Как развивался продукт</h2>
-            <p>Все объединённые pull request репозитория, от новых к старым. Даты указаны по московскому календарю.</p>
+            <p>Логи всех объединённых pull request репозитория, от новых к старым. Даты указаны по московскому календарю.</p>
           </header>
           <div className="about-history-note">
             <strong>Точка отсчёта</strong>
