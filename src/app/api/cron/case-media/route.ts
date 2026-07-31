@@ -1,4 +1,5 @@
 import { processCaseMediaQueue } from "@/lib/case-media";
+import { cleanupStaleDuelAudio } from "@/lib/duel-audio-storage";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
@@ -11,12 +12,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [result, retention] = await Promise.all([
+    const [result, retention, staleDuelAudioDeleted] = await Promise.all([
       processCaseMediaQueue(2),
       getSupabaseAdmin().rpc("purge_expired_training_data"),
+      cleanupStaleDuelAudio(),
     ]);
     if (retention.error) throw new Error(retention.error.message);
-    return Response.json({ ok: true, ...result, expiredSessionsDeleted: Number(retention.data || 0) });
+    return Response.json({ ok: true, ...result, expiredSessionsDeleted: Number(retention.data || 0), staleDuelAudioDeleted });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Не удалось обработать очередь." },
