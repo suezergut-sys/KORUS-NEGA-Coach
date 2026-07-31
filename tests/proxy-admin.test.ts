@@ -48,4 +48,9 @@ describe("admin gateway", () => {
     const response = proxy(new NextRequest("https://example.test/api/cron/case-media"));
     expect(response.status).toBe(200);
   });
+
+  it("lets the weekly activity worker reach its own Bearer-protected route", () => {
+    const response = proxy(new NextRequest("https://example.test/api/cron/weekly-activity"));
+    expect(response.status).toBe(200);
+  });
 });
