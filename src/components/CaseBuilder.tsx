@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CanonicalCase, CaseWorkspaceView } from "@/lib/case-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { CaseVisibility } from "@/lib/case-visibility";
+import { readJsonResponse } from "@/lib/http-response";
 
 type BuilderStatus = "idle" | "analyzing" | "approving" | "error";
+type TranscriptionPayload = { error?: string; text?: string };
 
 function fileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} Б`;
@@ -23,8 +25,97 @@ export default function CaseBuilder() {
   const [error, setError] = useState("");
   const [approvedCase, setApprovedCase] = useState<CanonicalCase | null>(null);
   const [visibility, setVisibility] = useState<CaseVisibility>("public");
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const actionPendingRef = useRef(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const statusBusy = status === "analyzing" || status === "approving";
+  const inputBusy = statusBusy || recording || transcribing;
+
+  function releaseMicrophone() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    recorderRef.current = null;
+  }
+
+  useEffect(() => () => {
+    if (recorderRef.current) {
+      recorderRef.current.ondataavailable = null;
+      recorderRef.current.onerror = null;
+      recorderRef.current.onstop = null;
+      if (recorderRef.current.state === "recording") recorderRef.current.stop();
+    }
+    releaseMicrophone();
+  }, []);
+
+  async function transcribeNotes(blob: Blob) {
+    setTranscribing(true);
+    setVoiceError("");
+    try {
+      const form = new FormData();
+      const extension = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "m4a" : "webm";
+      form.append("audio", blob, `case-description.${extension}`);
+      const response = await fetch("/api/case-builder/transcribe", { method: "POST", body: form });
+      const { payload } = await readJsonResponse<TranscriptionPayload>(response);
+      if (!response.ok || !payload?.text) {
+        throw new Error(payload?.error || "Не удалось расшифровать запись.");
+      }
+      setNotes((current) => [current.trim(), payload.text?.trim()]
+        .filter(Boolean)
+        .join("\n\n")
+        .slice(0, 20000));
+    } catch (transcriptionError) {
+      setVoiceError(transcriptionError instanceof Error ? transcriptionError.message : "Не удалось расшифровать запись.");
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  async function startRecording() {
+    setVoiceError("");
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        throw new Error("Голосовой ввод не поддерживается этим браузером.");
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const preferredTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+      const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recorderRef.current = recorder;
+      chunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) chunksRef.current.push(event.data);
+      };
+      recorder.onerror = () => {
+        setVoiceError("Не удалось записать голосовое описание.");
+        setRecording(false);
+        releaseMicrophone();
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        chunksRef.current = [];
+        setRecording(false);
+        releaseMicrophone();
+        if (blob.size) void transcribeNotes(blob);
+      };
+      recorder.start();
+      setRecording(true);
+    } catch (recordingError) {
+      releaseMicrophone();
+      setVoiceError(recordingError instanceof Error ? recordingError.message : "Не удалось получить доступ к микрофону.");
+    }
+  }
+
+  function stopRecording() {
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    setRecording(false);
+  }
 
   async function analyze() {
     if (actionPendingRef.current) return;
@@ -101,10 +192,27 @@ export default function CaseBuilder() {
 
       <section className="builder-input-card">
         <div className="builder-field-grid">
-          <label><span>НАЗВАНИЕ РАБОЧЕГО ПРОЕКТА</span><input value={title} disabled={status === "analyzing" || status === "approving"} onChange={(event) => setTitle(event.target.value)} placeholder="Например: Пересмотр условий контракта" maxLength={160} /></label>
-          <label className="builder-files"><span>МАТЕРИАЛЫ</span><input ref={fileInputRef} type="file" multiple accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" disabled={status === "analyzing" || status === "approving"} onChange={(event) => chooseFiles(Array.from(event.target.files || []))} /><small>До 6 файлов, общий размер черновика до 4 МБ: TXT, MD, CSV, JSON, XML, HTML, RTF, PDF, DOCX</small></label>
+          <label><span>НАЗВАНИЕ РАБОЧЕГО ПРОЕКТА</span><input value={title} disabled={inputBusy} onChange={(event) => setTitle(event.target.value)} placeholder="Например: Пересмотр условий контракта" maxLength={160} /></label>
+          <label className="builder-files"><span>МАТЕРИАЛЫ</span><input ref={fileInputRef} type="file" multiple accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" disabled={inputBusy} onChange={(event) => chooseFiles(Array.from(event.target.files || []))} /><small>До 6 файлов, общий размер черновика до 4 МБ: TXT, MD, CSV, JSON, XML, HTML, RTF, PDF, DOCX</small></label>
         </div>
-        <label className="builder-notes"><span>ОПИСАНИЕ И ДРУГИЕ ДЕТАЛИ</span><textarea value={notes} disabled={status === "analyzing" || status === "approving"} onChange={(event) => setNotes(event.target.value)} placeholder="Опишите участников, историю отношений, ограничения, спорные вопросы, риски и желаемые роли. После первого анализа сюда можно добавить новый контекст и повторить генерацию." maxLength={20000} /></label>
+        <div className="builder-notes">
+          <label htmlFor="case-builder-notes">ОПИСАНИЕ И ДРУГИЕ ДЕТАЛИ</label>
+          <div className="builder-notes-input">
+            <textarea id="case-builder-notes" value={notes} disabled={inputBusy} onChange={(event) => setNotes(event.target.value)} placeholder="Опишите участников, историю отношений, ограничения, спорные вопросы, риски и желаемые роли. После первого анализа сюда можно добавить новый контекст и повторить генерацию." maxLength={20000} />
+            <button
+              className={`builder-notes-mic ${recording ? "recording" : ""}`}
+              type="button"
+              onClick={recording ? stopRecording : startRecording}
+              disabled={statusBusy || transcribing}
+              aria-label={recording ? "Остановить голосовой ввод" : "Начать голосовой ввод"}
+              aria-pressed={recording}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-3 0h6" /></svg>
+              <span>{recording ? "ОСТАНОВИТЬ" : transcribing ? "РАСПОЗНАЁМ…" : "ГОЛОСОВОЙ ВВОД"}</span>
+            </button>
+          </div>
+          {voiceError && <small className="builder-voice-error" role="alert">{voiceError}</small>}
+        </div>
 
         {(files.length > 0 || workspace?.materials.length) && (
           <div className="material-list">
@@ -113,7 +221,7 @@ export default function CaseBuilder() {
           </div>
         )}
 
-        <button className="builder-analyze" onClick={analyze} disabled={status === "analyzing" || status === "approving"}>
+        <button className="builder-analyze" onClick={analyze} disabled={inputBusy}>
           {status === "analyzing" ? <><i className="analysis-spinner" /> АНАЛИЗИРУЕМ МАТЕРИАЛЫ…</> : <>✦ ПРОАНАЛИЗИРОВАТЬ И ПРЕДЛОЖИТЬ ВАРИАНТЫ</>}
         </button>
         <p className="builder-method-note">Система проверяет, что интересы сторон действительно конфликтуют, ставки значимы, а очевидного решения, устраивающего всех, нет.</p>
