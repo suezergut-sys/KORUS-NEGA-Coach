@@ -31,6 +31,7 @@ describe("Telegram activity monitoring", () => {
       uploadedCases: 1,
     });
 
+    expect(message).toContain('<b>Статистика использования платформы <a href="https://korus-nega-coach.vercel.app/">KORUS NEGA AI 2.0</a></b>');
     expect(message).toContain("2026-07-20–2026-07-26");
     expect(message).toContain("Активных пользователей: 7");
     expect(message).toContain("Отыгранных кейсов: 12");

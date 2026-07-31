@@ -55,7 +55,10 @@ export async function GET(request: Request) {
 
     const chatId = process.env.TELEGRAM_WEEKLY_CHAT_ID?.trim();
     if (!chatId) throw new Error("TELEGRAM_WEEKLY_CHAT_ID не настроен.");
-    await sendTelegramMessage(chatId, formatWeeklyActivitySummary(week, summary));
+    await sendTelegramMessage(chatId, formatWeeklyActivitySummary(week, summary), {
+      parseMode: "HTML",
+      disableLinkPreview: true,
+    });
 
     const { error: markError } = await db
       .from("user_activity_weekly_reports")

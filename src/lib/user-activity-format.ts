@@ -51,7 +51,9 @@ export function formatActivityMessage(userName: string, type: UserActivityType, 
 
 export function formatWeeklyActivitySummary(week: MoscowWeek, summary: WeeklyActivitySummary) {
   return [
-    `Активность платформы за ${week.startDate}–${week.endDate}`,
+    '<b>Статистика использования платформы <a href="https://korus-nega-coach.vercel.app/">KORUS NEGA AI 2.0</a></b>',
+    "",
+    `Отчёт за ${week.startDate}–${week.endDate}`,
     "",
     `Активных пользователей: ${summary.activeUsers}`,
     `Отыгранных кейсов: ${summary.playedCases}`,
