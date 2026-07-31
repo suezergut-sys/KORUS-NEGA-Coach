@@ -10,6 +10,7 @@ const PUBLIC_PATHS = new Set([
   "/api/site/logout",
   // The route applies its own CRON_SECRET Bearer authentication.
   "/api/cron/case-media",
+  "/api/cron/weekly-activity",
 ]);
 
 export function proxy(request: NextRequest) {
