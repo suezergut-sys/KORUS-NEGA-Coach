@@ -28,9 +28,9 @@ describe("about product page", () => {
   });
 
   it("contains every merged PR in newest-first order", () => {
-    expect(PRODUCT_HISTORY).toHaveLength(63);
+    expect(PRODUCT_HISTORY).toHaveLength(64);
     expect(PRODUCT_HISTORY.map((item) => item.pr)).toEqual(
-      [66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
+      [67, 66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
     );
     for (let index = 1; index < PRODUCT_HISTORY.length; index += 1) {
       expect(PRODUCT_HISTORY[index - 1].date >= PRODUCT_HISTORY[index].date).toBe(true);

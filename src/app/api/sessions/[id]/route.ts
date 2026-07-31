@@ -2,7 +2,9 @@ import { summarizeRealtimeMetrics } from "@/lib/realtime-metrics";
 import { createSpeechTimingAudit, summarizeSpeechAnalytics } from "@/lib/speech-analytics";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { normalizeAnalysisTurns } from "@/lib/transcript";
+import { recordUserActivity } from "@/lib/user-activity-monitoring";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import { DEFAULT_CASE } from "@/lib/default-case";
 
 export const runtime = "nodejs";
 
@@ -44,7 +46,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const db = getSupabaseAdmin();
     const { data: session, error: lookupError } = await db
       .from("training_sessions")
-      .select("id,is_ranked,status")
+      .select("id,is_ranked,status,case_id,case_code")
       .eq("id", id)
       .eq("user_id", user.userId)
       .maybeSingle();
@@ -73,6 +75,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       },
     });
     if (error || !data) throw new Error(error?.message || "Сессию не удалось завершить.");
+    let caseTitle = session.case_code === DEFAULT_CASE.slug ? DEFAULT_CASE.title : session.case_code;
+    if (session.case_id) {
+      const { data: negotiationCase } = await db
+        .from("negotiation_cases")
+        .select("title")
+        .eq("id", session.case_id)
+        .maybeSingle();
+      caseTitle = negotiationCase?.title || caseTitle;
+    }
+    await recordUserActivity({
+      userId: user.userId,
+      type: "case_played",
+      entityId: id,
+      subjectTitle: caseTitle,
+    });
     return Response.json({
       sessionId: id,
       status: "analysis_pending",

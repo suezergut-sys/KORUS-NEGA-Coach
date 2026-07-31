@@ -4,6 +4,7 @@ import { toPublicCase } from "@/lib/case-types";
 import { getCurrentCaseAuthor } from "@/lib/case-author";
 import { parseCaseVisibility } from "@/lib/case-visibility";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import { recordUserActivity } from "@/lib/user-activity-monitoring";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -19,6 +20,12 @@ export async function POST(request: Request) {
     const author = await getCurrentCaseAuthor("AI-конструктор");
     const approved = await approveVariant(body.variantId, "builder", author, session.userId, visibility);
     await enqueueCaseMedia(approved.id);
+    await recordUserActivity({
+      userId: session.userId,
+      type: "case_created",
+      entityId: approved.id,
+      subjectTitle: approved.title,
+    });
     return Response.json({ case: toPublicCase(approved), mediaStatus: "pending" });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Не удалось утвердить кейс." }, { status: 500 });
