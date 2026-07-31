@@ -41,14 +41,6 @@ export default function AboutPage() {
     <main className="admin-shell user-area-shell">
       <UserSidebar />
       <div className="admin-main about-page">
-        <header className="admin-page-header about-header">
-          <div>
-            <span className="admin-eyebrow">О ПРОГРАММЕ</span>
-            <h1>KORUS NEGA AI 2.0</h1>
-            <p>Тренажёр управленческих переговоров: практика с AI-оппонентом, собственные кейсы, методический анализ и персональная траектория развития.</p>
-          </div>
-        </header>
-
         <nav className="about-tabs" role="tablist" aria-label="Разделы о программе">
           {ABOUT_TABS.map((tab, index) => (
             <button
@@ -62,11 +54,18 @@ export default function AboutPage() {
               onClick={() => setActiveTab(tab.id)}
               onKeyDown={(event) => handleTabKeyDown(event, index)}
             >
-              <span>{String(index + 1).padStart(2, "0")}</span>
               {tab.label}
             </button>
           ))}
         </nav>
+
+        <header className="admin-page-header about-header">
+          <div>
+            <span className="admin-eyebrow">О ПРОГРАММЕ</span>
+            <h1>KORUS NEGA AI 2.0</h1>
+            <p>Тренажёр управленческих переговоров: практика с AI-оппонентом, собственные кейсы, методический анализ и персональная траектория развития.</p>
+          </div>
+        </header>
 
         <section
           id="about-panel-program"
