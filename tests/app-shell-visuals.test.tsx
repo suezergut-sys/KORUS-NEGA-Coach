@@ -20,6 +20,7 @@ describe("shared application visuals", () => {
       "create",
       "analyze",
       "feedback",
+      "about",
       "logout",
       "admin",
       "mobile",

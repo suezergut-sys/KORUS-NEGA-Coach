@@ -6,6 +6,7 @@ export const APP_SECTION_ICON_NAMES = [
   "create",
   "analyze",
   "feedback",
+  "about",
   "logout",
   "admin",
   "mobile",
@@ -13,4 +14,4 @@ export const APP_SECTION_ICON_NAMES = [
 
 export type AppSectionIconName = (typeof APP_SECTION_ICON_NAMES)[number];
 
-export type OnboardingContentIcon = Exclude<AppSectionIconName, "logout" | "admin">;
+export type OnboardingContentIcon = Exclude<AppSectionIconName, "about" | "logout" | "admin">;

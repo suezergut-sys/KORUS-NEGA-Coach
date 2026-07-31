@@ -32,7 +32,7 @@ function RailLink({
 }
 
 export default function AppNavRail({ onQuickUpload, quickUploadDisabled = false }: AppNavRailProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
 
   return (
     <aside className="nav-rail" aria-label="Разделы приложения">
@@ -52,6 +52,7 @@ export default function AppNavRail({ onQuickUpload, quickUploadDisabled = false 
       <RailLink href="/cases" label="Создать свой кейс" active={pathname.startsWith("/cases")} icon="create" className="case-create-rail" />
       <RailLink href="/analyze" label="Проанализировать кейс" active={pathname.startsWith("/analyze")} icon="analyze" className="case-analyze-rail" />
       <RailLink href="/feedback" label="Обратная связь" active={pathname.startsWith("/feedback")} icon="feedback" />
+      <RailLink href="/about" label="О программе" active={pathname.startsWith("/about")} icon="about" />
       <form className="rail-logout-form" action={pathname.startsWith("/admin") ? "/api/admin/logout" : "/api/site/logout"} method="post">
         <button className="rail-button" type="submit" aria-label="Выйти" title="Выйти">
           <AppSectionIcon name="logout" />
