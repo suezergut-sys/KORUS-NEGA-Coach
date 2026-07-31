@@ -91,12 +91,12 @@ export default function AboutPage() {
           </section>
 
           <section className="about-creator neon-panel">
-            <div className="about-creator-photo about-creator-photo-ksenia">
+            <div className="about-creator-photo">
               <Image
                 src="/about/ksenia-kalabushkina.png"
                 alt="Ксения Калабушкина — создатель первых прототипов KORUS NEGA AI 2.0"
-                width={256}
-                height={256}
+                width={969}
+                height={1622}
               />
             </div>
             <div className="about-creator-copy">
