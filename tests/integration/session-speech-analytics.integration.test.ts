@@ -24,6 +24,10 @@ vi.mock("@/lib/supabase-server", () => ({
   },
 }));
 
+vi.mock("@/lib/user-activity-monitoring", () => ({
+  recordUserActivity: vi.fn(async () => undefined),
+}));
+
 describe("session speech analytics API integration", () => {
   beforeEach(() => {
     rpc.mockReset();

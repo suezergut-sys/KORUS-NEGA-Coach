@@ -7,6 +7,7 @@ import { QUICK_UPLOAD_REQUEST_BYTES, uploadErrorStatus } from "@/lib/case-upload
 import { getCurrentCaseAuthor } from "@/lib/case-author";
 import { parseCaseVisibility } from "@/lib/case-visibility";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import { recordUserActivity } from "@/lib/user-activity-monitoring";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -37,6 +38,12 @@ export async function POST(request: Request) {
     const approved = await approveVariant(saved[0].id, "quick_upload", author, session.userId, visibility);
     published = true;
     await enqueueCaseMedia(approved.id);
+    await recordUserActivity({
+      userId: session.userId,
+      type: "case_uploaded",
+      entityId: approved.id,
+      subjectTitle: approved.title,
+    });
     return Response.json({
       case: toPublicCase(approved),
       alternativesCreated: saved.length - 1,
