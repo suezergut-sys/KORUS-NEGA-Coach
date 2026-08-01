@@ -24,6 +24,15 @@ describe("realtime diagnostics", () => {
     }).details).toEqual({ pauseMs: 850 });
   });
 
+  it.each(["pause_started", "pause_resumed", "output_audio_buffer_started", "turn_gate_waiting", "turn_gate_released", "turn_gate_clarification"])(
+    "accepts the %s lifecycle event",
+    (event) => expect(parseRealtimeDiagnostic({
+      event,
+      sessionId: "11111111-1111-4111-8111-111111111111",
+      details: { fragmentCount: 1 },
+    }).event).toBe(event),
+  );
+
   it("extracts incomplete response outcome", () => {
     expect(realtimeResponseStatus({ response: { id: "resp-1", status: "incomplete", status_details: { reason: "turn_detected" } } })).toEqual({
       responseId: "resp-1", status: "incomplete", reason: "turn_detected", errorCode: "",

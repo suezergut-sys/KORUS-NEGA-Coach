@@ -40,6 +40,8 @@ describe("realtime session config", () => {
 
     expect(collaborative.audio.input.turn_detection.eagerness).toBe("low");
     expect(hard.audio.input.turn_detection.eagerness).toBe("high");
+    expect(collaborative.audio.input.turn_detection.create_response).toBe(false);
+    expect(hard.audio.input.turn_detection.create_response).toBe(false);
     expect(hard.audio.output.voice).toBe("cedar");
   });
 });

@@ -18,4 +18,10 @@ describe("стили Realtime-переговоров", () => {
     expect(prompt).toContain("СОТРУДНИЧЕСТВО");
     expect(prompt).toContain("Не перебивай собеседника намеренно");
   });
+
+  it("запрещает додумывать незавершённую реплику пользователя", () => {
+    const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative" });
+    expect(prompt).toContain("не додумывай позицию, намерение или аргументы пользователя");
+    expect(prompt).toContain("попроси закончить мысль");
+  });
 });

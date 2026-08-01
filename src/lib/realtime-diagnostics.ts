@@ -3,7 +3,9 @@ export const REALTIME_DIAGNOSTIC_EVENTS = new Set([
   "recovery_scheduled", "recovery_triggered", "recovery_skipped", "response_stalled",
   "peer_state", "channel_closed", "channel_error", "audio_track_muted",
   "audio_track_unmuted", "audio_track_ended", "audio_monitor_started",
-  "response_pause_recorded", "realtime_error",
+  "output_audio_buffer_started", "output_audio_buffer_stopped", "output_audio_buffer_cleared",
+  "response_pause_recorded", "pause_started", "pause_resumed",
+  "turn_gate_waiting", "turn_gate_released", "turn_gate_clarification", "realtime_error",
 ]);
 
 export function parseRealtimeDiagnostic(value: unknown) {
