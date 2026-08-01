@@ -20,7 +20,13 @@ import { useNegotiationTimer } from "@/hooks/useNegotiationTimer";
 import { useNegotiationReport } from "@/hooks/useNegotiationReport";
 import { useCaseComic } from "@/hooks/useCaseComic";
 import { useCaseNarration } from "@/hooks/useCaseNarration";
-import { closeRealtimeConnection, fetchWithTimeout, pauseRealtime, resumeRealtime, updateTurnDetection, waitForDataChannelOpen } from "@/lib/realtime-webrtc";
+import { closeRealtimeConnection, fetchWithTimeout, pauseRealtime, requestRealtimeResponse, resumeRealtime, updateTurnDetection, waitForDataChannelOpen } from "@/lib/realtime-webrtc";
+import {
+  evaluateUserTurn,
+  INCOMPLETE_TURN_CLARIFICATION_DELAY_MS,
+  INCOMPLETE_TURN_CLARIFICATION_INSTRUCTIONS,
+  shouldContinueOpponentAfterPause,
+} from "@/lib/realtime-turn-gate";
 import {
   applyOutputAudioBufferEvent,
   EMPTY_OUTPUT_AUDIO_BUFFER_TIMING,
@@ -159,6 +165,9 @@ export default function VoiceArena() {
   const responseStartedAtRef = useRef(0);
   const lastOpponentDeltaAtRef = useRef(0);
   const userTranscriptVersionRef = useRef(0);
+  const pendingUserFragmentsRef = useRef<string[]>([]);
+  const incompleteTurnTimerRef = useRef<number | null>(null);
+  const queuedUserResponseRef = useRef<{ instructions?: string } | null>(null);
   const interruptedResponseRef = useRef<{ responseId: string; transcriptVersion: number } | null>(null);
   const recoveryTimerRef = useRef<number | null>(null);
   const recoveryPendingRef = useRef(false);
@@ -260,6 +269,32 @@ export default function VoiceArena() {
       keepalive: true,
     }).catch(() => undefined);
   }, [selectedCase.id]);
+
+  const clearIncompleteTurnTimer = useCallback(() => {
+    if (incompleteTurnTimerRef.current) window.clearTimeout(incompleteTurnTimerRef.current);
+    incompleteTurnTimerRef.current = null;
+  }, []);
+
+  const requestOpponentResponse = useCallback((instructions?: string) => {
+    if (endingRef.current || pausedRef.current) return false;
+    if (responseInProgressRef.current) {
+      queuedUserResponseRef.current = { instructions };
+      return false;
+    }
+    queuedUserResponseRef.current = null;
+    return requestRealtimeResponse(channelRef.current, instructions);
+  }, []);
+
+  const waitForUserTurnContinuation = useCallback(() => {
+    clearIncompleteTurnTimer();
+    incompleteTurnTimerRef.current = window.setTimeout(() => {
+      incompleteTurnTimerRef.current = null;
+      if (endingRef.current || pausedRef.current || userSpeakingRef.current) return;
+      pendingUserFragmentsRef.current = [];
+      requestOpponentResponse(INCOMPLETE_TURN_CLARIFICATION_INSTRUCTIONS);
+      reportRealtimeDiagnostic("turn_gate_clarification", { delayMs: INCOMPLETE_TURN_CLARIFICATION_DELAY_MS });
+    }, INCOMPLETE_TURN_CLARIFICATION_DELAY_MS);
+  }, [clearIncompleteTurnTimer, reportRealtimeDiagnostic, requestOpponentResponse]);
 
   const syncMicrophoneTrack = useCallback(() => {
     const enabled = shouldEnableMicrophone(inputModeRef.current, pausedRef.current, pushToTalkActiveRef.current);
@@ -513,6 +548,7 @@ export default function VoiceArena() {
   const closeSession = useCallback((resetLifecycle = true) => {
     if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
     if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
+    clearIncompleteTurnTimer();
     flushOpponentPlayback();
     closeRealtimeConnection({
       channel: channelRef.current,
@@ -540,6 +576,8 @@ export default function VoiceArena() {
     responseStartedAtRef.current = 0;
     lastOpponentDeltaAtRef.current = 0;
     interruptedResponseRef.current = null;
+    pendingUserFragmentsRef.current = [];
+    queuedUserResponseRef.current = null;
     recoveryTimerRef.current = null;
     recoveryPendingRef.current = false;
     disconnectedTimerRef.current = null;
@@ -550,7 +588,7 @@ export default function VoiceArena() {
     setPushToTalkActive(false);
     setRealtimeNotice("");
     if (resetLifecycle) lifecycleDispatch({ type: "RESET" });
-  }, [flushOpponentPlayback, lifecycleDispatch, resetTimer]);
+  }, [clearIncompleteTurnTimer, flushOpponentPlayback, lifecycleDispatch, resetTimer]);
 
   useEffect(() => () => closeSession(), [closeSession]);
   useEffect(() => () => stopNarration(), [stopNarration]);
@@ -630,6 +668,7 @@ export default function VoiceArena() {
         if (String(item.type || "") === "message") currentAssistantItemIdRef.current = String(item.id || "");
       }
       if (type === "input_audio_buffer.speech_started") {
+        clearIncompleteTurnTimer();
         const speechStartedAt = Date.now();
         const opponentIsAudible = inputModeRef.current === "duplex"
           ? opponentSpeechStartedAtRef.current > 0
@@ -700,7 +739,21 @@ export default function VoiceArena() {
       }
       if (type === "conversation.item.input_audio_transcription.completed") {
         const transcript = String(event.transcript || "").trim();
-        if (transcript) userTranscriptVersionRef.current += 1;
+        if (transcript) {
+          userTranscriptVersionRef.current += 1;
+          const pendingCount = pendingUserFragmentsRef.current.length;
+          const decision = evaluateUserTurn(pendingUserFragmentsRef.current, transcript);
+          if (decision.shouldRespond) {
+            pendingUserFragmentsRef.current = [];
+            clearIncompleteTurnTimer();
+            requestOpponentResponse();
+            reportRealtimeDiagnostic("turn_gate_released", { fragmentCount: pendingCount + 1 });
+          } else {
+            pendingUserFragmentsRef.current = [...pendingUserFragmentsRef.current, transcript];
+            waitForUserTurnContinuation();
+            reportRealtimeDiagnostic("turn_gate_waiting", { fragmentCount: pendingCount + 1 });
+          }
+        }
         replaceLine("Вы", transcript, itemId);
       }
       if (type === "response.output_audio_transcript.delta") {
@@ -772,6 +825,11 @@ export default function VoiceArena() {
           continuationMergeTranscriptRef.current = false;
           continuationDeltaSeenRef.current = false;
         }
+        const queued = queuedUserResponseRef.current;
+        queuedUserResponseRef.current = null;
+        if (queued && !pausedRef.current && !endingRef.current) {
+          requestRealtimeResponse(channelRef.current, queued.instructions);
+        }
       }
       if (type === "error") {
         connectionErrorCountRef.current += 1;
@@ -783,7 +841,7 @@ export default function VoiceArena() {
     } catch {
       // Диагностические сообщения вне JSON не влияют на голосовую сессию.
     }
-  }, [appendDelta, applyOpponentPlaybackEvent, linesRef, negotiationStyle, replaceLine, reportRealtimeDiagnostic, scheduleResponseRecovery]);
+  }, [appendDelta, applyOpponentPlaybackEvent, clearIncompleteTurnTimer, linesRef, negotiationStyle, replaceLine, reportRealtimeDiagnostic, requestOpponentResponse, scheduleResponseRecovery, waitForUserTurnContinuation]);
 
   useEffect(() => {
     if (!isLive || isPaused || isEnding) return;
@@ -810,7 +868,10 @@ export default function VoiceArena() {
     const pausedAt = Date.now();
     const opponentWasAudible = opponentSpeakingRef.current && opponentSpeechStartedAtRef.current > 0;
     const responseWasActive = responseInProgressRef.current;
-    const interruptedOpponent = opponentWasAudible || responseWasActive;
+    const interruptedOpponent = shouldContinueOpponentAfterPause({
+      opponentWasAudible,
+      responseInProgress: responseWasActive,
+    });
     const assistantItemId = currentAssistantItemIdRef.current;
     const audioEndMs = opponentWasAudible
       ? Math.max(0, pausedAt - opponentSpeechStartedAtRef.current - 150)
@@ -824,11 +885,13 @@ export default function VoiceArena() {
       userSpeechStartedAtRef.current = 0;
     }
     flushOpponentPlayback(pausedAt);
+    clearIncompleteTurnTimer();
+    queuedUserResponseRef.current = null;
     lastOpponentSpeechEndedAtRef.current = 0;
     if (!pauseTimer()) return;
     lifecycleDispatch({ type: "PAUSE" });
     pausedOpponentRef.current = interruptedOpponent
-      ? { lineId: targetLine?.id || "", wasAudible: opponentWasAudible, mergeTranscript: responseWasActive }
+      ? { lineId: targetLine?.id || "", wasAudible: true, mergeTranscript: responseWasActive }
       : null;
     pauseRealtime(channelRef.current, {
       responseActive: responseWasActive,
@@ -836,6 +899,11 @@ export default function VoiceArena() {
       assistantItemId,
       audioEndMs,
     });
+    if (responseWasActive) {
+      responseInProgressRef.current = false;
+      activeResponseIdRef.current = "";
+      interruptedResponseRef.current = null;
+    }
     reportRealtimeDiagnostic("pause_started", {
       interruptedOpponent,
       opponentWasAudible,
@@ -895,6 +963,9 @@ export default function VoiceArena() {
     responseStartedAtRef.current = 0;
     lastOpponentDeltaAtRef.current = 0;
     userTranscriptVersionRef.current = 0;
+    pendingUserFragmentsRef.current = [];
+    clearIncompleteTurnTimer();
+    queuedUserResponseRef.current = null;
     interruptedResponseRef.current = null;
     recoveryPendingRef.current = false;
     recoveryAttemptsRef.current = 0;
@@ -1023,7 +1094,7 @@ export default function VoiceArena() {
         const readyLines: Line[] = [{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }];
         linesRef.current = readyLines;
         setLines(readyLines);
-        channel.send(JSON.stringify({ type: "response.create" }));
+        requestRealtimeResponse(channel);
       });
       channel.addEventListener("close", () => {
         if (channelRef.current === channel && !endingRef.current) {

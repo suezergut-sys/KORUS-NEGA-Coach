@@ -18,7 +18,7 @@ export function buildTurnDetectionEvent(eagerness: RealtimeTurnEagerness): Realt
           turn_detection: {
             type: "semantic_vad",
             eagerness,
-            create_response: true,
+            create_response: false,
             interrupt_response: true,
           },
         },
@@ -96,6 +96,15 @@ export function resumeRealtime(channel: RTCDataChannel | null, options: Paramete
 export function updateTurnDetection(channel: RTCDataChannel | null, eagerness: RealtimeTurnEagerness) {
   if (channel?.readyState !== "open") return;
   channel.send(JSON.stringify(buildTurnDetectionEvent(eagerness)));
+}
+
+export function requestRealtimeResponse(channel: RTCDataChannel | null, instructions?: string) {
+  if (channel?.readyState !== "open") return false;
+  channel.send(JSON.stringify({
+    type: "response.create",
+    ...(instructions ? { response: { output_modalities: ["audio"], instructions } } : {}),
+  }));
+  return true;
 }
 
 export async function fetchWithTimeout(

@@ -25,7 +25,7 @@ export function buildRealtimeSessionConfig({
         turn_detection: {
           type: "semantic_vad",
           eagerness: negotiationStyle === "hard" ? "high" : "low",
-          create_response: true,
+          create_response: false,
           interrupt_response: true,
         },
       },
