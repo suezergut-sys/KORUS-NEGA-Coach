@@ -1,10 +1,21 @@
 export const DUEL_TRANSCRIPTION_ATTEMPTS = 2;
-export const DUEL_TRANSCRIPTION_ATTEMPT_TIMEOUT_MS = 120_000;
+export const DUEL_TRANSCRIPTION_TOTAL_TIMEOUT_MS = 292_000;
+export const DUEL_TRANSCRIPTION_MIN_RETRY_BUDGET_MS = 240_000;
+const RETRY_DELAY_MS = 500;
 
 export type DuelTranscriptionAttemptFailure = {
   attempt: number;
+  timeoutMs: number;
   willRetry: boolean;
   error: ReturnType<typeof duelTranscriptionErrorDetails>;
+};
+
+type RetryOptions = {
+  startedAtMs?: number;
+  totalTimeoutMs?: number;
+  minRetryBudgetMs?: number;
+  now?: () => number;
+  sleep?: (milliseconds: number) => Promise<void>;
 };
 
 export function duelTranscriptionErrorDetails(error: unknown) {
@@ -26,19 +37,29 @@ export function isRetryableDuelTranscriptionError(error: unknown) {
 }
 
 export async function runDuelTranscriptionWithRetry<T>(
-  operation: (attempt: number) => Promise<T>,
+  operation: (attempt: number, timeoutMs: number) => Promise<T>,
   onFailure: (failure: DuelTranscriptionAttemptFailure) => void = () => undefined,
+  options: RetryOptions = {},
 ) {
+  const now = options.now || Date.now;
+  const sleep = options.sleep || ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  const startedAtMs = options.startedAtMs ?? now();
+  const totalTimeoutMs = options.totalTimeoutMs ?? DUEL_TRANSCRIPTION_TOTAL_TIMEOUT_MS;
+  const minRetryBudgetMs = options.minRetryBudgetMs ?? DUEL_TRANSCRIPTION_MIN_RETRY_BUDGET_MS;
   let lastError: unknown;
   for (let attempt = 1; attempt <= DUEL_TRANSCRIPTION_ATTEMPTS; attempt += 1) {
+    const timeoutMs = Math.max(1, totalTimeoutMs - (now() - startedAtMs));
     try {
-      return await operation(attempt);
+      return await operation(attempt, timeoutMs);
     } catch (error) {
       lastError = error;
-      const willRetry = attempt < DUEL_TRANSCRIPTION_ATTEMPTS && isRetryableDuelTranscriptionError(error);
-      onFailure({ attempt, willRetry, error: duelTranscriptionErrorDetails(error) });
+      const retryBudgetMs = totalTimeoutMs - (now() - startedAtMs) - RETRY_DELAY_MS;
+      const willRetry = attempt < DUEL_TRANSCRIPTION_ATTEMPTS
+        && retryBudgetMs >= minRetryBudgetMs
+        && isRetryableDuelTranscriptionError(error);
+      onFailure({ attempt, timeoutMs, willRetry, error: duelTranscriptionErrorDetails(error) });
       if (!willRetry) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await sleep(RETRY_DELAY_MS);
     }
   }
   throw lastError;
