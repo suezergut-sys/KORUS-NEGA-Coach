@@ -1,4 +1,4 @@
-export type UserActivityType = "case_played" | "case_uploaded" | "case_created";
+export type UserActivityType = "case_played" | "case_uploaded" | "case_created" | "user_registered";
 
 export type MoscowWeek = {
   start: Date;
@@ -40,10 +40,15 @@ export function previousMoscowWeek(now = new Date()): MoscowWeek {
 }
 
 export function formatActivityMessage(userName: string, type: UserActivityType, subjectTitle?: string | null) {
+  if (type === "user_registered") {
+    const email = subjectTitle?.trim() || "не указана";
+    return `${userName} — зарегистрировался(ась) на платформе.\nПочта: ${email}.`;
+  }
   const action: Record<UserActivityType, string> = {
     case_played: "отыграл(а) кейс",
     case_uploaded: "загрузил(а) кейс",
     case_created: "создал(а) кейс",
+    user_registered: "зарегистрировался(ась) на платформе",
   };
   const title = subjectTitle?.trim() ? ` «${subjectTitle.trim()}»` : "";
   return `${userName} — ${action[type]}${title}.`;
