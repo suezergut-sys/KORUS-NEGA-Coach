@@ -29,4 +29,3 @@ describe("duel transcription retries", () => {
     expect(isRetryableDuelTranscriptionError({ status: 400, message: "Bad request" })).toBe(false);
   });
 });
-
