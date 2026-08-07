@@ -8,6 +8,7 @@ import { getCurrentUserSession } from "@/lib/user-auth";
 import { parseStructuredOutput } from "@/lib/structured-output";
 import { getMethodology } from "@/lib/methodologies";
 import { getMethodologySource, retrieveMethodologyChunks } from "@/lib/methodology-server";
+import { buildDuelEmbeddingInput } from "@/lib/duel-analysis-input";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     const methodSource = await getMethodologySource(supabase, methodology);
     const embedding = await openai.embeddings.create({
       model: EMBEDDING_MODEL,
-      input: `КЕЙС:\n${uploadedCase.text}\n\nРАСШИФРОВКА:\n${uploadedTranscript.text}`.slice(0, 28000),
+      input: buildDuelEmbeddingInput(uploadedCase.text, uploadedTranscript.text),
       encoding_format: "float",
     });
     const chunks = await retrieveMethodologyChunks(supabase, methodSource.id, embedding.data[0].embedding, 10) as RetrievedChunk[];
