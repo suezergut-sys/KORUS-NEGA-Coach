@@ -25,6 +25,8 @@ describe("Telegram activity monitoring", () => {
       .toBe("Анна Иванова — зарегистрировался(ась) на платформе.\nПочта: a.ivanova@korusconsulting.ru.");
     expect(formatActivityMessage("Максим Сумин", "feedback_submitted", "Анализ кейса"))
       .toBe(`Максим Сумин — оставил(а) обратную связь по разделу «Анализ кейса».\nОткрыть в админ-панели: ${ADMIN_FEEDBACK_URL}`);
+    expect(formatActivityMessage("Максим Сумин", "duel_analyzed", "Встреча.txt"))
+      .toBe("Максим Сумин — проанализировал(а) поединок по кейсу «Встреча.txt».");
   });
 
   it("formats every requested weekly metric", () => {

@@ -3,7 +3,8 @@ export type UserActivityType =
   | "case_uploaded"
   | "case_created"
   | "user_registered"
-  | "feedback_submitted";
+  | "feedback_submitted"
+  | "duel_analyzed";
 
 export const ADMIN_FEEDBACK_URL = "https://korus-nega-coach.vercel.app/admin/feedback";
 
@@ -56,12 +57,17 @@ export function formatActivityMessage(userName: string, type: UserActivityType, 
     const sectionText = section ? ` по разделу «${section}»` : "";
     return `${userName} — оставил(а) обратную связь${sectionText}.\nОткрыть в админ-панели: ${ADMIN_FEEDBACK_URL}`;
   }
+  if (type === "duel_analyzed") {
+    const title = subjectTitle?.trim() ? ` по кейсу «${subjectTitle.trim()}»` : "";
+    return `${userName} — проанализировал(а) поединок${title}.`;
+  }
   const action: Record<UserActivityType, string> = {
     case_played: "отыграл(а) кейс",
     case_uploaded: "загрузил(а) кейс",
     case_created: "создал(а) кейс",
     user_registered: "зарегистрировался(ась) на платформе",
     feedback_submitted: "оставил(а) обратную связь",
+    duel_analyzed: "проанализировал(а) поединок",
   };
   const title = subjectTitle?.trim() ? ` «${subjectTitle.trim()}»` : "";
   return `${userName} — ${action[type]}${title}.`;

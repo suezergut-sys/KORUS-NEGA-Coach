@@ -12,6 +12,8 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
       <div className="admin-main">
         <nav className="admin-section-nav" aria-label="Разделы админ-панели">
           <Link href="/admin">Обзор</Link>
+          <Link href="/admin/users">Пользователи</Link>
+          <Link href="/admin/logs">Логи</Link>
           <Link href="/admin/methodology">Методология</Link>
           <Link href="/admin/cases">База кейсов</Link>
           <Link href="/admin/feedback">Обратная связь</Link>
