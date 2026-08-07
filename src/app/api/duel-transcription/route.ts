@@ -4,7 +4,6 @@ import { getOpenAI } from "@/lib/openai-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import {
-  DUEL_TRANSCRIPTION_ATTEMPT_TIMEOUT_MS,
   duelTranscriptionErrorDetails,
   runDuelTranscriptionWithRetry,
 } from "@/lib/duel-transcription-retry";
@@ -39,19 +38,20 @@ export async function POST(request: Request) {
     const audioFile = new File([await audioBlob.arrayBuffer()], metadata.fileName, { type: metadata.mimeType });
     const openai = getOpenAI();
     const transcription = await runDuelTranscriptionWithRetry(
-      () => openai.audio.transcriptions.create({
+      (_attempt, timeoutMs) => openai.audio.transcriptions.create({
         file: audioFile,
         model: "gpt-4o-transcribe-diarize",
         language: "ru",
         response_format: "diarized_json",
         chunking_strategy: "auto",
-      }, { signal: AbortSignal.timeout(DUEL_TRANSCRIPTION_ATTEMPT_TIMEOUT_MS), maxRetries: 0 }) as unknown as Promise<TranscriptionDiarized>,
+      }, { signal: AbortSignal.timeout(timeoutMs), maxRetries: 0 }) as unknown as Promise<TranscriptionDiarized>,
       (failure) => console.warn(JSON.stringify({
         event: "duel_audio_transcription_attempt_failed",
         diagnosticId,
         userId: session.userId,
         ...failure,
       })),
+      { startedAtMs: transcriptionStartedAt },
     );
 
     const segments: DuelAudioSegment[] = transcription.segments
