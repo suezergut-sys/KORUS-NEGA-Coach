@@ -9,6 +9,7 @@ import { parseStructuredOutput } from "@/lib/structured-output";
 import { getMethodology } from "@/lib/methodologies";
 import { getMethodologySource, retrieveMethodologyChunks } from "@/lib/methodology-server";
 import { buildDuelEmbeddingInput } from "@/lib/duel-analysis-input";
+import { recordUserActivity } from "@/lib/user-activity-monitoring";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -99,6 +100,13 @@ export async function POST(request: Request) {
         transcriptCorpus.includes(normalized(item.turnQuote)) && sourceCorpus.includes(normalized(item.sourceQuote)),
       );
     }
+
+    await recordUserActivity({
+      userId: userSession.userId,
+      type: "duel_analyzed",
+      entityId: diagnosticId,
+      subjectTitle: uploadedCase.displayName,
+    });
 
     return Response.json({ analysis, caseFileName: uploadedCase.displayName, transcriptFileName: uploadedTranscript.displayName, diagnosticId });
   } catch (error) {
