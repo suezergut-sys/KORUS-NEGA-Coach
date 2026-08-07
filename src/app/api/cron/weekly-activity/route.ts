@@ -1,7 +1,9 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { PRODUCT_HISTORY } from "@/lib/about-product";
 import {
   formatWeeklyActivitySummary,
+  platformUpdatesForWeek,
   previousMoscowWeek,
   type WeeklyActivitySummary,
 } from "@/lib/user-activity-format";
@@ -10,6 +12,7 @@ export const runtime = "nodejs";
 
 type SummaryRow = {
   active_users?: number | string;
+  new_users?: number | string;
   played_cases?: number | string;
   created_cases?: number | string;
   uploaded_cases?: number | string;
@@ -48,6 +51,7 @@ export async function GET(request: Request) {
     const row = (data || {}) as SummaryRow;
     const summary: WeeklyActivitySummary = {
       activeUsers: Number(row.active_users || 0),
+      newUsers: Number(row.new_users || 0),
       playedCases: Number(row.played_cases || 0),
       createdCases: Number(row.created_cases || 0),
       uploadedCases: Number(row.uploaded_cases || 0),
@@ -55,7 +59,8 @@ export async function GET(request: Request) {
 
     const chatId = process.env.TELEGRAM_WEEKLY_CHAT_ID?.trim();
     if (!chatId) throw new Error("TELEGRAM_WEEKLY_CHAT_ID не настроен.");
-    await sendTelegramMessage(chatId, formatWeeklyActivitySummary(week, summary), {
+    const updates = platformUpdatesForWeek(week, PRODUCT_HISTORY);
+    await sendTelegramMessage(chatId, formatWeeklyActivitySummary(week, summary, updates), {
       parseMode: "HTML",
       disableLinkPreview: true,
     });

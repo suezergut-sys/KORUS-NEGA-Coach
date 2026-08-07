@@ -17,9 +17,16 @@ export type MoscowWeek = {
 
 export type WeeklyActivitySummary = {
   activeUsers: number;
+  newUsers: number;
   playedCases: number;
   createdCases: number;
   uploadedCases: number;
+};
+
+export type WeeklyPlatformUpdate = {
+  pr: number;
+  date: string;
+  title: string;
 };
 
 const MOSCOW_OFFSET_MS = 3 * 60 * 60 * 1_000;
@@ -73,15 +80,38 @@ export function formatActivityMessage(userName: string, type: UserActivityType, 
   return `${userName} — ${action[type]}${title}.`;
 }
 
-export function formatWeeklyActivitySummary(week: MoscowWeek, summary: WeeklyActivitySummary) {
+export function platformUpdatesForWeek(
+  week: MoscowWeek,
+  updates: readonly WeeklyPlatformUpdate[],
+) {
+  return updates.filter((item) => item.date >= week.startDate && item.date <= week.endDate);
+}
+
+function escapeTelegramHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+export function formatWeeklyActivitySummary(
+  week: MoscowWeek,
+  summary: WeeklyActivitySummary,
+  updates: readonly WeeklyPlatformUpdate[] = [],
+) {
+  const digest = updates.length > 0
+    ? updates.map((item) => `• <a href="https://github.com/suezergut-sys/KORUS-NEGA-Coach/pull/${item.pr}">PR #${item.pr}</a> — ${escapeTelegramHtml(item.title)}`)
+    : ["За отчётный период доработок не зафиксировано."];
+
   return [
     '<b>Статистика использования платформы <a href="https://korus-nega-coach.vercel.app/">KORUS NEGA AI 2.0</a></b>',
     "",
     `Отчёт за ${week.startDate}–${week.endDate}`,
     "",
     `Активных пользователей: ${summary.activeUsers}`,
+    `Новых пользователей: ${summary.newUsers}`,
     `Отыгранных кейсов: ${summary.playedCases}`,
     `Созданных кейсов: ${summary.createdCases} (из них загружено: ${summary.uploadedCases})`,
+    "",
+    '<b><a href="https://korus-nega-coach.vercel.app/about">Дайджест доработок платформы</a></b>',
+    ...digest,
   ].join("\n");
 }
 
