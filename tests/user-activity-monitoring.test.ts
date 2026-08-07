@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ADMIN_FEEDBACK_URL,
   formatActivityMessage,
   formatWeeklyActivitySummary,
   previousMoscowWeek,
@@ -22,6 +23,8 @@ describe("Telegram activity monitoring", () => {
       .toBe("Максим Сумин — загрузил(а) кейс.");
     expect(formatActivityMessage("Анна Иванова", "user_registered", "a.ivanova@korusconsulting.ru"))
       .toBe("Анна Иванова — зарегистрировался(ась) на платформе.\nПочта: a.ivanova@korusconsulting.ru.");
+    expect(formatActivityMessage("Максим Сумин", "feedback_submitted", "Анализ кейса"))
+      .toBe(`Максим Сумин — оставил(а) обратную связь по разделу «Анализ кейса».\nОткрыть в админ-панели: ${ADMIN_FEEDBACK_URL}`);
   });
 
   it("formats every requested weekly metric", () => {
