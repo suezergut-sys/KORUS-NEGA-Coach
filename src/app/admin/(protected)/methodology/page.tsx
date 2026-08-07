@@ -1,10 +1,10 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import MethodologyReview from "@/components/MethodologyReview";
-import { getMethodology, methodologyOptions } from "@/lib/methodologies";
+import { adminMethodologyOptions, getAdminMethodology } from "@/lib/methodologies";
 
 export default async function MethodologyReviewPage({ searchParams }: { searchParams: Promise<{ atom?: string; methodology?: string }> }) {
   const { atom: initialAtomId, methodology: methodologyId } = await searchParams;
-  const methodology = getMethodology(methodologyId);
+  const methodology = getAdminMethodology(methodologyId);
   const supabase = getSupabaseAdmin();
   const { data: source, error: sourceError } = await supabase
     .from("method_sources")
@@ -48,7 +48,7 @@ export default async function MethodologyReviewPage({ searchParams }: { searchPa
       sourceVersion={source?.methodology_version || methodology.candidateVersion}
       initialSelectedId={initialAtomId}
       methodology={methodology}
-      methodologyOptions={methodologyOptions()}
+      methodologyOptions={adminMethodologyOptions()}
     />
   );
 }
