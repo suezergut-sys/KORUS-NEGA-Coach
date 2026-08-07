@@ -1,5 +1,6 @@
 import { parseFeedbackInput } from "@/lib/feedback";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { recordUserActivity } from "@/lib/user-activity-monitoring";
 import { getCurrentUserSession } from "@/lib/user-auth";
 
 export const runtime = "nodejs";
@@ -28,6 +29,13 @@ export async function POST(request: Request) {
       content: feedback.content,
     }).select("id,created_at").single();
     if (error) throw new Error(error.message);
+
+    await recordUserActivity({
+      userId: session.userId,
+      type: "feedback_submitted",
+      entityId: data.id,
+      subjectTitle: feedback.customSection || feedback.sectionLabel,
+    });
     return Response.json({ feedback: data }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Не удалось отправить обратную связь.";
