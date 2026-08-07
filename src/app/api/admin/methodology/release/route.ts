@@ -1,6 +1,6 @@
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { getMethodology } from "@/lib/methodologies";
+import { getAdminMethodology } from "@/lib/methodologies";
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) return Response.json({ error: "Требуется вход." }, { status: 401 });
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
   const supabase = getSupabaseAdmin();
   const body = await request.json().catch(() => ({})) as { methodologyId?: string };
-  const methodology = getMethodology(body.methodologyId);
+  const methodology = getAdminMethodology(body.methodologyId);
   const { data: source, error: sourceLookupError } = await supabase
     .from("method_sources")
     .select("id")
