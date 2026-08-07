@@ -20,6 +20,8 @@ describe("Telegram activity monitoring", () => {
       .toBe("Максим Сумин — отыграл(а) кейс «Сорванный срок».");
     expect(formatActivityMessage("Максим Сумин", "case_uploaded"))
       .toBe("Максим Сумин — загрузил(а) кейс.");
+    expect(formatActivityMessage("Анна Иванова", "user_registered", "a.ivanova@korusconsulting.ru"))
+      .toBe("Анна Иванова — зарегистрировался(ась) на платформе.\nПочта: a.ivanova@korusconsulting.ru.");
   });
 
   it("formats every requested weekly metric", () => {

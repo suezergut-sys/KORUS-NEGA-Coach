@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { createSiteSessionToken, SITE_COOKIE, siteCookieOptions } from "@/lib/site-session";
+import { recordUserActivity } from "@/lib/user-activity-monitoring";
 import { cleanName, isCorporateEmail, normalizeEmail } from "@/lib/user-auth";
 
 function registrationError(request: Request, code: string) {
@@ -32,6 +33,12 @@ export async function POST(request: Request) {
     await supabase.auth.admin.deleteUser(data.user.id);
     return registrationError(request, "failed");
   }
+  await recordUserActivity({
+    userId: data.user.id,
+    type: "user_registered",
+    entityId: data.user.id,
+    subjectTitle: email,
+  });
   const response = NextResponse.redirect(new URL("/?onboarding=1", request.url), 303);
   response.cookies.set(SITE_COOKIE, createSiteSessionToken(data.user), siteCookieOptions);
   return response;
