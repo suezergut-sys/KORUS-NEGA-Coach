@@ -3,6 +3,11 @@ import { DuelAudioValidationError, validateDuelAudioMetadata, type DuelAudioSegm
 import { getOpenAI } from "@/lib/openai-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import {
+  DUEL_TRANSCRIPTION_ATTEMPT_TIMEOUT_MS,
+  duelTranscriptionErrorDetails,
+  runDuelTranscriptionWithRetry,
+} from "@/lib/duel-transcription-retry";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -11,6 +16,8 @@ export async function POST(request: Request) {
   const session = await getCurrentUserSession();
   if (!session) return Response.json({ error: "Требуется авторизация." }, { status: 401 });
 
+  const diagnosticId = crypto.randomUUID();
+  const transcriptionStartedAt = Date.now();
   const db = getSupabaseAdmin();
   let storagePath = "";
   try {
@@ -30,13 +37,22 @@ export async function POST(request: Request) {
     validateDuelAudioMetadata({ fileName: metadata.fileName, sizeBytes: audioBlob.size, mimeType: metadata.mimeType });
 
     const audioFile = new File([await audioBlob.arrayBuffer()], metadata.fileName, { type: metadata.mimeType });
-    const transcription = await getOpenAI().audio.transcriptions.create({
-      file: audioFile,
-      model: "gpt-4o-transcribe-diarize",
-      language: "ru",
-      response_format: "diarized_json",
-      chunking_strategy: "auto",
-    }, { signal: AbortSignal.timeout(240_000), maxRetries: 1 }) as unknown as TranscriptionDiarized;
+    const openai = getOpenAI();
+    const transcription = await runDuelTranscriptionWithRetry(
+      () => openai.audio.transcriptions.create({
+        file: audioFile,
+        model: "gpt-4o-transcribe-diarize",
+        language: "ru",
+        response_format: "diarized_json",
+        chunking_strategy: "auto",
+      }, { signal: AbortSignal.timeout(DUEL_TRANSCRIPTION_ATTEMPT_TIMEOUT_MS), maxRetries: 0 }) as unknown as Promise<TranscriptionDiarized>,
+      (failure) => console.warn(JSON.stringify({
+        event: "duel_audio_transcription_attempt_failed",
+        diagnosticId,
+        userId: session.userId,
+        ...failure,
+      })),
+    );
 
     const segments: DuelAudioSegment[] = transcription.segments
       .map((segment) => ({
@@ -49,18 +65,27 @@ export async function POST(request: Request) {
     const speakers = [...new Set(segments.map((segment) => segment.speaker))];
     if (!segments.length) throw new DuelAudioValidationError("Не удалось распознать речь в аудиозаписи.");
 
-    return Response.json({ duration: Number(transcription.duration || 0), speakers, segments });
+    console.info(JSON.stringify({
+      event: "duel_audio_transcription_completed",
+      diagnosticId,
+      userId: session.userId,
+      durationMs: Date.now() - transcriptionStartedAt,
+    }));
+    return Response.json({ duration: Number(transcription.duration || 0), speakers, segments, diagnosticId });
   } catch (error) {
     console.error(JSON.stringify({
       event: "duel_audio_transcription_failed",
+      diagnosticId,
       userId: session.userId,
-      error: error instanceof Error ? error.message : "Unknown failure",
+      durationMs: Date.now() - transcriptionStartedAt,
+      error: duelTranscriptionErrorDetails(error),
     }));
     const status = error instanceof DuelAudioValidationError ? 400 : 500;
     return Response.json({
       error: status === 400 && error instanceof Error
         ? error.message
-        : "Не удалось расшифровать аудиозапись. Попробуйте ещё раз.",
+        : `Не удалось расшифровать аудиозапись. Попробуйте ещё раз. Код диагностики: ${diagnosticId}.`,
+      diagnosticId,
     }, { status });
   } finally {
     if (storagePath.startsWith(`${session.userId}/`)) {
