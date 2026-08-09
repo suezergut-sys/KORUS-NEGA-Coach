@@ -51,3 +51,27 @@ export async function recordUserActivity(input: RecordUserActivityInput) {
     console.error("Не удалось обработать событие Telegram-мониторинга:", error instanceof Error ? error.message : error);
   }
 }
+
+/** Считает успешный вход отдельно от Telegram-мониторинга действий. */
+export async function recordUserLogin(userId: string) {
+  try {
+    const db = getSupabaseAdmin();
+    const { data: profile, error: profileError } = await db
+      .from("user_profiles")
+      .select("first_name,last_name")
+      .eq("id", userId)
+      .single();
+    if (profileError || !profile) throw new Error(profileError?.message || "Профиль пользователя не найден.");
+
+    const userName = `${profile.first_name || ""} ${profile.last_name || ""}`.replace(/\s+/g, " ").trim();
+    const { error } = await db.from("user_activity_events").insert({
+      user_id: userId,
+      user_name: userName,
+      event_type: "user_logged_in",
+      entity_id: crypto.randomUUID(),
+    });
+    if (error) throw new Error(error.message);
+  } catch (error) {
+    console.error("Не удалось сохранить вход пользователя:", error instanceof Error ? error.message : error);
+  }
+}

@@ -1263,6 +1263,39 @@ button { color: inherit; }
   .case-visibility-picker > div { grid-template-columns: 1fr; }
 }
 
+/* Welcome back after sign-in */
+.welcome-back-overlay { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 20px; background: rgba(2, 8, 20, .82); backdrop-filter: blur(11px); animation: onboardingFade .2s ease-out; }
+.welcome-back-dialog { width: min(650px, 100%); position: relative; padding: 42px; overflow: hidden; border: 1px solid #277bb8; border-radius: 22px; color: #eaf6ff; background: radial-gradient(circle at 100% 0, rgba(28, 135, 226, .24), transparent 38%), linear-gradient(145deg, #0a2846, #061426 68%); box-shadow: 0 32px 90px rgba(0, 0, 0, .62), 0 0 46px rgba(20, 135, 224, .14), inset 0 1px 0 rgba(144, 211, 255, .14); outline: none; animation: onboardingRise .26s ease-out; }
+.welcome-back-dialog::before { content: ""; width: 190px; height: 4px; position: absolute; top: 0; left: 42px; background: linear-gradient(90deg, #ff4038, #ff8c66, transparent); }
+.welcome-back-x { width: 38px; height: 38px; position: absolute; top: 18px; right: 18px; display: grid; place-items: center; border: 1px solid rgba(111, 178, 226, .35); border-radius: 10px; color: #9dbbd3; background: rgba(4, 20, 37, .6); font-size: 24px; line-height: 1; cursor: pointer; transition: .18s ease; }
+.welcome-back-x:hover { border-color: #54b9ff; color: white; background: #0a3155; }
+.welcome-back-eyebrow { display: block; margin-bottom: 12px; color: #58baff; font-size: 9px; font-weight: 900; letter-spacing: .14em; }
+.welcome-back-dialog h2 { max-width: calc(100% - 44px); margin: 0; color: white; font-size: clamp(27px, 5vw, 39px); line-height: 1.08; }
+.welcome-back-dialog > p { max-width: 530px; margin: 15px 0 29px; color: #9db3c8; font-size: 13px; line-height: 1.65; }
+.welcome-back-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.welcome-back-metrics article { min-height: 112px; display: grid; align-content: space-between; gap: 18px; padding: 19px 20px; border: 1px solid rgba(48, 125, 182, .55); border-radius: 13px; background: rgba(5, 25, 46, .68); }
+.welcome-back-metrics span { color: #82a5c1; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.welcome-back-metrics strong { color: #f5fbff; font-size: 31px; line-height: 1; }
+.welcome-back-close { min-width: 150px; min-height: 46px; display: block; margin: 25px 0 0 auto; border: 1px solid #2da8ff; border-radius: 9px; color: white; background: linear-gradient(135deg, #0b82ea, #0751a6); box-shadow: 0 10px 25px rgba(0, 111, 221, .18); font-size: 10px; font-weight: 900; letter-spacing: .06em; cursor: pointer; }
+.welcome-back-close:hover { filter: brightness(1.08); }
+
+@media (max-width: 560px) {
+  .welcome-back-overlay { padding: 10px; }
+  .welcome-back-dialog { padding: 34px 20px 22px; border-radius: 17px; }
+  .welcome-back-dialog::before { left: 20px; }
+  .welcome-back-x { top: 12px; right: 12px; }
+  .welcome-back-dialog > p { margin-bottom: 22px; font-size: 11px; }
+  .welcome-back-metrics { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .welcome-back-metrics article { min-height: 94px; gap: 12px; padding: 14px; }
+  .welcome-back-metrics span { font-size: 8px; line-height: 1.35; }
+  .welcome-back-metrics strong { font-size: 25px; }
+  .welcome-back-close { width: 100%; margin-top: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-back-overlay, .welcome-back-dialog { animation: none; }
+}
+
 /* User and administrator feedback */
 .feedback-page { max-width: 1080px; }
 .feedback-page .admin-page-header { max-width: 850px; }

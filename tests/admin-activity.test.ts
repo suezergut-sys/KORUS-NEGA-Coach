@@ -14,6 +14,7 @@ describe("admin users and activity logs", () => {
   it("has a readable label for every requested action", () => {
     expect(ADMIN_ACTIVITY_LABELS).toEqual({
       user_registered: "Регистрация на платформе",
+      user_logged_in: "Вход на платформу",
       case_created: "Создание кейса",
       case_uploaded: "Загрузка кейса",
       duel_analyzed: "Анализ поединка",

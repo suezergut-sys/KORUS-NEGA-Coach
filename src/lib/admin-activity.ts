@@ -4,6 +4,7 @@ export const ADMIN_LOG_PAGE_SIZE = 50;
 
 export const ADMIN_ACTIVITY_LABELS: Record<UserActivityType, string> = {
   user_registered: "Регистрация на платформе",
+  user_logged_in: "Вход на платформу",
   case_created: "Создание кейса",
   case_uploaded: "Загрузка кейса",
   duel_analyzed: "Анализ поединка",
