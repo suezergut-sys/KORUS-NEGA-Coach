@@ -25,7 +25,7 @@ function RailLink({
   );
 }
 
-export default function AppNavRail() {
+export default function AppNavRail({ isAdministrator = false }: { isAdministrator?: boolean }) {
   const pathname = usePathname() || "";
 
   return (
@@ -40,13 +40,13 @@ export default function AppNavRail() {
       <RailLink href="/analyze" label="Проанализировать кейс" active={pathname.startsWith("/analyze")} icon="analyze" className="case-analyze-rail" />
       <RailLink href="/feedback" label="Обратная связь" active={pathname.startsWith("/feedback")} icon="feedback" />
       <RailLink href="/about" label="О программе" active={pathname.startsWith("/about")} icon="about" />
-      <form className="rail-logout-form" action={pathname.startsWith("/admin") ? "/api/admin/logout" : "/api/site/logout"} method="post">
+      <form className="rail-logout-form" action="/api/site/logout" method="post">
         <button className="rail-button" type="submit" aria-label="Выйти" title="Выйти">
           <AppSectionIcon name="logout" />
         </button>
       </form>
-      <div className="rail-admin-spacer" aria-hidden="true" />
-      <RailLink href="/admin" label="Админ-панель" active={pathname.startsWith("/admin")} icon="admin" className="admin-rail-link" />
+      {isAdministrator && <div className="rail-admin-spacer" aria-hidden="true" />}
+      {isAdministrator && <RailLink href="/admin" label="Админ-панель" active={pathname.startsWith("/admin")} icon="admin" className="admin-rail-link" />}
     </aside>
   );
 }

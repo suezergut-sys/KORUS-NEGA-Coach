@@ -85,7 +85,7 @@ function formatTime(totalSeconds: number) {
   return `${minutes}:${seconds}`;
 }
 
-export default function VoiceArena() {
+export default function VoiceArena({ isAdministrator = false }: { isAdministrator?: boolean }) {
   const {
     state: lifecycleState,
     dispatch: lifecycleDispatch,
@@ -1348,7 +1348,7 @@ export default function VoiceArena() {
       className={`duel-app ${isDuelMode ? "duel-mode" : ""} ${isSettingsCollapsed ? "settings-collapsed" : ""} ${panelWidths ? "panels-resized" : ""}`}
       style={panelWidthStyle}
     >
-      <AppNavRail />
+      <AppNavRail isAdministrator={isAdministrator} />
 
       <aside ref={settingsPanelRef} className={`settings-panel neon-panel ${isSettingsCollapsed ? "is-collapsed" : ""}`}>
         {isSettingsCollapsed ? (

@@ -6,8 +6,8 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 export type SiteSession = { userId: string; email: string; expiresAt: number };
 
 function signingSecret() {
-  const value = process.env.SITE_SESSION_SECRET || process.env.ADMIN_SESSION_SECRET || "";
-  if (value.length < 32) throw new Error("SITE_SESSION_SECRET или ADMIN_SESSION_SECRET не настроен.");
+  const value = process.env.SITE_SESSION_SECRET || "";
+  if (value.length < 32) throw new Error("SITE_SESSION_SECRET не настроен.");
   return value;
 }
 

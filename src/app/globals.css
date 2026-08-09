@@ -895,6 +895,8 @@ button { color: inherit; }
 .admin-data-table tbody tr:last-child td { border-bottom: 0; }
 .admin-data-table td strong { color: #e1edf7; }
 .admin-data-table td a { color: #62baff; text-decoration: none; }
+.admin-user-role { display: inline-flex; padding: 4px 8px; border: 1px solid #285778; border-radius: 999px; color: #90adc5; background: rgba(23, 61, 91, .26); font-size: 12px; }
+.admin-user-role.administrator { border-color: #14765d; color: #65ddb7; background: rgba(18, 107, 82, .18); }
 .admin-activity-list { overflow: hidden; border: 1px solid #174367; border-radius: 12px; background: #041225; }
 .admin-activity-list article { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 18px; padding: 14px 17px; border-bottom: 1px solid #112f49; }
 .admin-activity-list article:last-of-type { border-bottom: 0; }
