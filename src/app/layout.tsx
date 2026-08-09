@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import OnboardingModal from "@/components/OnboardingModal";
+import WelcomeBackModal from "@/components/WelcomeBackModal";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         {children}
         {process.env.E2E_TEST_MODE !== "1" && <OnboardingModal />}
+        {process.env.E2E_TEST_MODE !== "1" && <WelcomeBackModal />}
       </body>
     </html>
   );

@@ -131,14 +131,17 @@ export async function getUserDashboard(userId: string) {
     { data: sessions, error: sessionsError },
     { data: learningGoal },
     { data: tasks },
+    { count: loginCount, error: loginCountError },
   ] = await Promise.all([
     supabase.from("user_profiles").select("id, first_name, last_name, email, created_at, transcript_consent_at, transcript_retention_days").eq("id", userId).single<ProfileRow>(),
     supabase.from("training_sessions").select("id,user_id,case_id,case_code,participant_role_name,opponent_name,ended_at,is_ranked,status,methodology_id").eq("user_id", userId).in("status", ["analyzed", "analysis_failed", "analysis_pending"]).order("ended_at", { ascending: false }).limit(100),
     supabase.from("user_learning_goals").select("focus_skill,goal_text,next_session_target,updated_at").eq("user_id", userId).maybeSingle(),
     supabase.from("practice_tasks").select("id,source_session_id,skill,why,practice,status,completed_at,created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
+    supabase.from("user_activity_events").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("event_type", "user_logged_in"),
   ]);
   if (profileError || !profile) throw new Error("Профиль пользователя не найден.");
   if (sessionsError) throw new Error(`Не удалось загрузить статистику: ${sessionsError.message}`);
+  if (loginCountError) throw new Error(`Не удалось загрузить число входов: ${loginCountError.message}`);
   const sessionRows = (sessions || []) as SessionRow[];
   const ids = sessionRows.map((item) => item.id);
   const caseIds = [...new Set(sessionRows.map((item) => item.case_id).filter(Boolean))] as string[];
@@ -173,6 +176,7 @@ export async function getUserDashboard(userId: string) {
   });
   return {
     profile,
+    loginCount: loginCount || 0,
     played: rankedSessions.length,
     wins,
     winRate: rankedSessions.length ? Math.round((wins / rankedSessions.length) * 100) : 0,
