@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { createSiteSessionToken, SITE_COOKIE, siteCookieOptions } from "@/lib/site-session";
 import { recordUserActivity } from "@/lib/user-activity-monitoring";
 import { cleanName, isCorporateEmail, normalizeEmail } from "@/lib/user-auth";
+import { isPlatformAdministrator } from "@/lib/admin-access";
 
 function registrationError(request: Request, code: string) {
   const url = new URL("/register", request.url);
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
   if (error || !data.user) return registrationError(request, /already|registered|exists/i.test(error?.message || "") ? "exists" : "failed");
 
   const { error: profileError } = await supabase.from("user_profiles").insert({
-    id: data.user.id, first_name: firstName, last_name: lastName, email, role: "user",
+    id: data.user.id, first_name: firstName, last_name: lastName, email, role: isPlatformAdministrator(email) ? "admin" : "user",
   });
   if (profileError) {
     await supabase.auth.admin.deleteUser(data.user.id);

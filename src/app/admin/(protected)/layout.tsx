@@ -8,7 +8,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
   await requireAdmin();
   return (
     <main className="admin-shell">
-      <AppNavRail />
+      <AppNavRail isAdministrator />
       <div className="admin-main">
         <nav className="admin-section-nav" aria-label="Разделы админ-панели">
           <Link href="/admin">Обзор</Link>

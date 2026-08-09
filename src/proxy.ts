@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ADMIN_COOKIE, verifyAdminSessionToken } from "./lib/admin-session";
-import { SITE_COOKIE, verifySiteSessionToken } from "./lib/site-session";
+import { isPlatformAdministrator } from "./lib/admin-access";
+import { SITE_COOKIE, readSiteSessionToken } from "./lib/site-session";
 
 const PUBLIC_PATHS = new Set([
   "/login",
@@ -20,8 +20,8 @@ export function proxy(request: NextRequest) {
   }
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
 
-  const authenticated = verifySiteSessionToken(request.cookies.get(SITE_COOKIE)?.value);
-  if (!authenticated) {
+  const session = readSiteSessionToken(request.cookies.get(SITE_COOKIE)?.value);
+  if (!session) {
     if (pathname.startsWith("/api/")) {
       return Response.json({ error: "Требуется авторизация." }, { status: 401 });
     }
@@ -31,11 +31,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const isAdminLogin = pathname === "/admin/login" || pathname === "/api/admin/login" || pathname === "/api/admin/logout";
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/api/admin/");
-  if (isAdminRoute && !isAdminLogin && !verifyAdminSessionToken(request.cookies.get(ADMIN_COOKIE)?.value)) {
-    if (pathname.startsWith("/api/")) return Response.json({ error: "Требуется пароль администратора." }, { status: 401 });
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+  if (isAdminRoute && !isPlatformAdministrator(session.email)) {
+    if (pathname.startsWith("/api/")) return Response.json({ error: "Недостаточно прав." }, { status: 403 });
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

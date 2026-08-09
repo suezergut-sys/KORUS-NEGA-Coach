@@ -1,9 +1,10 @@
 import AppNavRail from "@/components/AppNavRail";
+import { isAdminAuthenticated } from "@/lib/admin-auth";
 
-export default function CasesLayout({ children }: { children: React.ReactNode }) {
+export default async function CasesLayout({ children }: { children: React.ReactNode }) {
   return (
     <main className="admin-shell case-builder-shell">
-      <AppNavRail />
+      <AppNavRail isAdministrator={await isAdminAuthenticated()} />
       <div className="admin-main">{children}</div>
     </main>
   );
