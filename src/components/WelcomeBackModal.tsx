@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getDailyQuote } from "@/lib/daily-quotes";
 import { getOnboardingStorage, readOnboardingCompleted } from "@/lib/onboarding";
 import { shouldOpenWelcomeBack } from "@/lib/welcome-back";
 
@@ -13,6 +14,7 @@ type WelcomeStats = {
 };
 
 export default function WelcomeBackModal() {
+  const quote = getDailyQuote();
   const [stats, setStats] = useState<WelcomeStats | null>(null);
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -72,6 +74,11 @@ export default function WelcomeBackModal() {
         <span className="welcome-back-eyebrow">KORUS NEGA AI 2.0</span>
         <h2 id="welcome-back-title">Привет, {stats.firstName}!</h2>
         <p>С возвращением на платформу развития переговорных навыков KORUS NEGA AI 2.0</p>
+        <blockquote className="welcome-back-quote">
+          <span>Цитата дня</span>
+          <p>«{quote.text}»</p>
+          <cite>— {quote.author}</cite>
+        </blockquote>
         <section className="welcome-back-metrics" aria-label="Ваша статистика">
           <article><span>Входов на платформу</span><strong>{stats.loginCount}</strong></article>
           <article><span>Отыгранных кейсов</span><strong>{stats.played}</strong></article>
