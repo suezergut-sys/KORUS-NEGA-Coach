@@ -10,6 +10,8 @@ export default function AppSectionIcon({ name }: { name: AppSectionIconName }) {
       return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3" /><path d="M6.5 19c.6-3.2 2.4-5 5.5-5s4.9 1.8 5.5 5" /></svg>;
     case "rating":
       return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V12h3v7H5Zm5.5 0V8h3v11h-3ZM16 19V4h3v15h-3Z" /></svg>;
+    case "cases":
+      return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h5.5A2.5 2.5 0 0 1 13 7v12.5H7.5A2.5 2.5 0 0 1 5 17V4.5Z" /><path d="M19 4.5h-5.5A2.5 2.5 0 0 0 11 7v12.5h5.5A2.5 2.5 0 0 0 19 17V4.5Z" /></svg>;
     case "upload":
       return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4" /><path d="M5 14v5h14v-5" /></svg>;
     case "create":

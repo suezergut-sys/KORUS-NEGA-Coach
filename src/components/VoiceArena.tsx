@@ -1348,7 +1348,7 @@ export default function VoiceArena() {
       className={`duel-app ${isDuelMode ? "duel-mode" : ""} ${isSettingsCollapsed ? "settings-collapsed" : ""} ${panelWidths ? "panels-resized" : ""}`}
       style={panelWidthStyle}
     >
-      <AppNavRail onQuickUpload={() => setQuickUploadOpen(true)} quickUploadDisabled={isLive || isBusy} />
+      <AppNavRail />
 
       <aside ref={settingsPanelRef} className={`settings-panel neon-panel ${isSettingsCollapsed ? "is-collapsed" : ""}`}>
         {isSettingsCollapsed ? (

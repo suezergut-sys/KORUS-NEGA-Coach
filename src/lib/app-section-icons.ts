@@ -2,6 +2,7 @@ export const APP_SECTION_ICON_NAMES = [
   "negotiations",
   "account",
   "rating",
+  "cases",
   "upload",
   "create",
   "analyze",

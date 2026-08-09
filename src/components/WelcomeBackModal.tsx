@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { getDailyQuote } from "@/lib/daily-quotes";
 import { getOnboardingStorage, readOnboardingCompleted } from "@/lib/onboarding";
@@ -85,7 +86,11 @@ export default function WelcomeBackModal() {
           <article><span>Процент побед</span><strong>{stats.winRate}%</strong></article>
           <article><span>Средний балл</span><strong>{stats.averageScore ?? "—"}</strong></article>
         </section>
-        <button className="welcome-back-close" type="button" onClick={() => setOpen(false)}>Закрыть</button>
+        <nav className="welcome-back-actions" aria-label="Быстрый переход">
+          <Link href="/" onClick={() => setOpen(false)}>Тренировать</Link>
+          <Link href="/case-library" onClick={() => setOpen(false)}>База кейсов</Link>
+          <Link href="/account" onClick={() => setOpen(false)}>Личный кабинет</Link>
+        </nav>
       </div>
     </div>
   );
