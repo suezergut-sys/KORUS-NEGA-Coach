@@ -6,10 +6,13 @@ import { DUEL_AUDIO_MAX_BYTES, formatDiarizedTranscript, validateDuelAudioMetada
 import { DEFAULT_METHODOLOGY_ID, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
 
 type Status = "idle" | "transcribing" | "analyzing" | "ready" | "error";
+type CaseSource = "file" | "text";
 type TranscriptSource = "text" | "audio";
 
 export default function AnalyzePage() {
   const [caseFile, setCaseFile] = useState<File | null>(null);
+  const [caseSource, setCaseSource] = useState<CaseSource>("file");
+  const [caseText, setCaseText] = useState("");
   const [transcript, setTranscript] = useState<File | null>(null);
   const [transcriptSource, setTranscriptSource] = useState<TranscriptSource>("text");
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -34,6 +37,14 @@ export default function AnalyzePage() {
       })
     : "";
   const busy = status === "transcribing" || status === "analyzing";
+  const caseInputReady = caseSource === "file" ? Boolean(caseFile) : Boolean(caseText.trim());
+
+  function selectCaseSource(source: CaseSource) {
+    setCaseSource(source);
+    setError("");
+    setStatus("idle");
+    setAnalysis(null);
+  }
 
   function selectTranscriptSource(source: TranscriptSource) {
     setTranscriptSource(source);
@@ -111,7 +122,7 @@ export default function AnalyzePage() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!caseFile) return;
+    if (!caseInputReady) return;
     if (transcriptSource === "audio" && !audioTranscription) return transcribeAudio();
     if (transcriptSource === "text" && !transcript) return;
     if (transcriptSource === "audio" && !speakerMappingIsValid) return;
@@ -119,7 +130,9 @@ export default function AnalyzePage() {
     setError("");
     setAnalysis(null);
     const form = new FormData();
-    form.set("caseFile", caseFile);
+    form.set("caseFile", caseSource === "file"
+      ? caseFile as File
+      : new File([caseText.trim()], "вставленный-кейс.txt", { type: "text/plain" }));
     form.set("transcript", transcriptSource === "text"
       ? transcript as File
       : new File([audioTranscriptText], `${audioFile?.name || "audio"}-transcript.txt`, { type: "text/plain" }));
@@ -143,8 +156,8 @@ export default function AnalyzePage() {
     <div className="analysis-upload-page">
       <header className="analysis-upload-hero">
         <span>АНАЛИЗ ПРОВЕДЁННОГО ПОЕДИНКА</span>
-        <h1>Загрузите кейс и запись переговоров</h1>
-        <p>Добавьте готовую текстовую расшифровку или аудиозапись. Анализатор сопоставит разговор с условиями кейса и методологией, определит победителя и даст обратную связь каждому участнику.</p>
+        <h1>Добавьте кейс и запись переговоров</h1>
+        <p>Загрузите файл кейса или вставьте его текст, затем добавьте готовую расшифровку либо аудиозапись. Анализатор сопоставит разговор с условиями кейса и методологией, определит победителя и даст обратную связь каждому участнику.</p>
       </header>
 
       <form className="analysis-upload-form neon-panel" onSubmit={submit}>
@@ -153,7 +166,26 @@ export default function AnalyzePage() {
           <button type="button" className={transcriptSource === "audio" ? "active" : ""} onClick={() => selectTranscriptSource("audio")}>АУДИОЗАПИСЬ ДО 25 МБ</button>
         </div>
         <div className="analysis-upload-files">
-          <FileField number="01" title="Текст кейса" hint="Роли, цели, конфликт и ограничения сторон" file={caseFile} onChange={setCaseFile} />
+          <section className="analysis-case-input">
+            <div className="analysis-case-source-switch" role="group" aria-label="Способ добавления кейса">
+              <button type="button" className={caseSource === "file" ? "active" : ""} onClick={() => selectCaseSource("file")}>ЗАГРУЗИТЬ ФАЙЛ</button>
+              <button type="button" className={caseSource === "text" ? "active" : ""} onClick={() => selectCaseSource("text")}>ВСТАВИТЬ ТЕКСТ</button>
+            </div>
+            {caseSource === "file"
+              ? <FileField number="01" title="Текст кейса" hint="Роли, цели, конфликт и ограничения сторон" file={caseFile} onChange={setCaseFile} />
+              : (
+                <label className={`analysis-case-text-field ${caseText.trim() ? "selected" : ""}`}>
+                  <span><b>01</b><strong>Текст кейса</strong><small>{caseText.length.toLocaleString("ru-RU")} / 200 000 знаков</small></span>
+                  <textarea
+                    value={caseText}
+                    onChange={(event) => setCaseText(event.target.value)}
+                    maxLength={200000}
+                    placeholder="Вставьте описание кейса: контекст, роли, цели, интересы, ограничения и конфликт сторон"
+                    aria-label="Текст кейса"
+                  />
+                </label>
+              )}
+          </section>
           {transcriptSource === "text"
             ? <FileField number="02" title="Расшифровка поединка" hint="Диалог с понятными метками двух спикеров" file={transcript} onChange={setTranscript} />
             : <AudioFileField file={audioFile} onChange={selectAudioFile} />}
@@ -178,7 +210,7 @@ export default function AnalyzePage() {
         )}
         <label className="analysis-methodology-field"><span>МЕТОДОЛОГИЯ ПЕРЕГОВОРОВ</span><select value={methodologyId} onChange={(event) => setMethodologyId(event.target.value as MethodologyId)}>{methodologyOptions().map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <p className="analysis-format-note">{transcriptSource === "text" ? "Текстовые форматы: TXT, MD, CSV, RTF, DOCX, PDF, JSON, XML, HTML и LOG. Общий размер файлов — до 4 МБ." : "Аудиоформаты: FLAC, MP3, MPEG, MPGA, M4A, OGG, WAV и WebM. Максимальный размер аудиозаписи — 25 МБ. Видео пока не поддерживается."}</p>
-        <button className="analysis-submit" disabled={!caseFile || busy || (transcriptSource === "text" ? !transcript : !audioFile || Boolean(audioTranscription && !speakerMappingIsValid))}>
+        <button className="analysis-submit" disabled={!caseInputReady || busy || (transcriptSource === "text" ? !transcript : !audioFile || Boolean(audioTranscription && !speakerMappingIsValid))}>
           {status === "transcribing" ? "ЗАГРУЖАЕМ И РАСШИФРОВЫВАЕМ…" : status === "analyzing" ? "АНАЛИЗИРУЕМ…" : transcriptSource === "audio" && !audioTranscription ? "РАСШИФРОВАТЬ АУДИО" : "ПРОАНАЛИЗИРОВАТЬ"}
         </button>
         {busy && <div className="analysis-upload-progress"><span className="analysis-spinner" /><p>{status === "transcribing" ? "Загружаем аудиозапись, распознаём речь и разделяем голоса участников…" : "Изучаем условия кейса, определяем роли и сопоставляем реплики с методологией…"}</p></div>}
