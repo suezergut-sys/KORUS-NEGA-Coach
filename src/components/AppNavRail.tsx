@@ -2,14 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { MouseEventHandler } from "react";
 import AppBrandMark from "@/components/AppBrandMark";
 import AppSectionIcon, { type AppSectionIconName } from "@/components/AppSectionIcon";
-
-type AppNavRailProps = {
-  onQuickUpload?: MouseEventHandler<HTMLButtonElement>;
-  quickUploadDisabled?: boolean;
-};
 
 function RailLink({
   href,
@@ -31,7 +25,7 @@ function RailLink({
   );
 }
 
-export default function AppNavRail({ onQuickUpload, quickUploadDisabled = false }: AppNavRailProps) {
+export default function AppNavRail() {
   const pathname = usePathname() || "";
 
   return (
@@ -40,16 +34,9 @@ export default function AppNavRail({ onQuickUpload, quickUploadDisabled = false 
         <AppBrandMark className="rail-logo-mark" priority />
       </Link>
       <RailLink href="/" label="Переговоры" active={pathname === "/"} icon="negotiations" />
+      <RailLink href="/case-library" label="База кейсов" active={pathname.startsWith("/case-library")} icon="cases" />
       <RailLink href="/account" label="Личный кабинет" active={pathname === "/account"} icon="account" />
       <RailLink href="/rating" label="Рейтинг" active={pathname === "/rating"} icon="rating" />
-      {onQuickUpload ? (
-        <button className="rail-button case-upload-rail" onClick={onQuickUpload} disabled={quickUploadDisabled} aria-label="Загрузить кейс" title="Загрузить кейс">
-          <AppSectionIcon name="upload" />
-        </button>
-      ) : (
-        <RailLink href="/?quickUpload=1" label="Загрузить кейс" active={false} icon="upload" className="case-upload-rail" />
-      )}
-      <RailLink href="/cases" label="Создать свой кейс" active={pathname.startsWith("/cases")} icon="create" className="case-create-rail" />
       <RailLink href="/analyze" label="Проанализировать кейс" active={pathname.startsWith("/analyze")} icon="analyze" className="case-analyze-rail" />
       <RailLink href="/feedback" label="Обратная связь" active={pathname.startsWith("/feedback")} icon="feedback" />
       <RailLink href="/about" label="О программе" active={pathname.startsWith("/about")} icon="about" />

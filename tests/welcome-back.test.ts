@@ -27,6 +27,9 @@ describe("welcome-back launch", () => {
     expect(component).toContain("Средний балл");
     expect(component).toContain("Цитата дня");
     expect(component).toContain("getDailyQuote()");
+    expect(component).toContain("Тренировать");
+    expect(component).toContain("База кейсов");
+    expect(component).toContain("Личный кабинет");
     expect(loginRoute).toContain("await recordUserLogin(data.user.id)");
     expect(migration).toContain("'user_logged_in'");
   });

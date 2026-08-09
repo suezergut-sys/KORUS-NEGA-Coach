@@ -16,6 +16,7 @@ describe("shared application visuals", () => {
       "negotiations",
       "account",
       "rating",
+      "cases",
       "upload",
       "create",
       "analyze",
