@@ -20,6 +20,11 @@ export default async function CaseLibraryPage() {
   if (error) throw new Error(error.message);
 
   const accessibleRows = (caseRows || []).filter((row) => canAccessCase(row, session.userId));
+  const ownerIds = [...new Set(accessibleRows.map((row) => row.owner_user_id).filter(Boolean))] as string[];
+  const { data: profiles } = ownerIds.length
+    ? await db.from("user_profiles").select("id,first_name,last_name").in("id", ownerIds)
+    : { data: [] };
+  const ownerNames = new Map((profiles || []).map((profile) => [profile.id, `${profile.first_name || ""} ${profile.last_name || ""}`.replace(/\s+/g, " ").trim()]));
   const playCounts = new Map<string, number>();
   for (const training of sessions || []) playCounts.set(training.case_id, (playCounts.get(training.case_id) || 0) + 1);
 
@@ -38,7 +43,7 @@ export default async function CaseLibraryPage() {
     return {
       ...item,
       createdAt: String(row.created_at),
-      createdBy: publicCaseAuthor(row.created_by, item.origin),
+      createdBy: ownerNames.get(String(row.owner_user_id || "")) || publicCaseAuthor(row.created_by, item.origin),
       plays: playCounts.get(item.id) || 0,
       comicImage: mediaPath ? signedImages.get(mediaPath) || null : (item.slug === "missed-project-deadline" ? "/case-comics/missed-project-deadline/01-crisis.png" : null),
     };
