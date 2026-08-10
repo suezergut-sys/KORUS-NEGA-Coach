@@ -5,7 +5,9 @@ describe("weekly activity fallback", () => {
   it("reuses the idempotent weekly report handler", () => {
     const fallbackRoute = readFileSync("src/app/api/cron/weekly-activity-fallback/route.ts", "utf8");
 
-    expect(fallbackRoute).toContain('export { GET, runtime } from "../weekly-activity/route"');
+    expect(fallbackRoute).toContain('import { GET as sendWeeklyActivityReport } from "../weekly-activity/route"');
+    expect(fallbackRoute).toContain('export const runtime = "nodejs"');
+    expect(fallbackRoute).toContain("return sendWeeklyActivityReport(request)");
   });
 
   it("checks delivery daily after the primary Monday schedule", () => {
