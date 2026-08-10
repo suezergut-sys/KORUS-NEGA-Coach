@@ -1015,6 +1015,11 @@ button { color: inherit; }
 .admin-progress i, .review-progress i { display: block; height: 100%; background: linear-gradient(90deg, #087df3, #26d5b0); }
 
 .methodology-header { margin-bottom: 18px; }
+.methodology-header-content { min-width: 0; flex: 1; }
+.methodology-kind-guide { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 10px; max-width: 960px; margin: 16px 0 0; }
+.methodology-kind-guide > div { padding: 12px 14px; border: 1px solid #173958; border-radius: 8px; background: #061528; }
+.methodology-kind-guide dt { margin-bottom: 5px; color: #82c7ff; font-size: 13px; font-weight: 700; }
+.methodology-kind-guide dd { margin: 0; color: #8097b2; font-size: 12px; line-height: 1.55; }
 .methodology-admin-select { display: grid; gap: 6px; max-width: 390px; margin-top: 16px; color: #87b9e8; font-size: 12px; letter-spacing: .08em; }
 .methodology-admin-select select { height: 40px; padding: 0 11px; border: 1px solid #1a4266; border-radius: 7px; color: #d9e6f5; background: #071a30; color-scheme: dark; }
 .method-version { min-width: 205px; display: grid; justify-items: end; gap: 4px; }
@@ -1092,6 +1097,7 @@ button { color: inherit; }
   .admin-sidebar nav a, .admin-sidebar form button { min-height: 38px; width: 42px; padding: 0; }
   .admin-sidebar form { margin: 0 0 0 auto; }
   .admin-page-header { display: block; }
+  .methodology-kind-guide { grid-template-columns: 1fr; }
   .admin-primary-link { display: inline-block; margin-top: 16px; }
   .admin-metrics { grid-template-columns: 1fr 1fr; }
   .admin-section-nav { overflow-x: auto; }

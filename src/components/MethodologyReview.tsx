@@ -30,11 +30,34 @@ type Draft = Pick<ReviewAtom, "kind" | "title" | "statement" | "reviewerNote"> &
 
 const KIND_LABELS: Record<AtomKind, string> = {
   principle: "Принцип",
-  stratagem: "Стратагема",
+  stratagem: "Тактический приём",
   case_rule: "Правило кейса",
   evaluation_criterion: "Критерий оценки",
   example: "Пример",
 };
+
+const KIND_DESCRIPTIONS: { kind: AtomKind; description: string }[] = [
+  {
+    kind: "principle",
+    description: "Базовая идея или закономерность, на которой строится эффективное поведение в переговорах. Объясняет, почему определённый подход работает и чем следует руководствоваться в разных ситуациях.",
+  },
+  {
+    kind: "case_rule",
+    description: "Конкретное условие учебного кейса, которое участник должен учитывать при принятии решений. Определяет границы сценария: что разрешено, запрещено или обязательно именно в этом упражнении.",
+  },
+  {
+    kind: "stratagem",
+    description: "Тактика, позволяющая повлиять на ход переговоров и приблизиться к своей цели. Описывает, как именно можно действовать в конкретной ситуации.",
+  },
+  {
+    kind: "example",
+    description: "Наглядная иллюстрация применения принципа, правила или тактического приёма. Показывает возможную реплику, действие или развитие ситуации, но не является единственно правильным вариантом.",
+  },
+  {
+    kind: "evaluation_criterion",
+    description: "Измеримый признак, по которому определяется качество действий участника. Объясняет, что именно оценивается и как отличить сильное решение от слабого.",
+  },
+];
 
 const STATUS_LABELS: Record<AtomStatus, string> = {
   candidate: "Ожидает решения",
@@ -178,7 +201,20 @@ export default function MethodologyReview({
   return (
     <>
       <header className="admin-page-header methodology-header">
-        <div><span className="admin-eyebrow">МЕТОДИЧЕСКИЙ КОНТРОЛЬ</span><h1>Верификация методологии</h1><p>Сверяйте формулировку с контекстом источника и фиксируйте экспертное решение.</p><label className="methodology-admin-select"><span>Методология для валидации</span><select value={methodology.id} onChange={(event) => { window.location.href = `/admin/methodology?methodology=${event.target.value}`; }}>{methodologyOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
+        <div className="methodology-header-content">
+          <span className="admin-eyebrow">МЕТОДИЧЕСКИЙ КОНТРОЛЬ</span>
+          <h1>Верификация методологии</h1>
+          <p>Сверяйте формулировку с контекстом источника и фиксируйте экспертное решение.</p>
+          <dl className="methodology-kind-guide">
+            {KIND_DESCRIPTIONS.map((item) => (
+              <div key={item.kind}>
+                <dt>{KIND_LABELS[item.kind]}</dt>
+                <dd>{item.description}</dd>
+              </div>
+            ))}
+          </dl>
+          <label className="methodology-admin-select"><span>Методология для валидации</span><select value={methodology.id} onChange={(event) => { window.location.href = `/admin/methodology?methodology=${event.target.value}`; }}>{methodologyOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        </div>
         <div className="method-version"><span>{releaseStatus.status === "verified" ? "ВЕРИФИЦИРОВАНА" : "ПРЕДВАРИТЕЛЬНАЯ"}</span><strong>{releaseStatus.version}</strong><button onClick={releaseVersion} disabled={busy || releaseStatus.status === "verified"}>Зафиксировать v1</button></div>
       </header>
 
