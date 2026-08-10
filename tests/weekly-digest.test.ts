@@ -10,10 +10,12 @@ describe("weekly Telegram digest", () => {
     expect(route).toContain("formatWeeklyActivitySummary(week, summary, updates)");
   });
 
-  it("counts registrations separately while excluding registration-only users from active users", () => {
-    const migration = readFileSync("supabase/migrations/20260807170000_weekly_registration_count.sql", "utf8");
+  it("counts registrations from profile creation dates while keeping activity event-based", () => {
+    const migration = readFileSync("supabase/migrations/20260810110000_weekly_registrations_from_profiles.sql", "utf8");
 
-    expect(migration).toMatch(/active_users[\s\S]+event_type <> 'user_registered'/);
-    expect(migration).toMatch(/new_users[\s\S]+event_type = 'user_registered'/);
+    expect(migration).toMatch(/event_type <> 'user_registered'[\s\S]+as active_users/);
+    expect(migration).toMatch(/new_users[\s\S]+from public\.user_profiles/);
+    expect(migration).toMatch(/from public\.user_profiles[\s\S]+created_at >= p_period_start[\s\S]+created_at < p_period_end/);
+    expect(migration).not.toMatch(/new_users[\s\S]+event_type = 'user_registered'/);
   });
 });
