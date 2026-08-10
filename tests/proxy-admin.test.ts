@@ -47,4 +47,9 @@ describe("admin gateway", () => {
     const response = proxy(new NextRequest("https://example.test/api/cron/weekly-activity"));
     expect(response.status).toBe(200);
   });
+
+  it("lets the weekly fallback worker reach the same Bearer-protected report", () => {
+    const response = proxy(new NextRequest("https://example.test/api/cron/weekly-activity-fallback"));
+    expect(response.status).toBe(200);
+  });
 });
