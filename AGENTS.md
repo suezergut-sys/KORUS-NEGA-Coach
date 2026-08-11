@@ -26,4 +26,28 @@
 
 Не оставляй завершённые изменения только локально и не откладывай push/PR на отдельную просьбу пользователя. Публикуй только файлы текущей задачи; посторонние незавершённые изменения в рабочей папке не добавляй в commit.
 
-После успешных проверок не ограничивайся созданием PR: доведи изменения до production-ветки, дождись завершения редеплоя Vercel и проверь результат на реальном сайте `https://korus-nega-coach.vercel.app` через навык работы с Chrome. Не считай задачу завершённой, пока production deployment не перешёл в состояние Ready и изменения не подтверждены в интерфейсе production-сайта.
+## Обязательный быстрый Vercel-релиз
+
+Проект `korus-nega-coach` развёртывается из ветки `main` через Git integration на домен `https://korus-nega-coach.vercel.app`. Перед выпуском сверяй текущий plan в Vercel; пока проект находится на Hobby, доступен только один активный build, поэтому незавершённый preview может заблокировать production. Нормальный deployment этого проекта обычно занимает 40–60 секунд.
+
+Перед merge:
+
+1. Сначала отправь все финальные изменения, включая запись с фактическим номером PR в `PRODUCT_HISTORY`. После последнего push зафиксируй HEAD SHA и считай предыдущие preview устаревшими.
+2. Дождись успешных `verify` и Vercel status/check именно для последнего HEAD SHA. Не объединяй PR, пока его последний Vercel preview имеет состояние `Pending`, `Queued`, `Building`, `Error` или `Canceled`, даже если preview предыдущего commit уже был `Ready`.
+3. Убедись, что последний preview перешёл в `Ready`. Для проверки сопоставляй deployment с branch и commit SHA через GitHub status target, Vercel dashboard/API или `vercel inspect`; не ориентируйся только на возраст и имя URL.
+
+Если deployment задерживается:
+
+1. После 3 минут без новых событий или после 3 минут на `Deploying outputs...` считай deployment подозрительно зависшим: открой его build events/logs, проверь текущую [Vercel Status](https://www.vercel-status.com/) и найди все активные deployment проекта.
+2. Не запускай параллельные повторные production deployment. На Hobby они только удлинят очередь.
+3. Если слот занимает preview более раннего SHA или уже объединённой ветки, проверь его точные `deployment id`, environment и commit SHA, затем отмени только этот устаревший preview. Не удаляй готовые deployment и не затрагивай текущий production.
+4. Если завис последний актуальный preview, отмени только его и запусти одну повторную попытку. После retry снова дождись `Ready` для того же HEAD SHA до merge.
+
+После merge:
+
+1. Найди production deployment, у которого source SHA равен merge commit в `main`; не создавай ручной `vercel --prod`, пока работает штатный Git deployment.
+2. Если production оказался `Queued`, сначала найди занимающий единственный слот build и безопасно освободи только устаревший preview по правилам выше.
+3. Дождись конечного состояния `Ready`, затем отдельно дождись назначения aliases. Проверь, что `aliasAssigned=true`, а `https://korus-nega-coach.vercel.app` указывает именно на deployment merge SHA.
+4. Проверь изменённый пользовательский сценарий на production через навык работы с Chrome и просмотри релевантные runtime/browser errors. Не считай задачу завершённой по одному статусу сборки.
+
+При доступе к настройкам проекта проверь, что `Prioritize Production Builds` включён. Изменение тарифа, платных build-машин или On-Demand Concurrent Builds требует отдельного согласования пользователя.
