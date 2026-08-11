@@ -24,4 +24,11 @@ describe("стили Realtime-переговоров", () => {
     expect(prompt).toContain("не додумывай позицию, намерение или аргументы пользователя");
     expect(prompt).toContain("попроси закончить мысль");
   });
+
+  it("задаёт постепенную эмоциональную динамику без выхода из роли", () => {
+    const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative" });
+    expect(prompt).toContain("ЭМОЦИОНАЛЬНАЯ ДИНАМИКА");
+    expect(prompt).toContain("Меняй настроение постепенно и последовательно");
+    expect(prompt).toContain("Не называй эмоцию или внутренние показатели вслух");
+  });
 });

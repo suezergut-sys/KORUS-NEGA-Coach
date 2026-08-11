@@ -24,7 +24,7 @@ describe("realtime diagnostics", () => {
     }).details).toEqual({ pauseMs: 850 });
   });
 
-  it.each(["pause_started", "pause_resumed", "output_audio_buffer_started", "turn_gate_waiting", "turn_gate_released", "turn_gate_clarification"])(
+  it.each(["pause_started", "pause_resumed", "output_audio_buffer_started", "turn_gate_waiting", "turn_gate_released", "turn_gate_clarification", "emotion_shift"])(
     "accepts the %s lifecycle event",
     (event) => expect(parseRealtimeDiagnostic({
       event,
