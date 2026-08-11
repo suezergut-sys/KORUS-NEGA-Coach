@@ -1,8 +1,9 @@
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { METHODOLOGY_ATOM_KINDS } from "@/lib/methodology-atom-kind";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { METHODOLOGIES } from "@/lib/methodologies";
 
-const KINDS = new Set(["principle", "stratagem", "case_rule", "evaluation_criterion", "example"]);
+const KINDS = new Set<string>(METHODOLOGY_ATOM_KINDS);
 const STATUSES = new Set(["candidate", "verified", "rejected"]);
 
 function text(value: unknown, max: number) {

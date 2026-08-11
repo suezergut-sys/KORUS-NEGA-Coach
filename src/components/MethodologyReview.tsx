@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { METHODOLOGY_ATOM_DESCRIPTIONS, METHODOLOGY_ATOM_LABELS, type MethodologyAtomKind } from "@/lib/methodology-atom-kind";
 import type { Methodology } from "@/lib/methodologies";
 
 type AtomStatus = "candidate" | "verified" | "rejected";
-type AtomKind = "principle" | "stratagem" | "case_rule" | "evaluation_criterion" | "example";
+type AtomKind = MethodologyAtomKind;
 
 type ReviewAtom = {
   id: string;
@@ -27,37 +28,6 @@ type Draft = Pick<ReviewAtom, "kind" | "title" | "statement" | "reviewerNote"> &
   signalsText: string;
   counterexamplesText: string;
 };
-
-const KIND_LABELS: Record<AtomKind, string> = {
-  principle: "Принцип",
-  stratagem: "Тактический приём",
-  case_rule: "Правило кейса",
-  evaluation_criterion: "Критерий оценки",
-  example: "Пример",
-};
-
-const KIND_DESCRIPTIONS: { kind: AtomKind; description: string }[] = [
-  {
-    kind: "principle",
-    description: "Базовая идея или закономерность, на которой строится эффективное поведение в переговорах. Объясняет, почему определённый подход работает и чем следует руководствоваться в разных ситуациях.",
-  },
-  {
-    kind: "case_rule",
-    description: "Конкретное условие учебного кейса, которое участник должен учитывать при принятии решений. Определяет границы сценария: что разрешено, запрещено или обязательно именно в этом упражнении.",
-  },
-  {
-    kind: "stratagem",
-    description: "Тактика, позволяющая повлиять на ход переговоров и приблизиться к своей цели. Описывает, как именно можно действовать в конкретной ситуации.",
-  },
-  {
-    kind: "example",
-    description: "Наглядная иллюстрация применения принципа, правила или тактического приёма. Показывает возможную реплику, действие или развитие ситуации, но не является единственно правильным вариантом.",
-  },
-  {
-    kind: "evaluation_criterion",
-    description: "Измеримый признак, по которому определяется качество действий участника. Объясняет, что именно оценивается и как отличить сильное решение от слабого.",
-  },
-];
 
 const STATUS_LABELS: Record<AtomStatus, string> = {
   candidate: "Ожидает решения",
@@ -206,16 +176,16 @@ export default function MethodologyReview({
           <h1>Верификация методологии</h1>
           <p>Сверяйте формулировку с контекстом источника и фиксируйте экспертное решение.</p>
           <dl className="methodology-kind-guide">
-            {KIND_DESCRIPTIONS.map((item) => (
+            {METHODOLOGY_ATOM_DESCRIPTIONS.map((item) => (
               <div key={item.kind}>
-                <dt>{KIND_LABELS[item.kind]}</dt>
+                <dt>{METHODOLOGY_ATOM_LABELS[item.kind]}</dt>
                 <dd>{item.description}</dd>
               </div>
             ))}
           </dl>
           <label className="methodology-admin-select"><span>Методология для валидации</span><select value={methodology.id} onChange={(event) => { window.location.href = `/admin/methodology?methodology=${event.target.value}`; }}>{methodologyOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         </div>
-        <div className="method-version"><span>{releaseStatus.status === "verified" ? "ВЕРИФИЦИРОВАНА" : "ПРЕДВАРИТЕЛЬНАЯ"}</span><strong>{releaseStatus.version}</strong><button onClick={releaseVersion} disabled={busy || releaseStatus.status === "verified"}>Зафиксировать v1</button></div>
+        <div className="method-version"><span>{releaseStatus.status === "verified" ? "УСЛОВНО ВЕРИФИЦИРОВАНА" : "ПРЕДВАРИТЕЛЬНАЯ"}</span><strong>{releaseStatus.version}</strong><button onClick={releaseVersion} disabled={busy || releaseStatus.status === "verified"}>Зафиксировать v1</button></div>
       </header>
 
       <section className="review-summary">
@@ -234,18 +204,18 @@ export default function MethodologyReview({
               <option value="all">Все статусы</option><option value="candidate">Ожидают</option><option value="verified">Подтверждены</option><option value="rejected">Отклонены</option>
             </select>
             <select value={kindFilter} onChange={(event) => setKindFilter(event.target.value as "all" | AtomKind)} aria-label="Тип атома">
-              <option value="all">Все типы</option>{Object.entries(KIND_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              <option value="all">Все типы</option>{Object.entries(METHODOLOGY_ATOM_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </div>
           <div className="atom-list">
-            {filtered.map((atom) => <button key={atom.id} onClick={() => choose(atom)} className={`${atom.id === selected.id ? "selected" : ""} ${atom.verificationStatus}`}><span>{KIND_LABELS[atom.kind]}</span><strong>{atom.title}</strong><small>{STATUS_LABELS[atom.verificationStatus]}</small></button>)}
+            {filtered.map((atom) => <button key={atom.id} onClick={() => choose(atom)} className={`${atom.id === selected.id ? "selected" : ""} ${atom.verificationStatus}`}><span>{METHODOLOGY_ATOM_LABELS[atom.kind]}</span><strong>{atom.title}</strong><small>{STATUS_LABELS[atom.verificationStatus]}</small></button>)}
             {!filtered.length && <p>По выбранным фильтрам ничего не найдено.</p>}
           </div>
         </aside>
 
         <article className="atom-editor">
           <div className="atom-editor-meta"><span>ATOM {selected.id.slice(0, 8)}</span><span>Фрагмент #{selected.chunkIndex}</span><Link href="/admin">← В настройки</Link></div>
-          <label>Тип<select value={draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value as AtomKind })}>{Object.entries(KIND_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Тип<select value={draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value as AtomKind })}>{Object.entries(METHODOLOGY_ATOM_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Название<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>Формулировка правила<textarea rows={4} value={draft.statement} onChange={(event) => setDraft({ ...draft, statement: event.target.value })} /></label>
 

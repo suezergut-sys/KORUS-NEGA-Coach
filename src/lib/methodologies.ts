@@ -27,7 +27,7 @@ export const METHODOLOGIES = [
     author: "Ирина Матвеева",
     candidateVersion: "conflicts-v0-candidate",
     releaseVersion: "conflicts-v1",
-    visibility: "admin",
+    visibility: "public",
   },
 ] as const;
 
