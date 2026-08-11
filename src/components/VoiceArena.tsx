@@ -35,6 +35,11 @@ import {
 } from "@/lib/output-audio-buffer-timing";
 import { completedResponsePauseMs } from "@/lib/speech-timing";
 import {
+  buildOpponentEmotionInstructions,
+  createInitialOpponentEmotion,
+  updateOpponentEmotion,
+} from "@/lib/opponent-emotion";
+import {
   fitPanelWidths,
   MIN_COMPACT_CONVERSATION_WIDTH,
   MIN_OPPONENT_PANEL_WIDTH,
@@ -169,6 +174,8 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
   const incompleteTurnTimerRef = useRef<number | null>(null);
   const queuedUserResponseRef = useRef<{ instructions?: string } | null>(null);
   const interruptedResponseRef = useRef<{ responseId: string; transcriptVersion: number } | null>(null);
+  const userTurnInterruptedOpponentRef = useRef(false);
+  const opponentEmotionRef = useRef(createInitialOpponentEmotion("collaborative"));
   const recoveryTimerRef = useRef<number | null>(null);
   const recoveryPendingRef = useRef(false);
   const recoveryAttemptsRef = useRef(0);
@@ -291,6 +298,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
       incompleteTurnTimerRef.current = null;
       if (endingRef.current || pausedRef.current || userSpeakingRef.current) return;
       pendingUserFragmentsRef.current = [];
+      userTurnInterruptedOpponentRef.current = false;
       requestOpponentResponse(INCOMPLETE_TURN_CLARIFICATION_INSTRUCTIONS);
       reportRealtimeDiagnostic("turn_gate_clarification", { delayMs: INCOMPLETE_TURN_CLARIFICATION_DELAY_MS });
     }, INCOMPLETE_TURN_CLARIFICATION_DELAY_MS);
@@ -690,6 +698,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         setUserSpeaking(true);
         if (opponentIsAudible) {
           interruptionCountRef.current += 1;
+          userTurnInterruptedOpponentRef.current = true;
           interruptedResponseRef.current = { responseId: activeResponseIdRef.current, transcriptVersion: userTranscriptVersionRef.current };
           reportRealtimeDiagnostic("speech_started", { duringOpponent: true, responseId: activeResponseIdRef.current });
         }
@@ -744,9 +753,28 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
           const pendingCount = pendingUserFragmentsRef.current.length;
           const decision = evaluateUserTurn(pendingUserFragmentsRef.current, transcript);
           if (decision.shouldRespond) {
+            const completedTranscript = [...pendingUserFragmentsRef.current, transcript].join(" ");
+            const emotionUpdate = updateOpponentEmotion(opponentEmotionRef.current, {
+              transcript: completedTranscript,
+              interruptedOpponent: userTurnInterruptedOpponentRef.current,
+              style: negotiationStyle,
+            });
+            const previousTone = opponentEmotionRef.current.tone;
+            opponentEmotionRef.current = emotionUpdate.state;
+            userTurnInterruptedOpponentRef.current = false;
             pendingUserFragmentsRef.current = [];
             clearIncompleteTurnTimer();
-            requestOpponentResponse();
+            requestOpponentResponse(buildOpponentEmotionInstructions(emotionUpdate.state, emotionUpdate.triggers));
+            reportRealtimeDiagnostic("emotion_shift", {
+              previousTone,
+              tone: emotionUpdate.state.tone,
+              trust: emotionUpdate.state.trust,
+              tension: emotionUpdate.state.tension,
+              irritation: emotionUpdate.state.irritation,
+              dominance: emotionUpdate.state.dominance,
+              engagement: emotionUpdate.state.engagement,
+              triggerCount: emotionUpdate.triggers.length,
+            });
             reportRealtimeDiagnostic("turn_gate_released", { fragmentCount: pendingCount + 1 });
           } else {
             pendingUserFragmentsRef.current = [...pendingUserFragmentsRef.current, transcript];
@@ -956,6 +984,8 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     resetTimer();
     endingRef.current = false;
     opponentTurnCountRef.current = 0;
+    opponentEmotionRef.current = createInitialOpponentEmotion(negotiationStyle);
+    userTurnInterruptedOpponentRef.current = false;
     diagnosticSessionIdRef.current = crypto.randomUUID();
     userSpeakingRef.current = false;
     opponentSpeakingRef.current = false;
@@ -1094,7 +1124,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         const readyLines: Line[] = [{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }];
         linesRef.current = readyLines;
         setLines(readyLines);
-        requestRealtimeResponse(channel);
+        requestRealtimeResponse(channel, buildOpponentEmotionInstructions(opponentEmotionRef.current));
       });
       channel.addEventListener("close", () => {
         if (channelRef.current === channel && !endingRef.current) {

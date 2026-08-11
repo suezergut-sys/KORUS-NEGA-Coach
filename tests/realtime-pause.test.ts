@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPauseRealtimeEvents, buildResumeRealtimeEvents } from "@/lib/realtime-webrtc";
+import { buildPauseRealtimeEvents, buildResumeRealtimeEvents, requestRealtimeResponse } from "@/lib/realtime-webrtc";
 
 describe("настоящая пауза Realtime-поединка", () => {
   it("отключает VAD и очищает вход, когда оппонент ещё не отвечает", () => {
@@ -65,5 +65,22 @@ describe("настоящая пауза Realtime-поединка", () => {
       response: { output_modalities: ["audio"] },
     });
     expect(JSON.stringify(events[1])).toContain("Продолжи прерванную реплику");
+  });
+
+  it("передаёт эмоциональную режиссуру только в следующий аудиоответ", () => {
+    const sent: string[] = [];
+    const channel = {
+      readyState: "open",
+      send: (payload: string) => sent.push(payload),
+    } as unknown as RTCDataChannel;
+
+    expect(requestRealtimeResponse(channel, "Говори сдержанно и холоднее.")).toBe(true);
+    expect(JSON.parse(sent[0])).toEqual({
+      type: "response.create",
+      response: {
+        output_modalities: ["audio"],
+        instructions: "Говори сдержанно и холоднее.",
+      },
+    });
   });
 });
