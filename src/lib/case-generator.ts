@@ -1,6 +1,7 @@
 import "server-only";
 
 import { ANALYSIS_MODEL, getOpenAI } from "@/lib/openai-server";
+import { assertDiverseCaseCharacterNames, blockedCaseCharacterNames, recentCaseCharacterNames } from "@/lib/case-name-diversity";
 import { createCaseVariantsSchema, type GeneratedCaseVariant } from "@/lib/case-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getMethodology } from "@/lib/methodologies";
@@ -29,6 +30,13 @@ export async function generateCaseVariants(input: { title: string; notes: string
     .map((material, index) => `МАТЕРИАЛ ${index + 1}: ${material.fileName}\n${material.text.slice(0, 16000)}`)
     .join("\n\n")
     .slice(0, 52000);
+  const sourceText = `${input.title}\n${input.notes}\n${sourceMaterials}`;
+  const { data: recentCases } = await supabase
+    .from("negotiation_cases")
+    .select("user_role,opponent_role,additional_roles")
+    .order("created_at", { ascending: false })
+    .limit(12);
+  const blockedNames = blockedCaseCharacterNames(recentCaseCharacterNames(recentCases || []), sourceText);
 
   const response = await getOpenAI().responses.create({
     model: ANALYSIS_MODEL,
@@ -38,7 +46,11 @@ export async function generateCaseVariants(input: { title: string; notes: string
 
 Сформируй ровно 2 существенно разные переговорные ситуации. Каждый вариант обязан:
 1. Иметь две конкретные роли с законными, но несовместимыми интересами, ограничениями, рычагами влияния и рисками.
-1.1. Каждая сторона обязана иметь реалистичное полное личное имя — минимум имя и фамилию. В поле name пиши только ФИО (например, «Ирина Соколова»), а должность и организационную роль записывай отдельно в position. Безымянные обозначения вроде «руководитель проекта», «заказчик» или имя без фамилии каноническим кейсом не считаются.
+1.1. Каждая сторона обязана иметь реалистичное полное личное имя — минимум имя и фамилию. В поле name пиши только ФИО, а должность и организационную роль записывай отдельно в position. Безымянные обозначения вроде «руководитель проекта», «заказчик» или имя без фамилии каноническим кейсом не считаются.
+1.1.1. Придумывай разнообразные современные имена и фамилии людей из разных регионов и культур русскоязычной деловой среды. Внутри двух вариантов не повторяй ни полные имена, ни первые имена, если конкретные люди не названы пользователем в исходных материалах.
+1.1.2. Не используй имена и полные имена из недавних кейсов, перечисленные ниже. Этот список является запретом, а не набором примеров:
+ПОЛНЫЕ ИМЕНА: ${blockedNames.fullNames.join(", ") || "нет"}.
+ПЕРВЫЕ ИМЕНА: ${blockedNames.firstNames.join(", ") || "нет"}.
 1.2. Для каждой стороны обязательно заполни voiceGender значением female или male в соответствии с персонажем. Это поле управляет голосом ИИ и не заменяет имя или должность.
 1.3. В кейсе может быть от двух до четырёх ролей. Две основные роли запиши в userRole и opponentRole, третью и четвёртую — в additionalRoles. Если дополнительные участники не нужны по материалам, верни пустой массив additionalRoles. Все роли должны иметь самостоятельные интересы и быть пригодны для выбора пользователем.
 1.4. В кратком описании summary называй участников в строгом соответствии с их должностями из position. Не заменяй конкретную должность другим статусом или профессией и не описывай отсутствующую роль как сторону переговоров.
@@ -78,5 +90,6 @@ ${methodology || "Подходящих атомов пока нет; сформ�
 
   const parsed = JSON.parse(response.output_text) as { variants: GeneratedCaseVariant[] };
   if (!parsed.variants?.length) throw new Error("Модель не предложила ни одного варианта кейса.");
+  assertDiverseCaseCharacterNames(parsed.variants, blockedNames, sourceText);
   return parsed.variants;
 }

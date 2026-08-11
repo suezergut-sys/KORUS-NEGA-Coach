@@ -7,7 +7,7 @@ export default async function AdminDashboardPage() {
     supabase.from("method_atoms").select("verification_status", { count: "exact" }),
     supabase.from("document_chunks").select("id", { count: "exact", head: true }),
     supabase.from("training_sessions").select("id", { count: "exact", head: true }),
-    supabase.from("method_sources").select("code,title,methodology_version,verification_status").in("code", ["SRC-001", "SRC-002"]).order("code"),
+    supabase.from("method_sources").select("code,title,methodology_version,verification_status").in("code", ["SRC-001", "SRC-002", "SRC-003"]).order("code"),
     supabase.from("negotiation_cases").select("id", { count: "exact", head: true }),
   ]);
   const statuses = atoms.data || [];
@@ -37,7 +37,7 @@ export default async function AdminDashboardPage() {
           <Link href="/admin/methodology">Открыть проверку</Link>
         </article>
         <article className="admin-panel-card muted">
-          <span className="admin-card-icon">◎</span><div><h2>Версии методологий</h2>{(source.data || []).map((item) => <p key={item.code}>{item.methodology_version} <small>· {item.verification_status === "verified" ? "верифицирована" : "предварительная"}</small></p>)}</div>
+          <span className="admin-card-icon">◎</span><div><h2>Версии методологий</h2>{(source.data || []).map((item) => <p key={item.code}>{item.methodology_version} <small>· {item.verification_status === "verified" ? "условно верифицирована" : "предварительная"}</small></p>)}</div>
         </article>
         <article className="admin-panel-card muted">
           <span className="admin-card-icon">×</span><div><h2>Отклонено</h2><p>{rejected} методических атомов</p><small>Не участвуют в оценке переговоров</small></div>
