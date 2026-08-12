@@ -7,6 +7,7 @@ export const REALTIME_DIAGNOSTIC_EVENTS = new Set([
   "response_pause_recorded", "pause_started", "pause_resumed",
   "turn_gate_waiting", "turn_gate_released", "turn_gate_clarification", "realtime_error",
   "emotion_shift", "interruption_confirmed", "noise_ignored", "barge_in_sent", "barge_in_stop_confirmed",
+  "pending_transcription_wait", "late_transcript_replaced_response", "transcription_failed",
 ]);
 
 export function parseRealtimeDiagnostic(value: unknown) {

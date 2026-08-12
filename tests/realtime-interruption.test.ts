@@ -6,6 +6,7 @@ import {
 } from "../src/lib/realtime-interruption";
 
 const candidate: RealtimeInterruptionCandidate = {
+  itemId: "user-1",
   responseId: "resp-1",
   transcriptVersion: 2,
   startedAt: 1000,

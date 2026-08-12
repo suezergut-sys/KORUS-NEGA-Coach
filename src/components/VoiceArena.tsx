@@ -42,6 +42,10 @@ import {
   type RealtimeInterruptionCandidate,
 } from "@/lib/realtime-interruption";
 import {
+  completePendingSpeechItem,
+  shouldReplaceActiveResponseForLateTranscript,
+} from "@/lib/realtime-turn-coordination";
+import {
   buildOpponentEmotionInstructions,
   createInitialOpponentEmotion,
   updateOpponentEmotion,
@@ -177,6 +181,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
   const lastOpponentDeltaAtRef = useRef(0);
   const userTranscriptVersionRef = useRef(0);
   const pendingUserFragmentsRef = useRef<string[]>([]);
+  const pendingSpeechItemIdsRef = useRef<Set<string>>(new Set());
   const incompleteTurnTimerRef = useRef<number | null>(null);
   const queuedUserResponseRef = useRef<{ instructions?: string } | null>(null);
   const interruptedResponseRef = useRef<{ responseId: string; transcriptVersion: number } | null>(null);
@@ -604,6 +609,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     bargeInSentAtRef.current = 0;
     if (audioRef.current) audioRef.current.muted = false;
     pendingUserFragmentsRef.current = [];
+    pendingSpeechItemIdsRef.current = new Set();
     queuedUserResponseRef.current = null;
     recoveryTimerRef.current = null;
     recoveryPendingRef.current = false;
@@ -687,8 +693,6 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         lastOpponentDeltaAtRef.current = Date.now();
         recoveryPendingRef.current = false;
         interruptedResponseRef.current = null;
-        interruptionCandidateRef.current = null;
-        clearInterruptionConfirmationTimer();
       }
       if (type === "response.output_item.added") {
         const item = (event.item && typeof event.item === "object" ? event.item : {}) as Record<string, unknown>;
@@ -696,6 +700,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
       }
       if (type === "input_audio_buffer.speech_started") {
         clearIncompleteTurnTimer();
+        pendingSpeechItemIdsRef.current.add(itemId);
         const speechStartedAt = Date.now();
         const opponentIsAudible = inputModeRef.current === "duplex"
           ? opponentSpeechStartedAtRef.current > 0
@@ -731,6 +736,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
           });
           bargeInSentAtRef.current = opponentIsAudible && stopRequested ? speechStartedAt : 0;
           const candidate = {
+            itemId,
             responseId,
             transcriptVersion: userTranscriptVersionRef.current,
             startedAt: speechStartedAt,
@@ -752,14 +758,16 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         const speechStoppedAt = Date.now();
         if (inputModeRef.current === "duplex" && userSpeechStartedAtRef.current) {
           const durationMs = Math.max(0, speechStoppedAt - userSpeechStartedAtRef.current);
-          if (interruptionCandidateRef.current) interruptionCandidateRef.current.durationMs = durationMs;
+          if (interruptionCandidateRef.current?.itemId === itemId) interruptionCandidateRef.current.durationMs = durationMs;
           else userSpeakingDurationsMsRef.current.push(durationMs);
           userSpeechStartedAtRef.current = 0;
         }
         userSpeakingRef.current = false;
         userSpeechStoppedAtRef.current = speechStoppedAt;
         setUserSpeaking(false);
-        const candidate = interruptionCandidateRef.current;
+        const candidate = interruptionCandidateRef.current?.itemId === itemId
+          ? interruptionCandidateRef.current
+          : null;
         if (candidate) {
           reportRealtimeDiagnostic("speech_stopped", { afterInterruption: true });
           clearInterruptionConfirmationTimer();
@@ -767,6 +775,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
             interruptionConfirmationTimerRef.current = null;
             if (interruptionCandidateRef.current !== candidate) return;
             interruptionCandidateRef.current = null;
+            pendingSpeechItemIdsRef.current.delete(candidate.itemId);
             reportRealtimeDiagnostic("noise_ignored", {
               reason: "no_meaningful_transcript",
               durationMs: candidate.durationMs,
@@ -824,9 +833,16 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
       if (type === "conversation.item.input_audio_transcription.completed") {
         const transcript = String(event.transcript || "").trim();
         const meaningfulTranscript = isMeaningfulUserSpeechTranscript(transcript);
-        const candidate = interruptionCandidateRef.current;
-        clearInterruptionConfirmationTimer();
-        interruptionCandidateRef.current = null;
+        const candidate = interruptionCandidateRef.current?.itemId === itemId
+          ? interruptionCandidateRef.current
+          : null;
+        const speechCompletion = completePendingSpeechItem(pendingSpeechItemIdsRef.current, itemId);
+        pendingSpeechItemIdsRef.current = speechCompletion.remainingItemIds;
+        const waitingForSiblingTranscript = speechCompletion.shouldWaitForSiblingTranscript;
+        if (candidate) {
+          clearInterruptionConfirmationTimer();
+          interruptionCandidateRef.current = null;
+        }
         if (candidate && meaningfulTranscript) {
           if (candidate.durationMs !== null) userSpeakingDurationsMsRef.current.push(candidate.durationMs);
           if (shouldConfirmRealtimeInterruption(candidate, transcript)) {
@@ -853,7 +869,14 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
           userTranscriptVersionRef.current += 1;
           const pendingCount = pendingUserFragmentsRef.current.length;
           const decision = evaluateUserTurn(pendingUserFragmentsRef.current, transcript);
-          if (decision.shouldRespond) {
+          if (waitingForSiblingTranscript) {
+            pendingUserFragmentsRef.current = [...pendingUserFragmentsRef.current, transcript];
+            clearIncompleteTurnTimer();
+            reportRealtimeDiagnostic("pending_transcription_wait", {
+              fragmentCount: pendingCount + 1,
+              pendingTranscriptions: pendingSpeechItemIdsRef.current.size,
+            });
+          } else if (decision.shouldRespond) {
             const completedTranscript = [...pendingUserFragmentsRef.current, transcript].join(" ");
             const emotionUpdate = updateOpponentEmotion(opponentEmotionRef.current, {
               transcript: completedTranscript,
@@ -866,6 +889,30 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
             pendingUserFragmentsRef.current = [];
             clearIncompleteTurnTimer();
             const responseWasInProgress = responseInProgressRef.current;
+            const opponentWasAudible = opponentSpeakingRef.current;
+            const replacePrematureResponse = shouldReplaceActiveResponseForLateTranscript({
+              hasInterruptionCandidate: candidate !== null,
+              responseInProgress: responseWasInProgress,
+              opponentAudible: opponentWasAudible,
+              waitingForSiblingTranscript,
+            });
+            if (replacePrematureResponse) {
+              const replacementRequestedAt = Date.now();
+              if (audioRef.current) audioRef.current.muted = true;
+              bargeInRealtime(channelRef.current, {
+                responseActive: responseWasInProgress,
+                opponentPlaybackActive: opponentWasAudible,
+                assistantItemId: currentAssistantItemIdRef.current,
+                audioEndMs: opponentWasAudible
+                  ? Math.max(0, replacementRequestedAt - opponentSpeechStartedAtRef.current - 100)
+                  : undefined,
+              });
+              reportRealtimeDiagnostic("late_transcript_replaced_response", {
+                responseId: activeResponseIdRef.current || opponentPlaybackTimingRef.current.responseId,
+                responseActive: responseWasInProgress,
+                opponentAudible: opponentWasAudible,
+              });
+            }
             const directiveSent = requestOpponentResponse(buildOpponentEmotionInstructions(emotionUpdate.state, emotionUpdate.triggers));
             reportRealtimeDiagnostic("emotion_shift", {
               previousTone,
@@ -888,6 +935,30 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         }
         if (meaningfulTranscript) replaceLine("Вы", transcript, itemId);
         else setLines((current) => current.filter((line) => line.id !== itemId));
+      }
+      if (type === "conversation.item.input_audio_transcription.failed") {
+        const candidate = interruptionCandidateRef.current?.itemId === itemId
+          ? interruptionCandidateRef.current
+          : null;
+        const speechCompletion = completePendingSpeechItem(pendingSpeechItemIdsRef.current, itemId);
+        pendingSpeechItemIdsRef.current = speechCompletion.remainingItemIds;
+        if (candidate) {
+          clearInterruptionConfirmationTimer();
+          interruptionCandidateRef.current = null;
+          scheduleResponseRecovery(
+            "transcription_failed_after_speech",
+            candidate.responseId,
+            candidate.transcriptVersion,
+            250,
+          );
+        }
+        setLines((current) => current.filter((line) => line.id !== itemId));
+        if (!speechCompletion.shouldWaitForSiblingTranscript && pendingUserFragmentsRef.current.length > 0) {
+          waitForUserTurnContinuation();
+        }
+        reportRealtimeDiagnostic("transcription_failed", {
+          pendingTranscriptions: pendingSpeechItemIdsRef.current.size,
+        });
       }
       if (type === "response.output_audio_transcript.delta") {
         const delta = String(event.delta || "");
@@ -1024,6 +1095,10 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     }
     flushOpponentPlayback(pausedAt);
     clearIncompleteTurnTimer();
+    pendingSpeechItemIdsRef.current = new Set();
+    pendingUserFragmentsRef.current = [];
+    interruptionCandidateRef.current = null;
+    clearInterruptionConfirmationTimer();
     queuedUserResponseRef.current = null;
     lastOpponentSpeechEndedAtRef.current = 0;
     if (!pauseTimer()) return;
@@ -1104,6 +1179,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     lastOpponentDeltaAtRef.current = 0;
     userTranscriptVersionRef.current = 0;
     pendingUserFragmentsRef.current = [];
+    pendingSpeechItemIdsRef.current = new Set();
     clearIncompleteTurnTimer();
     queuedUserResponseRef.current = null;
     interruptedResponseRef.current = null;

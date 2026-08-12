@@ -31,6 +31,7 @@ describe("контекст выбранного кейса в Realtime", () => {
     const firstTurnEvents = buildRealtimeResponseEvents("Начни переговоры первым.");
 
     expect(employeeSession.instructions).toContain("Сотрудник получил оффер от внешнего заказчика.");
+    expect(employeeSession.instructions).toContain("Произноси только прямую речь персонажа");
     expect(employeeSession.instructions).not.toContain("гарантированный объём закупки");
     expect(procurementSession.instructions).toContain("Поставщик обсуждает годовой контракт на продукцию.");
     expect(firstTurnEvents.at(-1)).toEqual({
