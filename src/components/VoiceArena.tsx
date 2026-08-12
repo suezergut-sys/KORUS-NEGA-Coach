@@ -12,7 +12,7 @@ import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import type { CaseVisibility } from "@/lib/case-visibility";
-import { realtimeResponseStatus, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
+import { realtimeResponseStatus, shouldMonitorRealtimeResponseStall, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
 import { DEFAULT_METHODOLOGY_ID, getMethodology, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
 import NegotiationReport from "@/components/NegotiationReport";
 import { useNegotiationMachine } from "@/hooks/useNegotiationMachine";
@@ -762,7 +762,8 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
             userTurnInterruptedOpponentRef.current = false;
             pendingUserFragmentsRef.current = [];
             clearIncompleteTurnTimer();
-            requestOpponentResponse(buildOpponentEmotionInstructions(emotionUpdate.state, emotionUpdate.triggers));
+            const responseWasInProgress = responseInProgressRef.current;
+            const directiveSent = requestOpponentResponse(buildOpponentEmotionInstructions(emotionUpdate.state, emotionUpdate.triggers));
             reportRealtimeDiagnostic("emotion_shift", {
               previousTone,
               tone: emotionUpdate.state.tone,
@@ -772,6 +773,8 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
               dominance: emotionUpdate.state.dominance,
               engagement: emotionUpdate.state.engagement,
               triggerCount: emotionUpdate.triggers.length,
+              interruption: emotionUpdate.triggers.includes("interruption"),
+              directiveDelivery: directiveSent ? "sent" : responseWasInProgress ? "queued" : "failed",
             });
             reportRealtimeDiagnostic("turn_gate_released", { fragmentCount: pendingCount + 1 });
           } else {
@@ -872,7 +875,12 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
   useEffect(() => {
     if (!isLive || isPaused || isEnding) return;
     const timer = window.setInterval(() => {
-      if (!opponentSpeakingRef.current || userSpeakingRef.current || recoveryPendingRef.current) return;
+      if (!shouldMonitorRealtimeResponseStall({
+        responseInProgress: responseInProgressRef.current,
+        opponentSpeaking: opponentSpeakingRef.current,
+        userSpeaking: userSpeakingRef.current,
+        recoveryPending: recoveryPendingRef.current,
+      })) return;
       const silentForMs = Date.now() - lastOpponentDeltaAtRef.current;
       if (silentForMs < 7000) return;
       const responseId = activeResponseIdRef.current;

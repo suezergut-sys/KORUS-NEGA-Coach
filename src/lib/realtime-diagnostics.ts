@@ -50,3 +50,15 @@ export function shouldRecoverRealtimeResponse(input: {
     && !input.newResponseStarted
     && input.currentTranscriptVersion === input.transcriptVersionAtInterruption;
 }
+
+export function shouldMonitorRealtimeResponseStall(input: {
+  responseInProgress: boolean;
+  opponentSpeaking: boolean;
+  userSpeaking: boolean;
+  recoveryPending: boolean;
+}) {
+  return input.responseInProgress
+    && input.opponentSpeaking
+    && !input.userSpeaking
+    && !input.recoveryPending;
+}
