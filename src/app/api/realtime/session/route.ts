@@ -1,5 +1,5 @@
 import { buildRealtimeInstructions } from "@/lib/prompt";
-import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
+import { resolvePublishedCase, resolvePublishedCaseForAdmin, selectCaseRoles } from "@/lib/case-resolver";
 import { buildRealtimeSessionConfig } from "@/lib/realtime-session";
 
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ export async function GET() {
   );
 }
 
-export async function POST(request: Request) {
+export async function createRealtimeSession(request: Request, options: { adminCaseAccess?: boolean } = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -32,7 +32,9 @@ export async function POST(request: Request) {
   const voice = requestedVoice === "cedar" ? "cedar" : "marin";
   const negotiationStyle = readParam(url, "negotiationStyle", "collaborative") === "hard" ? "hard" : "collaborative";
   const caseId = readParam(url, "caseId", "");
-  const negotiationCase = await resolvePublishedCase(caseId, readParam(url, "caseCode", ""));
+  const negotiationCase = options.adminCaseAccess
+    ? await resolvePublishedCaseForAdmin(caseId)
+    : await resolvePublishedCase(caseId, readParam(url, "caseCode", ""));
   if (!negotiationCase) return Response.json({ error: "Опубликованный кейс не найден." }, { status: 404 });
   const selected = selectCaseRoles(
     negotiationCase,
@@ -96,4 +98,8 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
+}
+
+export async function POST(request: Request) {
+  return createRealtimeSession(request);
 }
