@@ -40,6 +40,7 @@ import {
   createInitialOpponentEmotion,
   updateOpponentEmotion,
 } from "@/lib/opponent-emotion";
+import { FIRST_OPPONENT_TURN_INSTRUCTIONS } from "@/lib/realtime-language";
 import {
   fitPanelWidths,
   MIN_COMPACT_CONVERSATION_WIDTH,
@@ -639,13 +640,10 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
       opponentSpeakingRef.current = false;
       setOpponentSpeaking(false);
       setRealtimeNotice("Обнаружен обрыв ответа — оппонент продолжает с места остановки…");
-      channel.send(JSON.stringify({
-        type: "response.create",
-        response: {
-          output_modalities: ["audio"],
-          instructions: "Продолжи последнюю оборванную реплику с места остановки. Не повторяй уже сказанное и сохрани текущую роль и позицию в переговорах.",
-        },
-      }));
+      requestRealtimeResponse(
+        channel,
+        "Продолжи последнюю оборванную реплику с места остановки. Не повторяй уже сказанное и сохрани текущую роль и позицию в переговорах.",
+      );
       reportRealtimeDiagnostic("recovery_triggered", { reason, attempt: recoveryAttemptsRef.current });
     }, delayMs);
   }, [reportRealtimeDiagnostic]);
@@ -1124,7 +1122,10 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         const readyLines: Line[] = [{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }];
         linesRef.current = readyLines;
         setLines(readyLines);
-        requestRealtimeResponse(channel, buildOpponentEmotionInstructions(opponentEmotionRef.current));
+        requestRealtimeResponse(
+          channel,
+          `${FIRST_OPPONENT_TURN_INSTRUCTIONS}\n\n${buildOpponentEmotionInstructions(opponentEmotionRef.current)}`,
+        );
       });
       channel.addEventListener("close", () => {
         if (channelRef.current === channel && !endingRef.current) {

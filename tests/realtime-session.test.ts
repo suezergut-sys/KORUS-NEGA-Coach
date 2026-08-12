@@ -10,6 +10,8 @@ describe("realtime session config", () => {
     });
 
     expect(session.model).toBe("gpt-realtime-2.1");
+    expect(session.instructions).toContain("абсолютно каждую реплику только на русском языке");
+    expect(session.instructions).toContain("Веди переговоры по-русски.");
   });
 
   it("uses GPT Live Transcribe with a Russian language hint", () => {
