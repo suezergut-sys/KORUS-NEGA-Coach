@@ -27,6 +27,19 @@ export async function resolvePublishedCase(caseId?: string, caseCode?: string): 
   return canAccessCase(data, session?.userId) ? mapCaseRow(data) : null;
 }
 
+export async function resolvePublishedCaseForAdmin(caseId?: string): Promise<CanonicalCase | null> {
+  if (caseId === DEFAULT_CASE_ID) return DEFAULT_CASE;
+  if (!caseId || !UUID.test(caseId)) return null;
+  const { data, error } = await getSupabaseAdmin()
+    .from("negotiation_cases")
+    .select("*")
+    .eq("status", "published")
+    .eq("id", caseId)
+    .maybeSingle();
+  if (error) throw new Error(`Кейс: ${error.message}`);
+  return data ? mapCaseRow(data) : null;
+}
+
 export function selectCaseRoles(item: CanonicalCase, participantIndex: number, opponentIndex: number) {
   const roles = [item.userRole, item.opponentRole, ...item.additionalRoles];
   const safeParticipant = Number.isInteger(participantIndex) && roles[participantIndex] ? participantIndex : 0;
