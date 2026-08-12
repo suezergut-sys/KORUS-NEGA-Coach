@@ -1,0 +1,38 @@
+name: Voice evals
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 0 * * *"
+
+concurrency:
+  group: live-voice-evals
+  cancel-in-progress: false
+
+jobs:
+  live-voice-evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_ANALYSIS_MODEL: gpt-5.4-mini
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run live voice dialogue scenarios
+        run: npm run test:voice-evals
+      - name: Upload voice eval evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-eval-report-${{ github.run_id }}
+          path: |
+            voice-eval-report
+            test-results
+          retention-days: 14
+          if-no-files-found: warn
