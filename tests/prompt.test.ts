@@ -32,6 +32,14 @@ describe("стили Realtime-переговоров", () => {
     expect(prompt).toContain("попроси закончить мысль");
   });
 
+  it("не разрешает заполнять пробелы правдоподобными фактами", () => {
+    const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative" });
+    expect(prompt).toContain("ФАКТИЧЕСКАЯ ТОЧНОСТЬ ВЫШЕ РЕАЛИСТИЧНОСТИ РОЛИ");
+    expect(prompt).toContain("Не придумывай причины, события, действия, ресурсы, процессы, интеграции");
+    expect(prompt).toContain("не установлена или не указана");
+    expect(prompt).toContain("Не приписывай пользователю согласие, слова, обязательства или намерения");
+  });
+
   it("задаёт постепенную эмоциональную динамику без выхода из роли", () => {
     const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative" });
     expect(prompt).toContain("ЭМОЦИОНАЛЬНАЯ ДИНАМИКА");
