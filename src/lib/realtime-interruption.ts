@@ -1,6 +1,7 @@
 export const INTERRUPTION_TRANSCRIPT_CONFIRMATION_DELAY_MS = 3000;
 
 export type RealtimeInterruptionCandidate = {
+  itemId: string;
   responseId: string;
   transcriptVersion: number;
   startedAt: number;

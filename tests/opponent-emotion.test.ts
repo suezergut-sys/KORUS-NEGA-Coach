@@ -123,6 +123,8 @@ describe("эмоциональная динамика голосового оп�
     expect(instructions).toContain("безошибочно заметна на слух");
     expect(instructions).toContain("Не перебивайте меня");
     expect(instructions).toContain("заменяет все предыдущие блоки эмоциональной режиссуры");
+    expect(instructions).toContain("Выводи только прямую речь персонажа");
+    expect(instructions.toLocaleLowerCase("ru-RU")).not.toContain("пауз");
     expect(instructions).toContain("Не называй служебные эмоции, состояние, триггеры или числовые значения вслух");
     expect(instructions).toContain("Сохраняй роль, цели, ограничения");
   });
