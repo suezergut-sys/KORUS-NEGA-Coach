@@ -61,14 +61,20 @@ describe("настоящая пауза Realtime-поединка", () => {
       },
     });
     expect(events[1]).toMatchObject({
+      type: "conversation.item.create",
+      item: {
+        role: "system",
+        content: [{ type: "input_text", text: expect.stringContaining("Продолжи прерванную реплику") }],
+      },
+    });
+    expect(events[2]).toMatchObject({
       type: "response.create",
       response: { output_modalities: ["audio"] },
     });
-    expect(JSON.stringify(events[1])).toContain("Продолжи прерванную реплику");
-    expect(JSON.stringify(events[1])).toContain("каждую реплику только на русском языке");
+    expect(events[2]).not.toHaveProperty("response.instructions");
   });
 
-  it("передаёт эмоциональную режиссуру только в следующий аудиоответ", () => {
+  it("передаёт локальную режиссуру системным сообщением, не заменяя контекст кейса в сессии", () => {
     const sent: string[] = [];
     const channel = {
       readyState: "open",
@@ -77,21 +83,26 @@ describe("настоящая пауза Realtime-поединка", () => {
 
     expect(requestRealtimeResponse(channel, "Говори сдержанно и холоднее.")).toBe(true);
     expect(JSON.parse(sent[0])).toEqual({
-      type: "response.create",
-      response: {
-        output_modalities: ["audio"],
-        instructions: expect.stringContaining("Говори сдержанно и холоднее."),
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "system",
+        content: [{ type: "input_text", text: "Говори сдержанно и холоднее." }],
       },
     });
-    expect(JSON.parse(sent[0]).response.instructions).toContain("каждую реплику только на русском языке");
-  });
-
-  it("добавляет русский контракт даже к ответу без локальной режиссуры", () => {
-    expect(buildRealtimeResponseEvent()).toMatchObject({
+    expect(JSON.parse(sent[1])).toEqual({
       type: "response.create",
       response: {
         output_modalities: ["audio"],
-        instructions: expect.stringContaining("Первая реплика оппонента обязательно должна быть на русском языке"),
+      },
+    });
+  });
+
+  it("не переопределяет инструкции сессии при запросе ответа без локальной режиссуры", () => {
+    expect(buildRealtimeResponseEvent()).toEqual({
+      type: "response.create",
+      response: {
+        output_modalities: ["audio"],
       },
     });
   });

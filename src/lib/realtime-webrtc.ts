@@ -1,17 +1,32 @@
-import { withRussianLanguageContract } from "@/lib/realtime-language";
-
 export type RealtimeTurnEagerness = "low" | "high";
 
 type RealtimeEvent = Record<string, unknown>;
 
-export function buildRealtimeResponseEvent(instructions?: string): RealtimeEvent {
+export function buildRealtimeResponseEvent(): RealtimeEvent {
   return {
     type: "response.create",
     response: {
       output_modalities: ["audio"],
-      instructions: withRussianLanguageContract(instructions),
     },
   };
+}
+
+export function buildRealtimeResponseEvents(instructions?: string): RealtimeEvent[] {
+  const responseEvent = buildRealtimeResponseEvent();
+  const responseInstructions = instructions?.trim();
+  if (!responseInstructions) return [responseEvent];
+
+  return [
+    {
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "system",
+        content: [{ type: "input_text", text: responseInstructions }],
+      },
+    },
+    responseEvent,
+  ];
 }
 
 function sendRealtimeEvents(channel: RTCDataChannel | null, events: RealtimeEvent[]) {
@@ -88,7 +103,7 @@ export function buildResumeRealtimeEvents(options: {
 }): RealtimeEvent[] {
   const events = [buildTurnDetectionEvent(options.eagerness)];
   if (options.continueOpponent) {
-    events.push(buildRealtimeResponseEvent(options.opponentWasAudible
+    events.push(...buildRealtimeResponseEvents(options.opponentWasAudible
       ? "Продолжи прерванную реплику оппонента точно с места остановки. Не повторяй уже сказанное, не начинай новую мысль и не добавляй вступление."
       : "Возобнови прерванную реплику оппонента. Пользователь ещё не слышал её начало, поэтому произнеси реплику с начала без вступления."));
   }
@@ -105,9 +120,7 @@ export function updateTurnDetection(channel: RTCDataChannel | null, eagerness: R
 }
 
 export function requestRealtimeResponse(channel: RTCDataChannel | null, instructions?: string) {
-  if (channel?.readyState !== "open") return false;
-  channel.send(JSON.stringify(buildRealtimeResponseEvent(instructions)));
-  return true;
+  return sendRealtimeEvents(channel, buildRealtimeResponseEvents(instructions));
 }
 
 export async function fetchWithTimeout(
