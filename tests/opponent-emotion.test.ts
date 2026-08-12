@@ -45,6 +45,23 @@ describe("эмоциональная динамика голосового оп�
     expect(update.state.irritation - initial.irritation).toBeLessThanOrEqual(18);
   });
 
+  it("делает первое перебивание слышимым и усиливает повторное", () => {
+    const initial = createInitialOpponentEmotion("collaborative");
+    const first = updateOpponentEmotion(initial, {
+      transcript: "Предлагаю обсудить срок до пятницы.",
+      interruptedOpponent: true,
+      style: "collaborative",
+    });
+    const second = updateOpponentEmotion(first.state, {
+      transcript: "Давайте сразу зафиксируем бюджет.",
+      interruptedOpponent: true,
+      style: "collaborative",
+    });
+
+    expect(first.state.tone).toBe("guarded");
+    expect(second.state.tone).toBe("irritated");
+  });
+
   it("снижает раздражение постепенно после извинения и уступки", () => {
     const escalated = {
       trust: 18,
@@ -103,6 +120,7 @@ describe("эмоциональная динамика голосового оп�
 
     expect(instructions).toContain("Говори жёстко, отрывисто");
     expect(instructions).toContain("перебил оппонента");
+    expect(instructions).toContain("сделай смену интонации различимой на слух");
     expect(instructions).toContain("Не называй эмоцию, состояние, триггеры или числовые значения вслух");
     expect(instructions).toContain("Сохраняй роль, цели, ограничения");
   });

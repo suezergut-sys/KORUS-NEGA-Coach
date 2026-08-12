@@ -54,11 +54,11 @@ const TRIGGER_LABELS: Record<OpponentEmotionTrigger, string> = {
 
 const DELIVERY_BY_TONE: Record<OpponentEmotionTone, string> = {
   calm: "Говори спокойно, ровно и уверенно. Сохраняй деловой темп и естественные короткие паузы.",
-  guarded: "Говори сдержанно и осторожно, чуть суше обычного. Проверяй конкретику и не спеши доверять обещаниям.",
+  guarded: "Говори заметно сдержаннее и суше предыдущей спокойной реплики. Перед ответом сделай короткую паузу, чуть замедли темп, проверяй конкретику и не спеши доверять обещаниям.",
   interested: "Говори живее и внимательнее, с заметным деловым интересом. Уточняй условия, но не соглашайся без разумного обмена.",
   open: "Говори теплее и спокойнее, показывая готовность искать решение. Не становись уступчивым без причины и сохраняй интересы роли.",
-  irritated: "Говори холоднее, короче и требовательнее, с напряжёнными паузами перед ключевыми словами. Не повышай голос и не груби.",
-  angry: "Говори жёстко, отрывисто и немного быстрее, с контролируемым усилением голоса. Не кричи, не оскорбляй и оставайся в деловых границах.",
+  irritated: "Говори явно холоднее и жёстче предыдущей реплики: короткими фразами, с плотной артикуляцией и напряжёнными паузами перед ключевыми словами. Раздражение должно быть слышно, но не повышай голос и не груби.",
+  angry: "Говори жёстко, отрывисто и отчётливо жёстче предыдущей реплики, немного быстрее и с контролируемым усилением голоса. Недовольство должно быть очевидно на слух, но не кричи, не оскорбляй и оставайся в деловых границах.",
 };
 
 function clampScore(value: number) {
@@ -147,7 +147,11 @@ export function updateOpponentEmotion(
     dominance: boundedScore(current.dominance, delta.dominance),
     engagement: boundedScore(current.engagement, delta.engagement),
   };
-  return { state: { ...scores, tone: opponentEmotionTone(scores) }, triggers };
+  let tone = opponentEmotionTone(scores);
+  if (input.interruptedOpponent && tone !== "angry" && tone !== "irritated") {
+    tone = current.tone === "guarded" || current.tone === "irritated" ? "irritated" : "guarded";
+  }
+  return { state: { ...scores, tone }, triggers };
 }
 
 export function buildOpponentEmotionInstructions(
@@ -157,11 +161,15 @@ export function buildOpponentEmotionInstructions(
   const reaction = triggers.length
     ? `В последнем ходе пользователь: ${triggers.map((trigger) => TRIGGER_LABELS[trigger]).join("; ")}.`
     : "Это исходное эмоциональное состояние персонажа в начале разговора.";
+  const interruptionDirection = triggers.includes("interruption")
+    ? "Пользователь перебил тебя. Начни с короткой заметной паузы и сделай смену интонации различимой на слух уже в этой реплике."
+    : "";
 
   return `
 # Эмоциональная режиссура этой реплики
 Внутреннее состояние: доверие ${state.trust}/100, напряжение ${state.tension}/100, раздражение ${state.irritation}/100, стремление контролировать разговор ${state.dominance}/100, интерес к соглашению ${state.engagement}/100.
 ${reaction}
+${interruptionDirection}
 ${DELIVERY_BY_TONE[state.tone]}
 Вырази состояние естественно через интонацию, темп, паузы, краткость и выбор слов. Учитывай также реально услышанную интонацию пользователя и весь предыдущий разговор. Не называй эмоцию, состояние, триггеры или числовые значения вслух. Не переигрывай и не меняй настроение скачком. Сохраняй роль, цели, ограничения и правила переговоров из инструкций сессии.
 `.trim();

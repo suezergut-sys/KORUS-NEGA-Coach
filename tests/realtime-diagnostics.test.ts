@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRealtimeDiagnostic, realtimeResponseStatus, shouldRecoverRealtimeResponse } from "../src/lib/realtime-diagnostics";
+import { parseRealtimeDiagnostic, realtimeResponseStatus, shouldMonitorRealtimeResponseStall, shouldRecoverRealtimeResponse } from "../src/lib/realtime-diagnostics";
 
 describe("realtime diagnostics", () => {
   it("accepts bounded lifecycle details without transcript content", () => {
@@ -44,5 +44,20 @@ describe("realtime diagnostics", () => {
     expect(shouldRecoverRealtimeResponse({ transcriptVersionAtInterruption: 2, currentTranscriptVersion: 3, userSpeaking: false, newResponseStarted: false })).toBe(false);
     expect(shouldRecoverRealtimeResponse({ transcriptVersionAtInterruption: 2, currentTranscriptVersion: 2, userSpeaking: true, newResponseStarted: false })).toBe(false);
     expect(shouldRecoverRealtimeResponse({ transcriptVersionAtInterruption: 2, currentTranscriptVersion: 2, userSpeaking: false, newResponseStarted: true })).toBe(false);
+  });
+
+  it("does not start stall recovery while completed audio is only draining", () => {
+    expect(shouldMonitorRealtimeResponseStall({
+      responseInProgress: false,
+      opponentSpeaking: true,
+      userSpeaking: false,
+      recoveryPending: false,
+    })).toBe(false);
+    expect(shouldMonitorRealtimeResponseStall({
+      responseInProgress: true,
+      opponentSpeaking: true,
+      userSpeaking: false,
+      recoveryPending: false,
+    })).toBe(true);
   });
 });
