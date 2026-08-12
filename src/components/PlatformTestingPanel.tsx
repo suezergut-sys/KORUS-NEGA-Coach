@@ -16,6 +16,7 @@ import {
   type PlatformTestTraceEvent,
   type PlatformTestTurn,
 } from "@/lib/platform-test";
+import { addTranscriptionItem, combineTranscriptionFragments } from "@/lib/platform-test-transcription";
 
 type TestStatus = "idle" | "connecting" | "running" | "finishing" | "completed" | "error";
 
@@ -62,12 +63,17 @@ export default function PlatformTestingPanel({ cases }: { cases: PlatformTestCas
   const silenceSourceRef = useRef<OscillatorNode | null>(null);
   const timerRef = useRef<number | null>(null);
   const transcriptionTimeoutRef = useRef<number | null>(null);
+  const transcriptionSettleTimeoutRef = useRef<number | null>(null);
   const startedAtRef = useRef(0);
   const runningRef = useRef(false);
   const turnsRef = useRef<PlatformTestTurn[]>([]);
   const eventsRef = useRef<PlatformTestTraceEvent[]>([]);
   const generatingRef = useRef(false);
   const pendingHumanTurnIdRef = useRef("");
+  const pendingTranscriptionItemIdsRef = useRef<Set<string>>(new Set());
+  const transcriptionItemOrderRef = useRef<string[]>([]);
+  const transcriptionFragmentsRef = useRef<Map<string, string>>(new Map());
+  const humanPlaybackActiveRef = useRef(false);
   const pendingUserTranscriptAtRef = useRef(0);
   const currentOpponentTurnIdRef = useRef("");
   const finishTestRef = useRef<(reason: "manual" | "timer" | "anomaly") => Promise<void>>(async () => undefined);
@@ -96,8 +102,51 @@ export default function PlatformTestingPanel({ cases }: { cases: PlatformTestCas
   function clearTimers() {
     if (timerRef.current) window.clearInterval(timerRef.current);
     if (transcriptionTimeoutRef.current) window.clearTimeout(transcriptionTimeoutRef.current);
+    if (transcriptionSettleTimeoutRef.current) window.clearTimeout(transcriptionSettleTimeoutRef.current);
     timerRef.current = null;
     transcriptionTimeoutRef.current = null;
+    transcriptionSettleTimeoutRef.current = null;
+  }
+
+  function resetPendingTranscription() {
+    pendingTranscriptionItemIdsRef.current = new Set();
+    transcriptionItemOrderRef.current = [];
+    transcriptionFragmentsRef.current = new Map();
+    humanPlaybackActiveRef.current = false;
+    if (transcriptionSettleTimeoutRef.current) window.clearTimeout(transcriptionSettleTimeoutRef.current);
+    transcriptionSettleTimeoutRef.current = null;
+  }
+
+  function scheduleTranscriptionFinalization() {
+    if (transcriptionSettleTimeoutRef.current) window.clearTimeout(transcriptionSettleTimeoutRef.current);
+    transcriptionSettleTimeoutRef.current = window.setTimeout(() => {
+      transcriptionSettleTimeoutRef.current = null;
+      const turnId = pendingHumanTurnIdRef.current;
+      if (
+        !runningRef.current
+        || !turnId
+        || humanPlaybackActiveRef.current
+        || pendingTranscriptionItemIdsRef.current.size > 0
+        || transcriptionFragmentsRef.current.size === 0
+      ) return;
+
+      const transcript = combineTranscriptionFragments(
+        transcriptionItemOrderRef.current,
+        transcriptionFragmentsRef.current,
+      );
+      if (!transcript) return;
+      updateTurn(turnId, { recognizedText: transcript });
+      recordEvent("input_transcription_merged", {
+        turnId,
+        fragmentCount: transcriptionFragmentsRef.current.size,
+      });
+      pendingHumanTurnIdRef.current = "";
+      if (transcriptionTimeoutRef.current) window.clearTimeout(transcriptionTimeoutRef.current);
+      transcriptionTimeoutRef.current = null;
+      resetPendingTranscription();
+      pendingUserTranscriptAtRef.current = performance.now();
+      requestRealtimeResponse(channelRef.current);
+    }, 1_000);
   }
 
   function releaseResources() {
@@ -118,6 +167,7 @@ export default function PlatformTestingPanel({ cases }: { cases: PlatformTestCas
     audioDestinationRef.current = null;
     silenceSourceRef.current = null;
     currentOpponentTurnIdRef.current = "";
+    resetPendingTranscription();
     setHumanSpeaking(false);
     setOpponentSpeaking(false);
     setGenerating(false);
@@ -169,10 +219,14 @@ export default function PlatformTestingPanel({ cases }: { cases: PlatformTestCas
       if (!runningRef.current) return;
       const turnId = `human-${crypto.randomUUID()}`;
       pendingHumanTurnIdRef.current = turnId;
+      resetPendingTranscription();
+      humanPlaybackActiveRef.current = true;
       appendTurn({ id: turnId, speaker: "human", text: payload.text, atMs: performance.now() });
       recordEvent("human_turn_generated", { turnIndex: humanTurnIndex });
       await playHumanAudio(payload.audioBase64);
+      humanPlaybackActiveRef.current = false;
       if (!runningRef.current) return;
+      scheduleTranscriptionFinalization();
       transcriptionTimeoutRef.current = window.setTimeout(() => {
         if (!runningRef.current || !pendingHumanTurnIdRef.current) return;
         recordEvent("input_transcription_timeout", { turnId: pendingHumanTurnIdRef.current });
@@ -232,17 +286,33 @@ export default function PlatformTestingPanel({ cases }: { cases: PlatformTestCas
         currentOpponentTurnIdRef.current = "";
         if (runningRef.current) window.setTimeout(() => void generateHumanTurnRef.current(), 850);
       }
-      if (type === "input_audio_buffer.speech_started") setHumanSpeaking(true);
-      if (type === "input_audio_buffer.speech_stopped") setHumanSpeaking(false);
+      if (type === "input_audio_buffer.speech_started") {
+        setHumanSpeaking(true);
+        const itemId = String(event.item_id || "").trim();
+        if (pendingHumanTurnIdRef.current && itemId) {
+          pendingTranscriptionItemIdsRef.current.add(itemId);
+          transcriptionItemOrderRef.current = addTranscriptionItem(transcriptionItemOrderRef.current, itemId);
+          if (transcriptionSettleTimeoutRef.current) window.clearTimeout(transcriptionSettleTimeoutRef.current);
+          transcriptionSettleTimeoutRef.current = null;
+        }
+      }
+      if (type === "input_audio_buffer.speech_stopped") {
+        if (!humanPlaybackActiveRef.current) setHumanSpeaking(false);
+      }
       if (type === "conversation.item.input_audio_transcription.completed") {
+        const itemId = String(event.item_id || `untracked-${crypto.randomUUID()}`);
         const transcript = String(event.transcript || "").trim();
-        const turnId = pendingHumanTurnIdRef.current;
-        if (turnId) updateTurn(turnId, { recognizedText: transcript });
-        pendingHumanTurnIdRef.current = "";
-        if (transcriptionTimeoutRef.current) window.clearTimeout(transcriptionTimeoutRef.current);
-        transcriptionTimeoutRef.current = null;
-        pendingUserTranscriptAtRef.current = performance.now();
-        if (runningRef.current) requestRealtimeResponse(channelRef.current);
+        if (pendingHumanTurnIdRef.current) {
+          transcriptionItemOrderRef.current = addTranscriptionItem(transcriptionItemOrderRef.current, itemId);
+          pendingTranscriptionItemIdsRef.current.delete(itemId);
+          if (transcript) transcriptionFragmentsRef.current.set(itemId, transcript);
+          scheduleTranscriptionFinalization();
+        }
+      }
+      if (type === "conversation.item.input_audio_transcription.failed") {
+        const itemId = String(event.item_id || "").trim();
+        if (itemId) pendingTranscriptionItemIdsRef.current.delete(itemId);
+        scheduleTranscriptionFinalization();
       }
     } catch {
       recordEvent("invalid_realtime_event");
@@ -287,6 +357,7 @@ export default function PlatformTestingPanel({ cases }: { cases: PlatformTestCas
     replaceTurns([]);
     eventsRef.current = [];
     pendingHumanTurnIdRef.current = "";
+    resetPendingTranscription();
     pendingUserTranscriptAtRef.current = 0;
     setRemainingSeconds(durationMinutes * 60);
     setStatus("connecting");
