@@ -26,6 +26,7 @@ describe("realtime session config", () => {
       languages: ["ru"],
       delay: "minimal",
     });
+    expect(session.audio.input.noise_reduction).toEqual({ type: "far_field" });
   });
 
   it("preserves negotiation-specific voice activity detection", () => {
@@ -44,6 +45,7 @@ describe("realtime session config", () => {
     expect(hard.audio.input.turn_detection.eagerness).toBe("high");
     expect(collaborative.audio.input.turn_detection.create_response).toBe(false);
     expect(hard.audio.input.turn_detection.create_response).toBe(false);
+    expect(hard.audio.input.turn_detection.interrupt_response).toBe(false);
     expect(hard.audio.output.voice).toBe("cedar");
   });
 });

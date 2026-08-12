@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPauseRealtimeEvents, buildRealtimeResponseEvent, buildResumeRealtimeEvents, requestRealtimeResponse } from "@/lib/realtime-webrtc";
+import { buildBargeInRealtimeEvents, buildPauseRealtimeEvents, buildRealtimeResponseEvent, buildResumeRealtimeEvents, requestRealtimeResponse } from "@/lib/realtime-webrtc";
 
 describe("настоящая пауза Realtime-поединка", () => {
   it("отключает VAD и очищает вход, когда оппонент ещё не отвечает", () => {
@@ -54,7 +54,7 @@ describe("настоящая пауза Realtime-поединка", () => {
               type: "semantic_vad",
               eagerness: "high",
               create_response: false,
-              interrupt_response: true,
+              interrupt_response: false,
             },
           },
         },
@@ -72,6 +72,26 @@ describe("настоящая пауза Realtime-поединка", () => {
       response: { output_modalities: ["audio"] },
     });
     expect(events[2]).not.toHaveProperty("response.instructions");
+  });
+
+  it("гарантированно останавливает и генерацию, и уже проигрываемый аудиобуфер при перебивании", () => {
+    expect(buildBargeInRealtimeEvents({
+      responseActive: true,
+      opponentPlaybackActive: true,
+      assistantItemId: "item_456",
+      audioEndMs: 2310.8,
+    })).toEqual([
+      { type: "response.cancel" },
+      { type: "output_audio_buffer.clear" },
+      { type: "conversation.item.truncate", item_id: "item_456", content_index: 0, audio_end_ms: 2310 },
+    ]);
+  });
+
+  it("очищает уже сгенерированное аудио, даже когда активной генерации больше нет", () => {
+    expect(buildBargeInRealtimeEvents({
+      responseActive: false,
+      opponentPlaybackActive: true,
+    })).toEqual([{ type: "output_audio_buffer.clear" }]);
   });
 
   it("передаёт локальную режиссуру системным сообщением, не заменяя контекст кейса в сессии", () => {

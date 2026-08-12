@@ -21,7 +21,7 @@ import { useNegotiationTimer } from "@/hooks/useNegotiationTimer";
 import { useNegotiationReport } from "@/hooks/useNegotiationReport";
 import { useCaseComic } from "@/hooks/useCaseComic";
 import { useCaseNarration } from "@/hooks/useCaseNarration";
-import { closeRealtimeConnection, fetchWithTimeout, pauseRealtime, requestRealtimeResponse, resumeRealtime, updateTurnDetection, waitForDataChannelOpen } from "@/lib/realtime-webrtc";
+import { bargeInRealtime, closeRealtimeConnection, fetchWithTimeout, pauseRealtime, requestRealtimeResponse, resumeRealtime, updateTurnDetection, waitForDataChannelOpen } from "@/lib/realtime-webrtc";
 import {
   evaluateUserTurn,
   INCOMPLETE_TURN_CLARIFICATION_DELAY_MS,
@@ -35,6 +35,12 @@ import {
   type OutputAudioBufferTimingState,
 } from "@/lib/output-audio-buffer-timing";
 import { completedResponsePauseMs } from "@/lib/speech-timing";
+import {
+  INTERRUPTION_TRANSCRIPT_CONFIRMATION_DELAY_MS,
+  isMeaningfulUserSpeechTranscript,
+  shouldConfirmRealtimeInterruption,
+  type RealtimeInterruptionCandidate,
+} from "@/lib/realtime-interruption";
 import {
   buildOpponentEmotionInstructions,
   createInitialOpponentEmotion,
@@ -174,6 +180,9 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
   const incompleteTurnTimerRef = useRef<number | null>(null);
   const queuedUserResponseRef = useRef<{ instructions?: string } | null>(null);
   const interruptedResponseRef = useRef<{ responseId: string; transcriptVersion: number } | null>(null);
+  const interruptionCandidateRef = useRef<RealtimeInterruptionCandidate | null>(null);
+  const interruptionConfirmationTimerRef = useRef<number | null>(null);
+  const bargeInSentAtRef = useRef(0);
   const userTurnInterruptedOpponentRef = useRef(false);
   const opponentEmotionRef = useRef(createInitialOpponentEmotion("collaborative"));
   const recoveryTimerRef = useRef<number | null>(null);
@@ -281,6 +290,11 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
   const clearIncompleteTurnTimer = useCallback(() => {
     if (incompleteTurnTimerRef.current) window.clearTimeout(incompleteTurnTimerRef.current);
     incompleteTurnTimerRef.current = null;
+  }, []);
+
+  const clearInterruptionConfirmationTimer = useCallback(() => {
+    if (interruptionConfirmationTimerRef.current) window.clearTimeout(interruptionConfirmationTimerRef.current);
+    interruptionConfirmationTimerRef.current = null;
   }, []);
 
   const requestOpponentResponse = useCallback((instructions?: string) => {
@@ -558,6 +572,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
     if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
     clearIncompleteTurnTimer();
+    clearInterruptionConfirmationTimer();
     flushOpponentPlayback();
     closeRealtimeConnection({
       channel: channelRef.current,
@@ -585,6 +600,9 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     responseStartedAtRef.current = 0;
     lastOpponentDeltaAtRef.current = 0;
     interruptedResponseRef.current = null;
+    interruptionCandidateRef.current = null;
+    bargeInSentAtRef.current = 0;
+    if (audioRef.current) audioRef.current.muted = false;
     pendingUserFragmentsRef.current = [];
     queuedUserResponseRef.current = null;
     recoveryTimerRef.current = null;
@@ -597,7 +615,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     setPushToTalkActive(false);
     setRealtimeNotice("");
     if (resetLifecycle) lifecycleDispatch({ type: "RESET" });
-  }, [clearIncompleteTurnTimer, flushOpponentPlayback, lifecycleDispatch, resetTimer]);
+  }, [clearIncompleteTurnTimer, clearInterruptionConfirmationTimer, flushOpponentPlayback, lifecycleDispatch, resetTimer]);
 
   useEffect(() => () => closeSession(), [closeSession]);
   useEffect(() => () => stopNarration(), [stopNarration]);
@@ -656,6 +674,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
       if (pausedRef.current) return;
 
       if (type === "response.created") {
+        if (audioRef.current) audioRef.current.muted = false;
         const response = (event.response && typeof event.response === "object" ? event.response : {}) as Record<string, unknown>;
         activeResponseIdRef.current = String(response.id || event.response_id || "");
         responseInProgressRef.current = true;
@@ -668,6 +687,8 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         lastOpponentDeltaAtRef.current = Date.now();
         recoveryPendingRef.current = false;
         interruptedResponseRef.current = null;
+        interruptionCandidateRef.current = null;
+        clearInterruptionConfirmationTimer();
       }
       if (type === "response.output_item.added") {
         const item = (event.item && typeof event.item === "object" ? event.item : {}) as Record<string, unknown>;
@@ -694,33 +715,89 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         }
         userSpeakingRef.current = true;
         setUserSpeaking(true);
-        if (opponentIsAudible) {
-          interruptionCountRef.current += 1;
-          userTurnInterruptedOpponentRef.current = true;
-          interruptedResponseRef.current = { responseId: activeResponseIdRef.current, transcriptVersion: userTranscriptVersionRef.current };
-          reportRealtimeDiagnostic("speech_started", { duringOpponent: true, responseId: activeResponseIdRef.current });
+        const responseIsActive = responseInProgressRef.current;
+        if (opponentIsAudible || responseIsActive) {
+          clearInterruptionConfirmationTimer();
+          const responseId = activeResponseIdRef.current || opponentPlaybackTimingRef.current.responseId;
+          const audioEndMs = opponentIsAudible
+            ? Math.max(0, speechStartedAt - opponentSpeechStartedAtRef.current - 100)
+            : undefined;
+          if (audioRef.current) audioRef.current.muted = true;
+          const stopRequested = bargeInRealtime(channelRef.current, {
+            responseActive: responseIsActive,
+            opponentPlaybackActive: opponentIsAudible,
+            assistantItemId: currentAssistantItemIdRef.current,
+            audioEndMs,
+          });
+          bargeInSentAtRef.current = opponentIsAudible && stopRequested ? speechStartedAt : 0;
+          const candidate = {
+            responseId,
+            transcriptVersion: userTranscriptVersionRef.current,
+            startedAt: speechStartedAt,
+            durationMs: null,
+            wasAudible: opponentIsAudible,
+          };
+          interruptionCandidateRef.current = candidate;
+          interruptedResponseRef.current = candidate;
+          reportRealtimeDiagnostic("speech_started", { duringOpponent: opponentIsAudible, responseId });
+          reportRealtimeDiagnostic("barge_in_sent", {
+            responseId,
+            responseActive: responseIsActive,
+            opponentAudible: opponentIsAudible,
+            stopRequested,
+          });
         }
       }
       if (type === "input_audio_buffer.speech_stopped") {
         const speechStoppedAt = Date.now();
         if (inputModeRef.current === "duplex" && userSpeechStartedAtRef.current) {
-          userSpeakingDurationsMsRef.current.push(Math.max(0, speechStoppedAt - userSpeechStartedAtRef.current));
+          const durationMs = Math.max(0, speechStoppedAt - userSpeechStartedAtRef.current);
+          if (interruptionCandidateRef.current) interruptionCandidateRef.current.durationMs = durationMs;
+          else userSpeakingDurationsMsRef.current.push(durationMs);
           userSpeechStartedAtRef.current = 0;
         }
         userSpeakingRef.current = false;
         userSpeechStoppedAtRef.current = speechStoppedAt;
         setUserSpeaking(false);
-        if (interruptedResponseRef.current) reportRealtimeDiagnostic("speech_stopped", { afterInterruption: true });
+        const candidate = interruptionCandidateRef.current;
+        if (candidate) {
+          reportRealtimeDiagnostic("speech_stopped", { afterInterruption: true });
+          clearInterruptionConfirmationTimer();
+          interruptionConfirmationTimerRef.current = window.setTimeout(() => {
+            interruptionConfirmationTimerRef.current = null;
+            if (interruptionCandidateRef.current !== candidate) return;
+            interruptionCandidateRef.current = null;
+            reportRealtimeDiagnostic("noise_ignored", {
+              reason: "no_meaningful_transcript",
+              durationMs: candidate.durationMs,
+            });
+            scheduleResponseRecovery(
+              "noise_without_transcript",
+              candidate.responseId,
+              candidate.transcriptVersion,
+              250,
+            );
+          }, INTERRUPTION_TRANSCRIPT_CONFIRMATION_DELAY_MS);
+        }
       }
       if (type === "output_audio_buffer.started") {
+        if (audioRef.current) audioRef.current.muted = false;
         applyOpponentPlaybackEvent("started", String(event.response_id || ""), Date.now());
       }
       if (type === "output_audio_buffer.stopped" || type === "output_audio_buffer.cleared") {
+        const stoppedAt = Date.now();
         applyOpponentPlaybackEvent(
           type === "output_audio_buffer.stopped" ? "stopped" : "cleared",
           String(event.response_id || ""),
-          Date.now(),
+          stoppedAt,
         );
+        if (bargeInSentAtRef.current) {
+          reportRealtimeDiagnostic("barge_in_stop_confirmed", {
+            responseId: String(event.response_id || ""),
+            latencyMs: Math.max(0, stoppedAt - bargeInSentAtRef.current),
+          });
+          bargeInSentAtRef.current = 0;
+        }
       }
       if (type === "response.output_audio.delta" || type === "response.output_audio_transcript.delta") {
         const opponentStartedAt = Date.now();
@@ -746,7 +823,33 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
       }
       if (type === "conversation.item.input_audio_transcription.completed") {
         const transcript = String(event.transcript || "").trim();
-        if (transcript) {
+        const meaningfulTranscript = isMeaningfulUserSpeechTranscript(transcript);
+        const candidate = interruptionCandidateRef.current;
+        clearInterruptionConfirmationTimer();
+        interruptionCandidateRef.current = null;
+        if (candidate && meaningfulTranscript) {
+          if (candidate.durationMs !== null) userSpeakingDurationsMsRef.current.push(candidate.durationMs);
+          if (shouldConfirmRealtimeInterruption(candidate, transcript)) {
+            interruptionCountRef.current += 1;
+            userTurnInterruptedOpponentRef.current = true;
+            reportRealtimeDiagnostic("interruption_confirmed", {
+              responseId: candidate.responseId,
+              durationMs: candidate.durationMs,
+            });
+          }
+        } else if (candidate) {
+          reportRealtimeDiagnostic("noise_ignored", {
+            reason: transcript ? "non_speech_transcript" : "empty_transcript",
+            durationMs: candidate.durationMs,
+          });
+          scheduleResponseRecovery(
+            "noise_without_meaningful_transcript",
+            candidate.responseId,
+            candidate.transcriptVersion,
+            250,
+          );
+        }
+        if (meaningfulTranscript) {
           userTranscriptVersionRef.current += 1;
           const pendingCount = pendingUserFragmentsRef.current.length;
           const decision = evaluateUserTurn(pendingUserFragmentsRef.current, transcript);
@@ -783,7 +886,8 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
             reportRealtimeDiagnostic("turn_gate_waiting", { fragmentCount: pendingCount + 1 });
           }
         }
-        replaceLine("Вы", transcript, itemId);
+        if (meaningfulTranscript) replaceLine("Вы", transcript, itemId);
+        else setLines((current) => current.filter((line) => line.id !== itemId));
       }
       if (type === "response.output_audio_transcript.delta") {
         const delta = String(event.delta || "");
@@ -870,7 +974,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     } catch {
       // Диагностические сообщения вне JSON не влияют на голосовую сессию.
     }
-  }, [appendDelta, applyOpponentPlaybackEvent, clearIncompleteTurnTimer, linesRef, negotiationStyle, replaceLine, reportRealtimeDiagnostic, requestOpponentResponse, scheduleResponseRecovery, waitForUserTurnContinuation]);
+  }, [appendDelta, applyOpponentPlaybackEvent, clearIncompleteTurnTimer, clearInterruptionConfirmationTimer, linesRef, negotiationStyle, replaceLine, reportRealtimeDiagnostic, requestOpponentResponse, scheduleResponseRecovery, setLines, waitForUserTurnContinuation]);
 
   useEffect(() => {
     if (!isLive || isPaused || isEnding) return;
@@ -1003,6 +1107,9 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     clearIncompleteTurnTimer();
     queuedUserResponseRef.current = null;
     interruptedResponseRef.current = null;
+    interruptionCandidateRef.current = null;
+    bargeInSentAtRef.current = 0;
+    clearInterruptionConfirmationTimer();
     recoveryPendingRef.current = false;
     recoveryAttemptsRef.current = 0;
     resetReport();

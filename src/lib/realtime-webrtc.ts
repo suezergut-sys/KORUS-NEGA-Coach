@@ -46,7 +46,7 @@ export function buildTurnDetectionEvent(eagerness: RealtimeTurnEagerness): Realt
             type: "semantic_vad",
             eagerness,
             create_response: false,
-            interrupt_response: true,
+            interrupt_response: false,
           },
         },
       },
@@ -94,6 +94,35 @@ export function buildPauseRealtimeEvents(options: {
 
 export function pauseRealtime(channel: RTCDataChannel | null, options: Parameters<typeof buildPauseRealtimeEvents>[0]) {
   return sendRealtimeEvents(channel, buildPauseRealtimeEvents(options));
+}
+
+export function buildBargeInRealtimeEvents(options: {
+  responseActive: boolean;
+  opponentPlaybackActive: boolean;
+  assistantItemId?: string;
+  audioEndMs?: number;
+}): RealtimeEvent[] {
+  const events: RealtimeEvent[] = [];
+  if (options.responseActive) events.push({ type: "response.cancel" });
+  if (options.opponentPlaybackActive) events.push({ type: "output_audio_buffer.clear" });
+  if (
+    options.opponentPlaybackActive
+    && options.assistantItemId
+    && Number.isFinite(options.audioEndMs)
+  ) {
+    events.push({
+      type: "conversation.item.truncate",
+      item_id: options.assistantItemId,
+      content_index: 0,
+      audio_end_ms: Math.max(0, Math.floor(options.audioEndMs || 0)),
+    });
+  }
+  return events;
+}
+
+export function bargeInRealtime(channel: RTCDataChannel | null, options: Parameters<typeof buildBargeInRealtimeEvents>[0]) {
+  const events = buildBargeInRealtimeEvents(options);
+  return events.length > 0 && sendRealtimeEvents(channel, events);
 }
 
 export function buildResumeRealtimeEvents(options: {
