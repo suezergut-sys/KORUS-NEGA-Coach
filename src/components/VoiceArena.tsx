@@ -6,6 +6,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent a
 import AppNavRail from "@/components/AppNavRail";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { CanonicalCase } from "@/lib/case-types";
+import { opponentPortraitForRole } from "@/lib/opponent-portrait";
 import { shouldEnableMicrophone, type NegotiationInputMode } from "@/lib/negotiation-input-mode";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
@@ -61,14 +62,12 @@ const OPPONENTS = {
     name: "Марина Волкова",
     title: "Директор по закупкам",
     voice: "marin",
-    image: "/opponents/opponent-female.png",
     style: "Рациональна, внимательна к рискам, ценит конкретику",
   },
   male: {
     name: "Алексей Крылов",
     title: "Директор по закупкам",
     voice: "cedar",
-    image: "/opponents/opponent-male.png",
     style: "Сдержан, требователен к фактам, защищает условия сделки",
   },
 } as const;
@@ -232,6 +231,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     ...voiceProfile,
     name: aiRole.name,
     title: aiRole.position,
+    image: opponentPortraitForRole(aiRole),
   };
   const comic = useCaseComic(selectedCase, selectedRoleIndex);
   const {
