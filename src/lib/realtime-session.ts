@@ -19,6 +19,9 @@ export function buildRealtimeSessionConfig({
     instructions: withRussianLanguageContract(instructions),
     audio: {
       input: {
+        noise_reduction: {
+          type: "far_field",
+        },
         transcription: {
           model: "gpt-live-transcribe",
           languages: ["ru"],
@@ -28,7 +31,7 @@ export function buildRealtimeSessionConfig({
           type: "semantic_vad",
           eagerness: negotiationStyle === "hard" ? "high" : "low",
           create_response: false,
-          interrupt_response: true,
+          interrupt_response: false,
         },
       },
       output: { voice },

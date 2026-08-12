@@ -120,8 +120,10 @@ describe("эмоциональная динамика голосового оп�
 
     expect(instructions).toContain("Говори жёстко, отрывисто");
     expect(instructions).toContain("перебил оппонента");
-    expect(instructions).toContain("сделай смену интонации различимой на слух");
-    expect(instructions).toContain("Не называй эмоцию, состояние, триггеры или числовые значения вслух");
+    expect(instructions).toContain("безошибочно заметна на слух");
+    expect(instructions).toContain("Не перебивайте меня");
+    expect(instructions).toContain("заменяет все предыдущие блоки эмоциональной режиссуры");
+    expect(instructions).toContain("Не называй служебные эмоции, состояние, триггеры или числовые значения вслух");
     expect(instructions).toContain("Сохраняй роль, цели, ограничения");
   });
 });
