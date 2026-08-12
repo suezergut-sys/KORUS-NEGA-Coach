@@ -1,3 +1,5 @@
+import { withRussianLanguageContract } from "@/lib/realtime-language";
+
 type RealtimeSessionOptions = {
   instructions: string;
   negotiationStyle: "collaborative" | "hard";
@@ -14,7 +16,7 @@ export function buildRealtimeSessionConfig({
     model: "gpt-realtime-2.1",
     output_modalities: ["audio"],
     reasoning: { effort: "low" },
-    instructions,
+    instructions: withRussianLanguageContract(instructions),
     audio: {
       input: {
         transcription: {

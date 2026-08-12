@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPauseRealtimeEvents, buildResumeRealtimeEvents, requestRealtimeResponse } from "@/lib/realtime-webrtc";
+import { buildPauseRealtimeEvents, buildRealtimeResponseEvent, buildResumeRealtimeEvents, requestRealtimeResponse } from "@/lib/realtime-webrtc";
 
 describe("настоящая пауза Realtime-поединка", () => {
   it("отключает VAD и очищает вход, когда оппонент ещё не отвечает", () => {
@@ -65,6 +65,7 @@ describe("настоящая пауза Realtime-поединка", () => {
       response: { output_modalities: ["audio"] },
     });
     expect(JSON.stringify(events[1])).toContain("Продолжи прерванную реплику");
+    expect(JSON.stringify(events[1])).toContain("каждую реплику только на русском языке");
   });
 
   it("передаёт эмоциональную режиссуру только в следующий аудиоответ", () => {
@@ -79,7 +80,18 @@ describe("настоящая пауза Realtime-поединка", () => {
       type: "response.create",
       response: {
         output_modalities: ["audio"],
-        instructions: "Говори сдержанно и холоднее.",
+        instructions: expect.stringContaining("Говори сдержанно и холоднее."),
+      },
+    });
+    expect(JSON.parse(sent[0]).response.instructions).toContain("каждую реплику только на русском языке");
+  });
+
+  it("добавляет русский контракт даже к ответу без локальной режиссуры", () => {
+    expect(buildRealtimeResponseEvent()).toMatchObject({
+      type: "response.create",
+      response: {
+        output_modalities: ["audio"],
+        instructions: expect.stringContaining("Первая реплика оппонента обязательно должна быть на русском языке"),
       },
     });
   });

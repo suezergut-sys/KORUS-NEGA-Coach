@@ -7,6 +7,13 @@ const baseInput: Omit<SessionInput, "negotiationStyle"> = {
 };
 
 describe("стили Realtime-переговоров", () => {
+  it("жёстко фиксирует русский язык и первую реплику оппонента", () => {
+    const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative" });
+    expect(prompt).toContain("полностью русскоязычный тренажёр переговоров");
+    expect(prompt).toContain("Первая реплика оппонента обязательно должна быть на русском языке");
+    expect(prompt).toContain("Не спрашивай, о чём пользователь хочет поговорить");
+  });
+
   it("даёт жёсткому оппоненту напор и ограничивает перебивания", () => {
     const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "hard" });
     expect(prompt).toContain("ЖЁСТКИЕ ПЕРЕГОВОРЫ");

@@ -1,6 +1,18 @@
+import { withRussianLanguageContract } from "@/lib/realtime-language";
+
 export type RealtimeTurnEagerness = "low" | "high";
 
 type RealtimeEvent = Record<string, unknown>;
+
+export function buildRealtimeResponseEvent(instructions?: string): RealtimeEvent {
+  return {
+    type: "response.create",
+    response: {
+      output_modalities: ["audio"],
+      instructions: withRussianLanguageContract(instructions),
+    },
+  };
+}
 
 function sendRealtimeEvents(channel: RTCDataChannel | null, events: RealtimeEvent[]) {
   if (channel?.readyState !== "open") return false;
@@ -76,15 +88,9 @@ export function buildResumeRealtimeEvents(options: {
 }): RealtimeEvent[] {
   const events = [buildTurnDetectionEvent(options.eagerness)];
   if (options.continueOpponent) {
-    events.push({
-      type: "response.create",
-      response: {
-        output_modalities: ["audio"],
-        instructions: options.opponentWasAudible
-          ? "Продолжи прерванную реплику оппонента точно с места остановки. Не повторяй уже сказанное, не начинай новую мысль и не добавляй вступление."
-          : "Возобнови прерванную реплику оппонента. Пользователь ещё не слышал её начало, поэтому произнеси реплику с начала без вступления.",
-      },
-    });
+    events.push(buildRealtimeResponseEvent(options.opponentWasAudible
+      ? "Продолжи прерванную реплику оппонента точно с места остановки. Не повторяй уже сказанное, не начинай новую мысль и не добавляй вступление."
+      : "Возобнови прерванную реплику оппонента. Пользователь ещё не слышал её начало, поэтому произнеси реплику с начала без вступления."));
   }
   return events;
 }
@@ -100,10 +106,7 @@ export function updateTurnDetection(channel: RTCDataChannel | null, eagerness: R
 
 export function requestRealtimeResponse(channel: RTCDataChannel | null, instructions?: string) {
   if (channel?.readyState !== "open") return false;
-  channel.send(JSON.stringify({
-    type: "response.create",
-    ...(instructions ? { response: { output_modalities: ["audio"], instructions } } : {}),
-  }));
+  channel.send(JSON.stringify(buildRealtimeResponseEvent(instructions)));
   return true;
 }
 
