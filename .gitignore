@@ -8,6 +8,8 @@
 /out/
 /test-results/
 /playwright-report/
+/voice-eval-report/
+/.voice-eval-cache/
 
 # production
 /build

@@ -52,6 +52,11 @@ import {
 } from "@/lib/opponent-emotion";
 import { FIRST_OPPONENT_TURN_INSTRUCTIONS } from "@/lib/realtime-language";
 import {
+  acquireVoiceEvalInputStream,
+  realtimeEventVoiceEvalDetails,
+  recordVoiceEval,
+} from "@/lib/voice-eval";
+import {
   fitPanelWidths,
   MIN_COMPACT_CONVERSATION_WIDTH,
   MIN_OPPONENT_PANEL_WIDTH,
@@ -100,7 +105,13 @@ function formatTime(totalSeconds: number) {
   return `${minutes}:${seconds}`;
 }
 
-export default function VoiceArena({ isAdministrator = false }: { isAdministrator?: boolean }) {
+export default function VoiceArena({
+  isAdministrator = false,
+  voiceEvalMode = false,
+}: {
+  isAdministrator?: boolean;
+  voiceEvalMode?: boolean;
+}) {
   const {
     state: lifecycleState,
     dispatch: lifecycleDispatch,
@@ -284,13 +295,15 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
 
   const reportRealtimeDiagnostic = useCallback((event: string, details: Record<string, string | number | boolean | null> = {}) => {
     if (!diagnosticSessionIdRef.current) return;
+    recordVoiceEval(voiceEvalMode, "diagnostic", event, details);
+    if (voiceEvalMode) return;
     void fetch("/api/realtime/diagnostics", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: diagnosticSessionIdRef.current, caseId: selectedCase.id, event, details }),
       keepalive: true,
     }).catch(() => undefined);
-  }, [selectedCase.id]);
+  }, [selectedCase.id, voiceEvalMode]);
 
   const clearIncompleteTurnTimer = useCallback(() => {
     if (incompleteTurnTimerRef.current) window.clearTimeout(incompleteTurnTimerRef.current);
@@ -417,6 +430,14 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
   }), []);
 
   const loadCases = useCallback(async (preferredId?: string) => {
+    if (voiceEvalMode) {
+      setCases([DEFAULT_CASE]);
+      setSelectedCaseId(DEFAULT_CASE.id);
+      setOpponentRoleIndex(1);
+      setVoiceMode("male");
+      setCasesError("");
+      return;
+    }
     try {
       const response = await fetch("/api/cases", { cache: "no-store" });
       const payload = (await response.json()) as { cases?: CanonicalCase[]; error?: string };
@@ -435,7 +456,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     } catch (caught) {
       setCasesError(caught instanceof Error ? caught.message : "Не удалось загрузить кейсы.");
     }
-  }, []);
+  }, [voiceEvalMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadCases(), 0);
@@ -676,6 +697,9 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     try {
       const event = JSON.parse(raw.data) as Record<string, unknown>;
       const type = String(event.type || "");
+      if (type !== "response.output_audio.delta") {
+        recordVoiceEval(voiceEvalMode, "realtime", type, realtimeEventVoiceEvalDetails(event));
+      }
       const itemId = String(event.item_id || event.response_id || crypto.randomUUID());
       if (pausedRef.current) return;
 
@@ -1045,7 +1069,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     } catch {
       // Диагностические сообщения вне JSON не влияют на голосовую сессию.
     }
-  }, [appendDelta, applyOpponentPlaybackEvent, clearIncompleteTurnTimer, clearInterruptionConfirmationTimer, linesRef, negotiationStyle, replaceLine, reportRealtimeDiagnostic, requestOpponentResponse, scheduleResponseRecovery, setLines, waitForUserTurnContinuation]);
+  }, [appendDelta, applyOpponentPlaybackEvent, clearIncompleteTurnTimer, clearInterruptionConfirmationTimer, linesRef, negotiationStyle, replaceLine, reportRealtimeDiagnostic, requestOpponentResponse, scheduleResponseRecovery, setLines, voiceEvalMode, waitForUserTurnContinuation]);
 
   useEffect(() => {
     if (!isLive || isPaused || isEnding) return;
@@ -1214,12 +1238,15 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
     setLines(connectingLines);
 
     try {
-      const privacyResponse = await fetchWithTimeout("/api/account/privacy", { cache: "no-store" }, 10_000);
-      const privacy = await privacyResponse.json().catch(() => ({})) as { consent?: boolean; error?: string };
-      if (!privacyResponse.ok || !privacy.consent) {
-        throw new Error(privacy.error || "Перед запуском подтвердите согласие на сохранение стенограммы в разделе «Личный кабинет → Приватность и данные».");
+      const realtimeEndpoint = voiceEvalMode ? "/e2e/voice-eval/realtime" : "/api/realtime/session";
+      if (!voiceEvalMode) {
+        const privacyResponse = await fetchWithTimeout("/api/account/privacy", { cache: "no-store" }, 10_000);
+        const privacy = await privacyResponse.json().catch(() => ({})) as { consent?: boolean; error?: string };
+        if (!privacyResponse.ok || !privacy.consent) {
+          throw new Error(privacy.error || "Перед запуском подтвердите согласие на сохранение стенограммы в разделе «Личный кабинет → Приватность и данные».");
+        }
       }
-      const health = await fetchWithTimeout("/api/realtime/session", { cache: "no-store" }, 10_000);
+      const health = await fetchWithTimeout(realtimeEndpoint, { cache: "no-store" }, 10_000);
       if (!health.ok) throw new Error("На сервере не настроен OpenAI API key.");
 
       const pc = new RTCPeerConnection();
@@ -1274,33 +1301,36 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         });
       };
 
-      const media = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
+      const media = await acquireVoiceEvalInputStream(voiceEvalMode);
       streamRef.current = media;
       media.getAudioTracks().forEach((track) => {
         track.enabled = shouldEnableMicrophone(inputModeRef.current, false, pushToTalkActiveRef.current);
       });
       media.getTracks().forEach((track) => pc.addTrack(track, media));
 
-      const sessionResponse = await fetchWithTimeout("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
-          caseCode: selectedCase.slug,
-          participantRoleIndex: selectedRoleIndex,
-          opponentRoleIndex,
-          opponentVoice: opponent.voice,
-          methodologyId,
-        }),
-      }, 15_000);
-      const sessionPayload = await sessionResponse.json() as { sessionId?: string; startedAt?: string; error?: string };
-      if (!sessionResponse.ok || !sessionPayload.sessionId) {
-        throw new Error(sessionPayload.error || "Не удалось создать тренировочную сессию.");
+      if (voiceEvalMode) {
+        trainingSessionIdRef.current = crypto.randomUUID();
+        startedAtRef.current = new Date().toISOString();
+      } else {
+        const sessionResponse = await fetchWithTimeout("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
+            caseCode: selectedCase.slug,
+            participantRoleIndex: selectedRoleIndex,
+            opponentRoleIndex,
+            opponentVoice: opponent.voice,
+            methodologyId,
+          }),
+        }, 15_000);
+        const sessionPayload = await sessionResponse.json() as { sessionId?: string; startedAt?: string; error?: string };
+        if (!sessionResponse.ok || !sessionPayload.sessionId) {
+          throw new Error(sessionPayload.error || "Не удалось создать тренировочную сессию.");
+        }
+        trainingSessionIdRef.current = sessionPayload.sessionId;
+        startedAtRef.current = sessionPayload.startedAt || new Date().toISOString();
       }
-      trainingSessionIdRef.current = sessionPayload.sessionId;
-      startedAtRef.current = sessionPayload.startedAt || new Date().toISOString();
 
       const channel = pc.createDataChannel("oai-events");
       channelRef.current = channel;
@@ -1345,7 +1375,7 @@ export default function VoiceArena({ isAdministrator = false }: { isAdministrato
         opponentRoleIndex: String(opponentRoleIndex),
         voice: opponent.voice,
       });
-      const response = await fetchWithTimeout(`/api/realtime/session?${params.toString()}`, {
+      const response = await fetchWithTimeout(`${realtimeEndpoint}?${params.toString()}`, {
         method: "POST",
         headers: { "Content-Type": "application/sdp" },
         body: offer.sdp,
