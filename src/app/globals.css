@@ -54,14 +54,15 @@ button { color: inherit; }
 
 .duel-app {
   --panel-gap: 14px;
+  --nav-rail-width: 70px;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 70px 355px minmax(520px, 1fr) 395px;
+  grid-template-columns: var(--nav-rail-width) 355px minmax(520px, 1fr) 395px;
   gap: var(--panel-gap);
   padding: 24px 24px 24px 12px;
   transition: grid-template-columns .28s ease;
 }
-.duel-app.settings-collapsed { grid-template-columns: 70px 70px minmax(0, 1fr) minmax(0, 1fr); }
+.duel-app.settings-collapsed { grid-template-columns: var(--nav-rail-width) 70px minmax(0, 1fr) minmax(0, 1fr); }
 .duel-app > .nav-rail, .duel-app > .settings-panel, .duel-app > .conversation-panel, .duel-app > .opponent-panel, .panel-resize-handle { grid-row: 1; }
 .duel-app > .nav-rail { grid-column: 1; }
 .duel-app > .settings-panel { grid-column: 2; }
@@ -109,8 +110,8 @@ button { color: inherit; }
 @media (min-width: 1361px) {
   .panel-resize-handle { display: block; }
   .settings-collapsed .settings-resize-handle { display: none; }
-  .duel-app.panels-resized { grid-template-columns: 70px var(--settings-panel-width) minmax(520px, 1fr) var(--opponent-panel-width); }
-  .duel-app.settings-collapsed.panels-resized { grid-template-columns: 70px 70px minmax(520px, 1fr) var(--opponent-panel-width); }
+  .duel-app.panels-resized { grid-template-columns: var(--nav-rail-width) var(--settings-panel-width) minmax(520px, 1fr) var(--opponent-panel-width); }
+  .duel-app.settings-collapsed.panels-resized { grid-template-columns: var(--nav-rail-width) 70px minmax(520px, 1fr) var(--opponent-panel-width); }
 }
 
 .neon-panel {
@@ -131,21 +132,42 @@ button { color: inherit; }
   border: 1px solid #102f52;
   border-radius: 16px;
   background: rgba(3, 15, 31, .92);
+  transition: padding .24s ease;
 }
 .rail-logo {
   width: 48px;
   height: 48px;
   flex: 0 0 48px;
   position: relative;
-  overflow: hidden;
   margin: 0 0 8px;
+  padding: 0;
   border: 1px solid #173e66;
   border-radius: 10px;
   background: #111039;
   box-shadow: inset 0 1px 0 rgba(91, 166, 238, .08), 0 5px 14px rgba(0, 0, 0, .2);
+  cursor: pointer;
+  transition: width .24s ease, border-color .16s ease, box-shadow .16s ease;
 }
-.rail-logo img { object-fit: cover; }
+.rail-logo img { border-radius: 9px; object-fit: cover; }
 .rail-logo:hover { border-color: #1686eb; box-shadow: inset 0 0 0 1px rgba(8, 122, 240, .35), 0 0 18px rgba(0, 126, 255, .18); }
+.rail-logo:focus-visible { outline: 2px solid #45adff; outline-offset: 3px; }
+.rail-logo:disabled { cursor: default; }
+.rail-logo-mark { display: block; width: 100%; height: 100%; }
+.rail-toggle-indicator {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  border: 1px solid #2b8fdc;
+  border-radius: 50%;
+  color: #dff3ff;
+  background: #08294a;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, .45), 0 0 10px rgba(32, 180, 255, .25);
+}
+.rail-toggle-indicator svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .24s ease; }
 .rail-button {
   width: 48px;
   height: 48px;
@@ -159,6 +181,7 @@ button { color: inherit; }
   font-size: 24px;
   text-decoration: none;
   cursor: pointer;
+  transition: width .24s ease, padding .24s ease, border-color .16s ease, color .16s ease, background .16s ease, box-shadow .16s ease;
 }
 .rail-button:hover:not(:disabled) { border-color: #1686eb; color: white; background: linear-gradient(145deg, #0c3d70, #071f3e); box-shadow: inset 0 0 0 1px rgba(8, 122, 240, .35), 0 0 18px rgba(0, 126, 255, .18); }
 .admin-rail-link { color: #4fb3ff; }
@@ -172,8 +195,23 @@ button { color: inherit; }
 .rail-button:disabled { opacity: .68; cursor: not-allowed; }
 .rail-button svg { width: 25px; height: 25px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .rail-button svg path[d^="M5 19"] { fill: currentColor; stroke: none; }
+.rail-label { display: none; overflow: hidden; font-size: 13px; font-weight: 700; line-height: 1.2; text-align: left; white-space: nowrap; }
 .rail-logout-form { margin: 0; }
 .rail-admin-spacer { min-height: 66px; flex: 1 1 66px; }
+
+@media (min-width: 821px) {
+  .duel-app:has(> .nav-rail.is-expanded) { --nav-rail-width: 232px; }
+  .admin-shell:has(> .nav-rail.is-expanded) { --nav-rail-width: 244px; }
+  .nav-rail.is-expanded { align-items: stretch; gap: 12px; padding-inline: 10px; }
+  .nav-rail.is-expanded .rail-logo { width: 100%; display: flex; align-items: center; justify-content: flex-start; padding-right: 38px; }
+  .nav-rail.is-expanded .rail-logo-mark { width: 46px; height: 46px; flex: 0 0 46px; }
+  .nav-rail.is-expanded .rail-toggle-indicator { right: 12px; bottom: 50%; transform: translateY(50%); }
+  .nav-rail.is-expanded .rail-toggle-indicator svg { transform: rotate(180deg); }
+  .nav-rail.is-expanded .rail-button { width: 100%; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 11px; padding: 0 12px; place-items: center start; }
+  .nav-rail.is-expanded .rail-button > svg { justify-self: center; }
+  .nav-rail.is-expanded .rail-label { display: block; }
+  .nav-rail.is-expanded .rail-logout-form { width: 100%; }
+}
 
 .settings-panel { max-height: calc(100vh - 48px); padding: 22px 18px 18px; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #17568d transparent; }
 .settings-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 20px; border-bottom: 1px solid rgba(34, 82, 127, .4); }
@@ -529,8 +567,8 @@ button { color: inherit; }
 .duel-mode .canonical-role h4 { margin-top: 7px; }
 
 @media (max-width: 1360px) {
-  .duel-app { --panel-gap: 10px; grid-template-columns: 58px 310px minmax(460px, 1fr) 330px; padding: 14px 14px 14px 8px; }
-  .duel-app.settings-collapsed { grid-template-columns: 58px 58px minmax(0, 1fr) minmax(0, 1fr); }
+  .duel-app { --panel-gap: 10px; --nav-rail-width: 58px; grid-template-columns: var(--nav-rail-width) 310px minmax(460px, 1fr) 330px; padding: 14px 14px 14px 8px; }
+  .duel-app.settings-collapsed { grid-template-columns: var(--nav-rail-width) 58px minmax(0, 1fr) minmax(0, 1fr); }
   .settings-panel { padding-inline: 14px; }
   .settings-panel.is-collapsed { min-height: calc(100vh - 28px); padding-inline: 0; }
   .opponent-profile { grid-template-columns: 50% 50%; }
@@ -540,18 +578,18 @@ button { color: inherit; }
 @media (min-width: 1200px) and (max-width: 1360px) {
   .panel-resize-handle { display: block; }
   .settings-collapsed .settings-resize-handle { display: none; }
-  .duel-app.panels-resized { grid-template-columns: 58px var(--settings-panel-width) minmax(460px, 1fr) var(--opponent-panel-width); }
-  .duel-app.settings-collapsed.panels-resized { grid-template-columns: 58px 58px minmax(460px, 1fr) var(--opponent-panel-width); }
+  .duel-app.panels-resized { grid-template-columns: var(--nav-rail-width) var(--settings-panel-width) minmax(460px, 1fr) var(--opponent-panel-width); }
+  .duel-app.settings-collapsed.panels-resized { grid-template-columns: var(--nav-rail-width) 58px minmax(460px, 1fr) var(--opponent-panel-width); }
 }
 
 @media (max-width: 1120px) {
-  .duel-app { grid-template-columns: 58px 290px 1fr; }
+  .duel-app { grid-template-columns: var(--nav-rail-width) 290px 1fr; }
   .duel-app > .nav-rail, .duel-app > .settings-panel, .duel-app > .conversation-panel, .duel-app > .opponent-panel { grid-column: auto; grid-row: auto; }
   .opponent-panel { grid-column: 2 / -1; min-height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .opponent-panel > h2 { grid-column: 1 / -1; }
   .opponent-panel .case-title { display: none; }
   .conversation-panel { min-height: 0; }
-  .duel-app.duel-mode.settings-collapsed { grid-template-columns: 58px 58px minmax(0, 1fr) minmax(0, 1fr); }
+  .duel-app.duel-mode.settings-collapsed { grid-template-columns: var(--nav-rail-width) 58px minmax(0, 1fr) minmax(0, 1fr); }
   .duel-app.duel-mode.settings-collapsed .opponent-panel { grid-column: auto; min-height: calc(100vh - 28px); display: flex; grid-template-columns: none; gap: 0; }
   .duel-app.duel-mode.settings-collapsed .opponent-panel > h2 { grid-column: auto; }
   .duel-app.duel-mode.settings-collapsed .opponent-panel .case-title { display: block; }
@@ -561,6 +599,8 @@ button { color: inherit; }
   .duel-app { display: block; padding: 10px; }
   .nav-rail { min-height: 58px; height: 58px; flex-direction: row; gap: 10px; padding: 4px 8px; margin-bottom: 10px; overflow-x: auto; }
   .rail-logo { width: 42px; height: 42px; flex-basis: 42px; margin: 0 8px 0 0; }
+  .rail-logo { pointer-events: none; }
+  .rail-toggle-indicator, .rail-label { display: none; }
   .rail-button { width: 42px; height: 42px; }
   .rail-admin-spacer { min-width: 8px; min-height: 0; }
   .settings-panel, .conversation-panel, .opponent-panel { margin-bottom: 10px; }
@@ -873,7 +913,7 @@ button { color: inherit; }
 .admin-login-card button { height: 49px; margin-top: 6px; border: 1px solid #269cff; border-radius: 8px; background: linear-gradient(135deg, #0867dc, #054196); font-size: 12px; font-weight: 800; cursor: pointer; }
 .admin-login-error { color: #ff8e86; font-size: 12px; }
 
-.admin-shell { min-height: 100vh; display: grid; grid-template-columns: 82px minmax(0, 1fr); background: radial-gradient(circle at 65% 15%, rgba(0, 105, 225, .1), transparent 30%); }
+.admin-shell { --nav-rail-width: 82px; min-height: 100vh; display: grid; grid-template-columns: var(--nav-rail-width) minmax(0, 1fr); background: radial-gradient(circle at 65% 15%, rgba(0, 105, 225, .1), transparent 30%); }
 .admin-shell > .nav-rail { height: calc(100vh - 48px); min-height: 540px; position: sticky; top: 24px; margin: 24px 0 24px 12px; }
 .admin-sidebar { min-height: 100vh; display: flex; flex-direction: column; position: sticky; top: 0; padding: 22px 14px; border-right: 1px solid #123457; background: rgba(3, 14, 29, .96); }
 .admin-logo { display: flex; align-items: center; gap: 10px; padding: 0 7px 24px; color: white; text-decoration: none; }
@@ -1142,7 +1182,7 @@ button { color: inherit; }
 .platform-test-anomalies blockquote { margin: 8px 0 0; padding: 8px 10px; border-left: 2px solid #7b5c37; color: #c7b899; background: rgba(0, 0, 0, .16); font-size: 12px; }
 
 @media (max-width: 980px) {
-  .admin-shell { grid-template-columns: 72px minmax(0, 1fr); }
+  .admin-shell { --nav-rail-width: 72px; grid-template-columns: var(--nav-rail-width) minmax(0, 1fr); }
   .admin-logo span, .admin-sidebar nav span, .admin-sidebar form span { display: none; }
   .admin-sidebar nav a, .admin-sidebar form button { justify-content: center; font-size: 18px; }
   .admin-main { padding-inline: 18px; }
