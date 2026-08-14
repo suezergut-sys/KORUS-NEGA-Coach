@@ -4,6 +4,7 @@ import { buildRealtimeInstructions, type SessionInput } from "../src/lib/prompt"
 const baseInput: Omit<SessionInput, "negotiationStyle"> = {
   role: "Алексей Воронцов, руководитель",
   context: "Обсуждение сроков проекта.",
+  addressForm: "formal",
 };
 
 describe("стили Realtime-переговоров", () => {
@@ -12,6 +13,17 @@ describe("стили Realtime-переговоров", () => {
     expect(prompt).toContain("полностью русскоязычный тренажёр переговоров");
     expect(prompt).toContain("Первая реплика оппонента обязательно должна быть на русском языке");
     expect(prompt).toContain("Не спрашивай, о чём пользователь хочет поговорить");
+  });
+
+  it("с первой реплики поддерживает заданную форму обращения", () => {
+    const informal = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative", addressForm: "informal" });
+    expect(informal).toContain("ФОРМА ОБРАЩЕНИЯ: НА «ТЫ»");
+    expect(informal).toContain("С первой реплики и до конца разговора");
+    expect(informal).toContain("Не переходи на «вы»");
+
+    const formal = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative", addressForm: "formal" });
+    expect(formal).toContain("ФОРМА ОБРАЩЕНИЯ: НА «ВЫ»");
+    expect(formal).toContain("Не переходи на «ты»");
   });
 
   it("даёт жёсткому оппоненту напор и ограничивает перебивания", () => {

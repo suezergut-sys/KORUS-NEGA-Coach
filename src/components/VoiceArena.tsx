@@ -960,7 +960,7 @@ export default function VoiceArena({
                 opponentAudible: opponentWasAudible,
               });
             }
-            const directiveSent = requestOpponentResponse(buildOpponentEmotionInstructions(emotionUpdate.state, emotionUpdate.triggers));
+            const directiveSent = requestOpponentResponse(buildOpponentEmotionInstructions(emotionUpdate.state, emotionUpdate.triggers, selectedCase.addressForm));
             reportRealtimeDiagnostic("emotion_shift", {
               previousTone,
               tone: emotionUpdate.state.tone,
@@ -1092,7 +1092,7 @@ export default function VoiceArena({
     } catch {
       // Диагностические сообщения вне JSON не влияют на голосовую сессию.
     }
-  }, [appendDelta, applyOpponentPlaybackEvent, clearIncompleteTurnTimer, clearInterruptionConfirmationTimer, linesRef, negotiationStyle, replaceLine, reportRealtimeDiagnostic, requestOpponentResponse, scheduleResponseRecovery, setLines, voiceEvalMode, waitForUserTurnContinuation]);
+  }, [appendDelta, applyOpponentPlaybackEvent, clearIncompleteTurnTimer, clearInterruptionConfirmationTimer, linesRef, negotiationStyle, replaceLine, reportRealtimeDiagnostic, requestOpponentResponse, scheduleResponseRecovery, selectedCase.addressForm, setLines, voiceEvalMode, waitForUserTurnContinuation]);
 
   useEffect(() => {
     if (!isLive || isPaused || isEnding) return;
@@ -1368,7 +1368,7 @@ export default function VoiceArena({
         setLines(readyLines);
         requestRealtimeResponse(
           channel,
-          `${FIRST_OPPONENT_TURN_INSTRUCTIONS}\n\n${buildOpponentEmotionInstructions(opponentEmotionRef.current)}`,
+          `${FIRST_OPPONENT_TURN_INSTRUCTIONS}\n\n${buildOpponentEmotionInstructions(opponentEmotionRef.current, [], selectedCase.addressForm)}`,
         );
       });
       channel.addEventListener("close", () => {
@@ -1858,6 +1858,7 @@ export default function VoiceArena({
           <CaseBlock icon="◇" title="КРАТКОЕ ОПИСАНИЕ">{selectedCase.summary}</CaseBlock>
           <CaseBlock icon="▤" title="КОНТЕКСТ">{selectedCase.situation}</CaseBlock>
           <CaseBlock icon="⚔" title="КОНФЛИКТ">{selectedCase.conflict}</CaseBlock>
+          <CaseBlock icon="◉" title="ОБРАЩЕНИЕ">{selectedCase.addressForm === "informal" ? "Участники общаются на «ты»." : "Участники общаются на «вы»."}</CaseBlock>
           {allRoles.map((role, index) => <RoleCaseBlock key={role.name} title={`РОЛЬ ${index + 1}`} role={role} selected={selectedRoleIndex === index} />)}
           <CaseNegotiationPairs roles={allRoles} pairs={selectedCase.negotiationPairs} />
         </section>
@@ -1901,6 +1902,7 @@ export default function VoiceArena({
               <p className="case-content-summary">{selectedCase.summary}</p>
               <CaseBlock icon="▤" title="СИТУАЦИЯ">{selectedCase.situation}</CaseBlock>
               <CaseBlock icon="⚔" title="ЦЕНТРАЛЬНЫЙ КОНФЛИКТ">{selectedCase.conflict}</CaseBlock>
+              <CaseBlock icon="◉" title="ОБРАЩЕНИЕ">{selectedCase.addressForm === "informal" ? "Участники общаются на «ты»." : "Участники общаются на «вы»."}</CaseBlock>
               <div className="case-content-roles">
                 {allRoles.map((role, index) => <RoleCaseBlock key={role.name} title={`РОЛЬ ${index + 1}`} role={role} selected={selectedRoleIndex === index} />)}
               </div>

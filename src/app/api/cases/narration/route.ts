@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       `Начальная ситуация. ${negotiationCase.startSituation}`,
       `Ваша выбранная роль: ${participantRole.name}. Искусственный интеллект играет роль: ${opponentRole.name}.`,
       `Предмет переговоров этой пары: ${negotiationReason}.`,
+      `Принятая форма обращения между участниками: ${negotiationCase.addressForm === "informal" ? "на ты" : "на вы"}.`,
     ].join("\n\n").slice(0, 9000);
     const panelIndex = typeof body.panelIndex === "number" ? body.panelIndex : -1;
     const comicPanel = getCaseComic(negotiationCase)[panelIndex];

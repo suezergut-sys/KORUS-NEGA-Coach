@@ -18,6 +18,7 @@ function variant(names: string[]): GeneratedCaseVariant {
     summary: "Два руководителя согласуют решение.",
     situation: "Рабочая ситуация.",
     conflict: "Несовместимые позиции.",
+    addressForm: "formal",
     userRole: role(names[0], "female"),
     opponentRole: role(names[1], "male"),
     additionalRoles: [],

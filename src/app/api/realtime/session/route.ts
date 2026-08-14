@@ -46,6 +46,7 @@ export async function createRealtimeSession(request: Request, options: { adminCa
   const instructions = buildRealtimeInstructions({
     role: `${opponentRole.name}, ${opponentRole.position}`,
     negotiationStyle,
+    addressForm: negotiationCase.addressForm,
     context: negotiationCase.situation,
     conflict: `${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}`,
     startSituation: negotiationCase.startSituation,

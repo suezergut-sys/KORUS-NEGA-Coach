@@ -18,6 +18,7 @@ function validCase() {
     summary: "Краткое описание",
     situation: "Описание ситуации",
     conflict: "Несовместимые интересы",
+    addressForm: "informal",
     startSituation: "Оппонент отрицает проблему",
     difficultyReason: "Высокие ставки",
     status: "published",
@@ -39,6 +40,7 @@ describe("parseAdminCaseInput", () => {
     expect(result.title).toBe("Сложный проект");
     expect(result.userRole.name).toBe("Ирина Соколова");
     expect(result.createdBy).toContain("user@example.com");
+    expect(result.addressForm).toBe("informal");
   });
 
   it("rejects duplicate role names", () => {
