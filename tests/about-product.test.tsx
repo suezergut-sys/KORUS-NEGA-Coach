@@ -27,6 +27,7 @@ describe("about product page", () => {
     expect(markup).toContain("Релиз под давлением");
     expect(markup).toContain("постепенно меняет доверие, напряжение и эмоциональную окраску голоса");
     expect(markup).toContain("Весь поединок проходит строго на русском языке");
+    expect(markup).toContain("готовый отчёт можно заново сформировать по другой методологии");
     expect(markup).toContain("Оппонент всегда начинает по-русски");
     expect(markup).toContain("Заметная реакция на перебивания");
     expect(markup).toContain("Надёжное различение речи и шума");

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ReportMethodologySwitcher from "@/components/ReportMethodologySwitcher";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import { getMethodology, type MethodologyId } from "@/lib/methodologies";
 import type { SpeechAnalytics } from "@/lib/speech-analytics";
@@ -8,11 +9,15 @@ export default function NegotiationReport({
   methodologyId,
   opponentName,
   speechAnalytics,
+  sessionId,
+  onReanalyzed,
 }: {
   analysis: NegotiationAnalysis;
   methodologyId: MethodologyId;
   opponentName: string;
   speechAnalytics?: SpeechAnalytics | null;
+  sessionId?: string;
+  onReanalyzed?: (analysis: NegotiationAnalysis, methodologyId: MethodologyId) => void;
 }) {
   const methodology = getMethodology(methodologyId);
   const confidence = Number(analysis.outcome.confidence);
@@ -119,6 +124,7 @@ export default function NegotiationReport({
 
       <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span><Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link></footer>
+      {sessionId && <ReportMethodologySwitcher sessionId={sessionId} methodologyId={methodologyId} onGenerated={onReanalyzed} />}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminMethodologyOptions, DEFAULT_METHODOLOGY_ID, getAdminMethodology, getMethodology, methodologyOptions } from "../src/lib/methodologies";
+import { adminMethodologyOptions, DEFAULT_METHODOLOGY_ID, getAdminMethodology, getMethodology, isMethodologyId, methodologyOptions } from "../src/lib/methodologies";
 
 describe("methodology registry", () => {
   it("contains all three product methodologies", () => {
@@ -20,6 +20,14 @@ describe("methodology registry", () => {
       releaseVersion: "conflicts-v1",
       visibility: "public",
     });
+  });
+
+  it("validates only public methodology identifiers", () => {
+    expect(isMethodologyId("tarasov")).toBe(true);
+    expect(isMethodologyId("harvard")).toBe(true);
+    expect(isMethodologyId("conflicts")).toBe(true);
+    expect(isMethodologyId("unknown")).toBe(false);
+    expect(isMethodologyId(null)).toBe(false);
   });
 
   it("falls back to Tarasov for missing or manipulated input", () => {

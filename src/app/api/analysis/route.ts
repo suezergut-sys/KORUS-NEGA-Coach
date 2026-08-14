@@ -6,7 +6,7 @@ import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { formatAnalysisTranscript, hasEnoughUserTurnsForAnalysis, INSUFFICIENT_ANALYSIS_MESSAGE, type TranscriptTurn } from "@/lib/transcript";
 import { isRetryableModelError, parseStructuredOutput } from "@/lib/structured-output";
-import { getMethodology } from "@/lib/methodologies";
+import { getMethodology, isMethodologyId, type MethodologyId } from "@/lib/methodologies";
 import { getMethodologySource, retrieveMethodologyChunks } from "@/lib/methodology-server";
 
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ const MODEL_ATTEMPTS = 2;
 const MODEL_ATTEMPT_TIMEOUT_MS = 120_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type AnalysisRequest = { sessionId?: unknown };
+type AnalysisRequest = { sessionId?: unknown; methodologyId?: unknown };
 type RetrievedChunk = { id: number; source_id: string; section_path: string; content: string; similarity: number };
 type SessionRow = {
   id: string;
@@ -70,13 +70,12 @@ function selectedRolesByName(
   return selectCaseRoles(negotiationCase, participantIndex, opponentIndex);
 }
 
-async function readExistingAnalysis(sessionId: string, userId: string) {
+async function readStoredAnalysis(sessionId: string, userId: string) {
   const db = getSupabaseAdmin();
   const { data: session } = await db.from("training_sessions").select("id").eq("id", sessionId).eq("user_id", userId).maybeSingle();
   if (!session) return null;
   const { data } = await db.from("evaluations").select("result").eq("session_id", sessionId).maybeSingle();
   if (!data?.result) return null;
-  await db.from("training_sessions").update({ status: "analyzed", analysis_error: null }).eq("id", sessionId);
   return data.result as NegotiationAnalysis;
 }
 
@@ -97,14 +96,15 @@ export async function POST(request: Request) {
   let stage = "request";
   let modelAttempts = 0;
   let sessionId = "";
+  let hadStoredAnalysis = false;
 
   try {
     const body = (await request.json()) as AnalysisRequest;
     sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     if (!UUID.test(sessionId)) return Response.json({ error: "Некорректная сессия." }, { status: 400 });
-
-    const existing = await readExistingAnalysis(sessionId, userSession.userId);
-    if (existing) return Response.json({ sessionId, analysis: existing, diagnosticId, reused: true });
+    if (body.methodologyId !== undefined && !isMethodologyId(body.methodologyId)) {
+      return Response.json({ error: "Некорректная методология." }, { status: 400 });
+    }
 
     const db = getSupabaseAdmin();
     const { data: session, error: sessionError } = await db
@@ -115,8 +115,28 @@ export async function POST(request: Request) {
       .maybeSingle<SessionRow>();
     if (sessionError) throw new Error(`Сессия: ${sessionError.message}`);
     if (!session) return Response.json({ error: "Сессия не найдена." }, { status: 404 });
+    const methodologyId = (body.methodologyId || session.methodology_id) as MethodologyId;
+    if (!isMethodologyId(methodologyId)) return Response.json({ error: "Некорректная методология сессии." }, { status: 400 });
+    const existing = await readStoredAnalysis(sessionId, userSession.userId);
+    hadStoredAnalysis = Boolean(existing);
+    if (existing && methodologyId === session.methodology_id) {
+      await db.from("training_sessions").update({ status: "analyzed", analysis_error: null }).eq("id", sessionId).eq("user_id", userSession.userId);
+      return Response.json({ sessionId, analysis: existing, diagnosticId, reused: true });
+    }
     if (session.status === "live") {
       return Response.json({ error: "Сначала сохраните стенограмму завершённого поединка." }, { status: 409 });
+    }
+    if (hadStoredAnalysis && (session.status === "analyzed" || session.status === "analysis_failed")) {
+      const { data: queued, error: queueError } = await db
+        .from("training_sessions")
+        .update({ status: "analysis_pending", analysis_error: null })
+        .eq("id", sessionId)
+        .eq("user_id", userSession.userId)
+        .eq("status", session.status)
+        .select("id")
+        .maybeSingle();
+      if (queueError) throw new Error(`Подготовка повторного анализа: ${queueError.message}`);
+      if (!queued) return Response.json({ error: "Для этой сессии уже формируется новый отчёт." }, { status: 409 });
     }
     stage = "lock";
     const { data: locked, error: lockError } = await db.rpc("claim_training_analysis", {
@@ -147,7 +167,7 @@ export async function POST(request: Request) {
     const caseGoal = selected.participantRole.publicGoal;
     const caseConstraints = selected.participantRole.constraints.slice(0, 10);
     const transcript = formatAnalysisTranscript(turns);
-    const methodology = getMethodology(session.methodology_id);
+    const methodology = getMethodology(methodologyId);
 
     const openai = getOpenAI();
     const methodSource = await getMethodologySource(db, methodology);
@@ -270,7 +290,7 @@ ${sources}
     stage = "persistence";
     const { data: evaluation, error: evaluationError } = await db
       .from("evaluations")
-      .insert({
+      .upsert({
         session_id: sessionId,
         analysis_model: ANALYSIS_MODEL,
         methodology_version: methodologyVersion,
@@ -278,14 +298,16 @@ ${sources}
         overall_score: analysis.overallScore,
         summary: analysis.summary,
         result: analysis,
-      })
+        created_at: new Date().toISOString(),
+      }, { onConflict: "session_id" })
       .select("id")
       .single();
     if (evaluationError) {
-      const raced = await readExistingAnalysis(sessionId, userSession.userId);
-      if (raced) return Response.json({ sessionId, analysis: raced, diagnosticId, reused: true });
       throw new Error(`Оценка: ${evaluationError.message}`);
     }
+
+    const { error: staleEvidenceError } = await db.from("evaluation_evidence").delete().eq("evaluation_id", evaluation.id);
+    if (staleEvidenceError) throw new Error(`Замена доказательств: ${staleEvidenceError.message}`);
 
     if (analysis.evidence.length) {
       const { error: evidenceError } = await db.from("evaluation_evidence").insert(analysis.evidence.map((item) => {
@@ -319,6 +341,7 @@ ${sources}
 
     await db.from("training_sessions").update({
       status: "analyzed",
+      methodology_id: methodologyId,
       methodology_version: methodologyVersion,
       analysis_error: null,
     }).eq("id", sessionId).eq("user_id", userSession.userId);
@@ -328,7 +351,7 @@ ${sources}
   } catch (error) {
     if (sessionId && UUID.test(sessionId)) {
       await getSupabaseAdmin().from("training_sessions").update({
-        status: "analysis_failed",
+        status: hadStoredAnalysis ? "analyzed" : "analysis_failed",
         analysis_error: errorDetails(error).message,
       }).eq("id", sessionId).eq("user_id", userSession.userId);
     }

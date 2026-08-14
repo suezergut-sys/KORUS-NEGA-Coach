@@ -108,6 +108,14 @@ export function useNegotiationReport(options: {
     await analyze(completedRef.current);
   }, [analyze, status]);
 
+  const applyReanalysis = useCallback((nextAnalysis: NegotiationAnalysis, nextMethodologyId: MethodologyId) => {
+    setAnalysis(nextAnalysis);
+    setAnalysisMethodologyId(nextMethodologyId);
+    setStatus("ready");
+    setError("");
+    setCanRetry(false);
+  }, []);
+
   return {
     status,
     analysis,
@@ -120,6 +128,7 @@ export function useNegotiationReport(options: {
     completedRef,
     analyze,
     retry,
+    applyReanalysis,
     reset,
   };
 }
