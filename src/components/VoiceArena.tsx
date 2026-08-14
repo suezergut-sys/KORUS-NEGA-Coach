@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import AppNavRail from "@/components/AppNavRail";
+import CaseAddedNotice from "@/components/CaseAddedNotice";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { CanonicalCase } from "@/lib/case-types";
 import { opponentPortraitForRole } from "@/lib/opponent-portrait";
@@ -12,6 +13,7 @@ import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import type { CaseVisibility } from "@/lib/case-visibility";
+import { consumeCaseAddedNotice } from "@/lib/case-approval-navigation";
 import { realtimeResponseStatus, shouldMonitorRealtimeResponseStall, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
 import { DEFAULT_METHODOLOGY_ID, getMethodology, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
 import NegotiationReport from "@/components/NegotiationReport";
@@ -149,12 +151,19 @@ export default function VoiceArena({
   const [caseContentOpen, setCaseContentOpen] = useState(false);
   const [panelWidths, setPanelWidths] = useState<PanelWidths | null>(null);
   const [resizingPanel, setResizingPanel] = useState<ResizablePanel | null>(null);
+  const [caseAddedNotice, setCaseAddedNotice] = useState(false);
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (url.searchParams.get("quickUpload") !== "1") return;
-    const timer = window.setTimeout(() => setQuickUploadOpen(true), 0);
-    url.searchParams.delete("quickUpload");
+    const notice = consumeCaseAddedNotice(url);
+    const quickUploadRequested = url.searchParams.get("quickUpload") === "1";
+    if (!notice.shouldShow && !quickUploadRequested) return;
+
+    if (quickUploadRequested) url.searchParams.delete("quickUpload");
+    const timer = window.setTimeout(() => {
+      if (notice.shouldShow) setCaseAddedNotice(true);
+      if (quickUploadRequested) setQuickUploadOpen(true);
+    }, 0);
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     return () => window.clearTimeout(timer);
   }, []);
@@ -1601,6 +1610,7 @@ export default function VoiceArena({
       style={panelWidthStyle}
     >
       <AppNavRail isAdministrator={isAdministrator} />
+      {caseAddedNotice && <CaseAddedNotice onDismiss={() => setCaseAddedNotice(false)} />}
 
       <aside ref={settingsPanelRef} className={`settings-panel neon-panel ${isSettingsCollapsed ? "is-collapsed" : ""}`}>
         {isSettingsCollapsed ? (
