@@ -31,8 +31,10 @@ describe("case variant revision", () => {
   });
 
   it("uses a strict one-variant schema for the corrected version", () => {
-    const schema = createCaseVariantsSchema(["atom-1"], 1);
+    const schema = createCaseVariantsSchema(["atom-1"], 1, 3);
     expect(schema.properties.variants.minItems).toBe(1);
     expect(schema.properties.variants.maxItems).toBe(1);
+    expect(schema.properties.variants.items.properties.additionalRoles.minItems).toBe(1);
+    expect(schema.properties.variants.items.properties.additionalRoles.maxItems).toBe(1);
   });
 });

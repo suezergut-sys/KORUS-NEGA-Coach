@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import AppBrandMark from "../src/components/AppBrandMark";
 import AppSectionIcon, { APP_SECTION_ICON_NAMES } from "../src/components/AppSectionIcon";
-import CaseBuilder from "../src/components/CaseBuilder";
+import CaseBuilder, { CaseVariantRoles } from "../src/components/CaseBuilder";
+import { DEFAULT_CASE } from "../src/lib/default-case";
 
 describe("shared application visuals", () => {
   it("renders the canonical KORUS logo source", () => {
@@ -37,5 +38,26 @@ describe("shared application visuals", () => {
     expect(markup).toContain("ГОЛОСОВОЙ ВВОД");
     expect(markup).toContain("builder-notes-mic");
     expect(markup).toContain("уточнять текстом или голосом до одобрения");
+    expect(markup).toContain("КОЛИЧЕСТВО РОЛЕЙ");
+    expect(markup).toContain("3 роли");
+  });
+
+  it("shows the context of all three generated roles without hidden motives", () => {
+    const thirdRole = {
+      ...DEFAULT_CASE.opponentRole,
+      name: "Мария Орлова",
+      position: "Руководитель службы качества",
+      publicGoal: "Защитить критерии качества",
+      interests: ["Не допустить рискованного запуска"],
+      constraints: ["Нельзя снизить обязательные проверки"],
+      hiddenMotives: ["Скрытый тестовый мотив"],
+    };
+    const markup = renderToStaticMarkup(<CaseVariantRoles roles={[DEFAULT_CASE.userRole, DEFAULT_CASE.opponentRole, thirdRole]} />);
+    expect(markup).toContain("РОЛЬ 3");
+    expect(markup).toContain("Мария Орлова");
+    expect(markup).toContain("Защитить критерии качества");
+    expect(markup).toContain("Не допустить рискованного запуска");
+    expect(markup).toContain("Нельзя снизить обязательные проверки");
+    expect(markup).not.toContain("Скрытый тестовый мотив");
   });
 });

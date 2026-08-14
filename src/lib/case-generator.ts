@@ -4,13 +4,14 @@ import { ANALYSIS_MODEL, getOpenAI } from "@/lib/openai-server";
 import { assertDiverseCaseCharacterNames, blockedCaseCharacterNames, recentCaseCharacterNames } from "@/lib/case-name-diversity";
 import { createCaseVariantsSchema, type GeneratedCaseVariant } from "@/lib/case-types";
 import { buildCaseRevisionInput } from "@/lib/case-revision";
+import { detectRequestedCaseRoleCount, type CaseRoleCount } from "@/lib/case-role-count";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getMethodology } from "@/lib/methodologies";
 import { getMethodologySource } from "@/lib/methodology-server";
 
 type Material = { fileName: string; text: string };
 
-export async function generateCaseVariants(input: { title: string; notes: string; materials: Material[] }) {
+export async function generateCaseVariants(input: { title: string; notes: string; materials: Material[]; roleCount?: CaseRoleCount }) {
   const supabase = getSupabaseAdmin();
   const source = await getMethodologySource(supabase, getMethodology("tarasov"));
   const { data: atoms, error } = await supabase
@@ -32,6 +33,7 @@ export async function generateCaseVariants(input: { title: string; notes: string
     .join("\n\n")
     .slice(0, 52000);
   const sourceText = `${input.title}\n${input.notes}\n${sourceMaterials}`;
+  const requestedRoleCount = input.roleCount || detectRequestedCaseRoleCount(sourceText);
   const { data: recentCases } = await supabase
     .from("negotiation_cases")
     .select("user_role,opponent_role,additional_roles")
@@ -53,7 +55,7 @@ export async function generateCaseVariants(input: { title: string; notes: string
 ПОЛНЫЕ ИМЕНА: ${blockedNames.fullNames.join(", ") || "нет"}.
 ПЕРВЫЕ ИМЕНА: ${blockedNames.firstNames.join(", ") || "нет"}.
 1.2. Для каждой стороны обязательно заполни voiceGender значением female или male в соответствии с персонажем. Это поле управляет голосом ИИ и не заменяет имя или должность.
-1.3. В кейсе может быть от двух до четырёх ролей. Две основные роли запиши в userRole и opponentRole, третью и четвёртую — в additionalRoles. Если дополнительные участники не нужны по материалам, верни пустой массив additionalRoles. Все роли должны иметь самостоятельные интересы и быть пригодны для выбора пользователем.
+1.3. В кейсе может быть от двух до четырёх ролей. Две основные роли запиши в userRole и opponentRole, третью и четвёртую — в additionalRoles. Все роли должны иметь самостоятельные цели, интересы, ограничения, скрытые мотивы и рычаги, учитывать общий контекст ситуации и быть пригодны для выбора пользователем.${requestedRoleCount ? ` Пользователь запросил ровно ${requestedRoleCount} роли: верни ровно ${requestedRoleCount}, то есть ${requestedRoleCount - 2} в additionalRoles.` : " Если точное число ролей не задано материалами, выбирай только действительно необходимые роли."}
 1.4. В кратком описании summary называй участников в строгом соответствии с их должностями из position. Не заменяй конкретную должность другим статусом или профессией и не описывай отсутствующую роль как сторону переговоров.
 2. Не разрешаться очевидным компромиссом или решением, которое сразу полностью устраивает обе стороны.
 3. Содержать реальную цену выбора: дефицит ресурса, ответственность, власть, репутацию, прецедент, сроки или конкурирующие обязательства.
@@ -84,7 +86,7 @@ ${methodology || "Подходящих атомов пока нет; сформ�
         type: "json_schema",
         name: "tarasov_case_variants",
         strict: true,
-        schema: createCaseVariantsSchema(atomIds),
+        schema: createCaseVariantsSchema(atomIds, 2, requestedRoleCount),
       },
     },
   });
@@ -97,13 +99,15 @@ ${methodology || "Подходящих атомов пока нет; сформ�
 
 export async function reviseCaseVariant(variant: GeneratedCaseVariant, instructions: string) {
   const atomIds = [...new Set(variant.methodologyBasis.map((item) => item.atomId).filter(Boolean))];
+  const currentRoleCount = (2 + variant.additionalRoles.length) as CaseRoleCount;
+  const requestedRoleCount = detectRequestedCaseRoleCount(instructions) || currentRoleCount;
   const response = await getOpenAI().responses.create({
     model: ANALYSIS_MODEL,
     reasoning: { effort: "low" },
     instructions: `
 Ты аккуратно редактируешь один готовый русскоязычный учебный кейс управленческого поединка.
 
-Верни ровно один исправленный вариант. Выполни все корректировки пользователя, но сохрани без содержательных изменений всё, чего они не касаются. Не создавай альтернативный сценарий и не предлагай второй вариант. Не добавляй факты, которых нет в исходном варианте или корректировках.
+Верни ровно один исправленный вариант с ${requestedRoleCount} ролями. Выполни все корректировки пользователя, но сохрани без содержательных изменений всё, чего они не касаются. Не создавай альтернативный сценарий и не предлагай второй вариант. Не добавляй факты, которых нет в исходном варианте или корректировках.
 
 Сохрани каноническую структуру кейса. У каждой роли должны остаться полное личное имя минимум из имени и фамилии, отдельная должность position, пол voiceGender, цели, интересы, ограничения, скрытые мотивы и рычаги. Не раскрывай скрытые мотивы в summary, situation или публичных целях. Сохрани только существующие atomId в methodologyBasis. Пиши конкретно, без упоминания нейросети.
     `.trim(),
@@ -113,7 +117,7 @@ export async function reviseCaseVariant(variant: GeneratedCaseVariant, instructi
         type: "json_schema",
         name: "tarasov_case_revision",
         strict: true,
-        schema: createCaseVariantsSchema(atomIds, 1),
+        schema: createCaseVariantsSchema(atomIds, 1, requestedRoleCount),
       },
     },
   });

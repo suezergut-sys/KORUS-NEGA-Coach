@@ -3,6 +3,7 @@ import { generateCaseVariants } from "@/lib/case-generator";
 import { readBoundedFormData } from "@/lib/bounded-form-data";
 import { BUILDER_UPLOAD_REQUEST_BYTES, uploadErrorStatus } from "@/lib/case-upload-constraints";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import { parseCaseRoleCount } from "@/lib/case-role-count";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
     const workspaceId = String(form.get("workspaceId") || "").trim() || undefined;
     const title = String(form.get("title") || "Новый кейс").trim().slice(0, 160);
     const notes = String(form.get("notes") || "").trim().slice(0, 20000);
+    const roleCount = parseCaseRoleCount(form.get("roleCount"));
     const files = form.getAll("files").filter((item): item is File => item instanceof File && item.size > 0);
     const workspace = await createOrUpdateWorkspace({ workspaceId, title, notes, ownerUserId: session.userId });
     if (!workspaceId) createdWorkspaceId = workspace.id;
@@ -27,6 +29,7 @@ export async function POST(request: Request) {
     const variants = await generateCaseVariants({
       title,
       notes,
+      roleCount,
       materials: materials.map((item) => ({ fileName: item.file_name, text: item.extracted_text })),
     });
     await saveGeneratedVariants(workspace.id, variants, session.userId);
