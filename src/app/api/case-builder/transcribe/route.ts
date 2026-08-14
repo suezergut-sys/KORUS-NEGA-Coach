@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       file: audio,
       model: process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe",
       language: "ru",
-      prompt: "Описание управленческого переговорного кейса: участники, роли, история отношений, ограничения, спорные вопросы, риски и желаемые результаты.",
+      prompt: "Описание или корректировка управленческого переговорного кейса: название, участники, роли, интересы, ограничения, спорные вопросы, риски и желаемые результаты.",
     });
     const text = transcription.text.trim();
     if (!text) throw new Error("Не удалось распознать речь. Попробуйте записать описание ещё раз.");

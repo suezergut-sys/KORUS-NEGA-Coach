@@ -1361,6 +1361,7 @@ button { color: inherit; }
 .case-variants-section > header > small { max-width: 430px; color: #6d87a2; font-size: 12px; line-height: 1.5; text-align: right; }
 .case-variants-section > .case-visibility-picker { max-width: 720px; margin-bottom: 14px; padding: 14px; border: 1px solid #17446d; border-radius: 11px; background: rgba(5, 22, 42, .72); }
 .case-variant-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.case-variant-grid.single { grid-template-columns: minmax(0, 720px); }
 .case-variant-card { min-width: 0; padding: 20px; border: 1px solid #194a75; border-radius: 13px; background: linear-gradient(145deg, #082039, #061426); }
 .case-variant-card > header > span { color: #42acfb; font-size: 12px; font-weight: 800; letter-spacing: .1em; }
 .case-variant-card h3 { margin: 6px 0; font-size: 18px; }
@@ -1380,8 +1381,17 @@ button { color: inherit; }
 .case-variant-card summary { padding: 10px; color: #62b9f6; cursor: pointer; }
 .case-variant-card details > div { padding: 0 11px 11px; }
 .case-variant-card details p, .case-variant-card details li { color: #8ca2b7; line-height: 1.5; }
-.case-variant-card > button { width: 100%; min-height: 43px; border: 1px solid #168fff; border-radius: 8px; color: #e1f3ff; background: linear-gradient(135deg, #0767d0, #073975); font-size: 12px; font-weight: 800; cursor: pointer; }
-.case-variant-card > button:disabled { opacity: .55; cursor: default; }
+.variant-revision { display: grid; gap: 8px; margin: 14px 0; padding: 12px; border: 1px solid #245782; border-radius: 9px; background: rgba(8, 31, 53, .86); }
+.variant-revision > label { color: #7fbce9; font-size: 12px; font-weight: 800; letter-spacing: .07em; }
+.variant-revision > div { position: relative; }
+.variant-revision textarea { display: block; width: 100%; min-height: 110px; padding: 11px 11px 52px; resize: vertical; border: 1px solid #1b466e; border-radius: 8px; color: #e1edf8; background: #06162a; font: inherit; font-size: 13px; line-height: 1.5; outline: none; }
+.variant-revision textarea:focus { border-color: #178cff; box-shadow: 0 0 0 3px rgba(23, 140, 255, .1); }
+.variant-revision-mic { position: absolute; right: 9px; bottom: 9px; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px solid #318bd1; border-radius: 7px; color: #d9efff; background: #0a4178; font-size: 12px; font-weight: 800; cursor: pointer; }
+.variant-revision-mic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.variant-revision-mic.recording { border-color: #ff625a; background: #762a33; }
+.variant-revision > button { min-height: 39px; border: 1px solid #3e81b6; border-radius: 8px; color: #c7e8ff; background: linear-gradient(135deg, #0c4d88, #092d52); font-size: 12px; font-weight: 900; letter-spacing: .04em; cursor: pointer; }
+.case-variant-card > .variant-approve { width: 100%; min-height: 43px; border: 1px solid #168fff; border-radius: 8px; color: #e1f3ff; background: linear-gradient(135deg, #0767d0, #073975); font-size: 12px; font-weight: 800; cursor: pointer; }
+.variant-revision button:disabled, .case-variant-card > .variant-approve:disabled { opacity: .55; cursor: default; }
 
 @media (max-width: 900px) {
   .infra-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
