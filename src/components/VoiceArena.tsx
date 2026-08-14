@@ -256,6 +256,7 @@ export default function VoiceArena({
     analysisRef,
     analyze: persistAndAnalyze,
     retry: retryAnalysis,
+    applyReanalysis,
     reset: resetReport,
   } = report;
 
@@ -1812,7 +1813,7 @@ export default function VoiceArena({
               </div>
             )}
             {analysisStatus === "ready" && analysis && (
-              <NegotiationReport analysis={analysis} methodologyId={analysisMethodologyId} opponentName={opponent.name} speechAnalytics={speechAnalytics} />
+              <NegotiationReport analysis={analysis} methodologyId={analysisMethodologyId} opponentName={opponent.name} speechAnalytics={speechAnalytics} sessionId={analysisSessionId} onReanalyzed={applyReanalysis} />
             )}
           </section>
         )}

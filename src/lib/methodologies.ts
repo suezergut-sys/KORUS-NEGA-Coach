@@ -36,6 +36,10 @@ export type Methodology = (typeof METHODOLOGIES)[number];
 
 export const DEFAULT_METHODOLOGY_ID: MethodologyId = "tarasov";
 
+export function isMethodologyId(value: unknown): value is MethodologyId {
+  return typeof value === "string" && METHODOLOGIES.some((item) => item.id === value && item.visibility === "public");
+}
+
 export function getMethodology(value: unknown): Methodology {
   return METHODOLOGIES.find((item) => item.id === value && item.visibility === "public") || METHODOLOGIES[0];
 }

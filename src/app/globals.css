@@ -420,6 +420,17 @@ button { color: inherit; }
 .development-plan small { color: #62a9dc; font-size: 12px; }
 .report-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 13px; padding-top: 11px; border-top: 1px solid #17405f; color: #5e7994; font-size: 12px; }
 .report-footer a { color: #56b6fa; text-decoration: none; }
+.report-methodology-switcher { margin-top: 18px; padding: 16px; border: 1px solid #256797; border-radius: 10px; background: linear-gradient(135deg, rgba(8, 40, 70, .9), rgba(5, 24, 43, .94)); }
+.report-methodology-switcher > div:first-child > span { color: #55b8ff; font-size: 12px; font-weight: 800; letter-spacing: .1em; }
+.report-methodology-switcher h3 { margin: 6px 0 4px; color: #e2f1ff; font-size: 14px; }
+.report-methodology-switcher p { margin: 0; color: #8ea9c0; font-size: 13px; line-height: 1.5; }
+.report-methodology-controls { display: grid; grid-template-columns: minmax(220px, 1fr) auto; align-items: end; gap: 12px; margin-top: 14px; }
+.report-methodology-controls label > span { display: block; margin-bottom: 6px; color: #6d9fc5; font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+.report-methodology-controls select { width: 100%; min-height: 42px; padding: 0 38px 0 12px; border: 1px solid #28658f; border-radius: 7px; color: #d8ebfa; background: #071b30; color-scheme: dark; font-size: 13px; }
+.report-methodology-controls button { min-height: 42px; padding: 0 18px; border: 1px solid #2b98e9; border-radius: 7px; color: #eff9ff; background: #0a5799; font-size: 12px; font-weight: 800; letter-spacing: .06em; cursor: pointer; }
+.report-methodology-controls button:disabled { opacity: .5; cursor: not-allowed; }
+.report-methodology-switcher > small { display: block; margin-top: 8px; color: #6f8aa2; font-size: 12px; }
+.report-methodology-switcher .report-methodology-error { margin-top: 9px; color: #ffaaa2; }
 
 /* Uploaded duel analysis */
 .analysis-upload-shell { min-height: 100vh; display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 18px; padding: 24px 28px 24px 12px; }
@@ -646,6 +657,7 @@ button { color: inherit; }
   .duel-outcome { grid-template-columns: 1fr; }
   .score-breakdown > div, .quote-pair { grid-template-columns: 1fr; }
   .technique-review article > footer, .report-footer { flex-direction: column; }
+  .report-methodology-controls { grid-template-columns: 1fr; }
 }
 
 /* User account and rating */
