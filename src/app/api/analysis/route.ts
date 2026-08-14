@@ -18,6 +18,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 type AnalysisRequest = { sessionId?: unknown; methodologyId?: unknown };
 type RetrievedChunk = { id: number; source_id: string; section_path: string; content: string; similarity: number };
+type StoredEvaluation = {
+  result: NegotiationAnalysis;
+  initial_result: NegotiationAnalysis | null;
+  initial_methodology_id: string | null;
+  initial_methodology_version: string | null;
+  initial_overall_score: number | null;
+};
 type SessionRow = {
   id: string;
   user_id: string;
@@ -74,9 +81,13 @@ async function readStoredAnalysis(sessionId: string, userId: string) {
   const db = getSupabaseAdmin();
   const { data: session } = await db.from("training_sessions").select("id").eq("id", sessionId).eq("user_id", userId).maybeSingle();
   if (!session) return null;
-  const { data } = await db.from("evaluations").select("result").eq("session_id", sessionId).maybeSingle();
+  const { data } = await db
+    .from("evaluations")
+    .select("result,initial_result,initial_methodology_id,initial_methodology_version,initial_overall_score")
+    .eq("session_id", sessionId)
+    .maybeSingle();
   if (!data?.result) return null;
-  return data.result as NegotiationAnalysis;
+  return data as StoredEvaluation;
 }
 
 export async function GET() {
@@ -117,8 +128,9 @@ export async function POST(request: Request) {
     if (!session) return Response.json({ error: "Сессия не найдена." }, { status: 404 });
     const methodologyId = (body.methodologyId || session.methodology_id) as MethodologyId;
     if (!isMethodologyId(methodologyId)) return Response.json({ error: "Некорректная методология сессии." }, { status: 400 });
-    const existing = await readStoredAnalysis(sessionId, userSession.userId);
-    hadStoredAnalysis = Boolean(existing);
+    const storedEvaluation = await readStoredAnalysis(sessionId, userSession.userId);
+    const existing = storedEvaluation?.result || null;
+    hadStoredAnalysis = Boolean(storedEvaluation);
     if (existing && methodologyId === session.methodology_id) {
       await db.from("training_sessions").update({ status: "analyzed", analysis_error: null }).eq("id", sessionId).eq("user_id", userSession.userId);
       return Response.json({ sessionId, analysis: existing, diagnosticId, reused: true });
@@ -298,6 +310,10 @@ ${sources}
         overall_score: analysis.overallScore,
         summary: analysis.summary,
         result: analysis,
+        initial_result: storedEvaluation?.initial_result || existing || analysis,
+        initial_methodology_id: storedEvaluation?.initial_methodology_id || (existing ? session.methodology_id : methodologyId),
+        initial_methodology_version: storedEvaluation?.initial_methodology_version || existing?.methodologyVersion || methodologyVersion,
+        initial_overall_score: storedEvaluation?.initial_overall_score ?? existing?.overallScore ?? analysis.overallScore,
         created_at: new Date().toISOString(),
       }, { onConflict: "session_id" })
       .select("id")

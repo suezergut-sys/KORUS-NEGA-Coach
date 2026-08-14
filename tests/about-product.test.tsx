@@ -28,6 +28,7 @@ describe("about product page", () => {
     expect(markup).toContain("постепенно меняет доверие, напряжение и эмоциональную окраску голоса");
     expect(markup).toContain("Весь поединок проходит строго на русском языке");
     expect(markup).toContain("готовый отчёт можно заново сформировать по другой методологии");
+    expect(markup).toContain("полную стенограмму и неизменяемый первый отчёт поединка");
     expect(markup).toContain("Оппонент всегда начинает по-русски");
     expect(markup).toContain("Заметная реакция на перебивания");
     expect(markup).toContain("Надёжное различение речи и шума");
@@ -37,9 +38,9 @@ describe("about product page", () => {
   });
 
   it("contains every merged PR in newest-first order", () => {
-    expect(PRODUCT_HISTORY).toHaveLength(107);
+    expect(PRODUCT_HISTORY).toHaveLength(108);
     expect(PRODUCT_HISTORY.map((item) => item.pr)).toEqual(
-      [110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
+      [111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
     );
     for (let index = 1; index < PRODUCT_HISTORY.length; index += 1) {
       expect(PRODUCT_HISTORY[index - 1].date >= PRODUCT_HISTORY[index].date).toBe(true);

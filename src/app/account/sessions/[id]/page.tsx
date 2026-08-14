@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import NegotiationReport from "@/components/NegotiationReport";
 import AnalysisRetryButton from "@/components/AnalysisRetryButton";
+import SavedTranscript from "@/components/SavedTranscript";
 import UserSidebar from "@/components/UserSidebar";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { getUserSessionReport } from "@/lib/user-stats";
@@ -35,6 +36,7 @@ export default async function SessionReportPage({ params }: { params: Promise<{ 
             <article><span>ВОССТАНОВЛЕНИЯ</span><strong>{report.metrics.recovery_count}</strong></article>
           </section>
         )}
+        <SavedTranscript turns={report.transcript} opponentName={report.session.opponent_name} />
         {report.previous && report.analysis && (
           <section className="attempt-comparison neon-panel">
             <div><span>ПРЕДЫДУЩАЯ ПОПЫТКА</span><strong>{report.previous.score} / 100</strong></div>
@@ -44,7 +46,8 @@ export default async function SessionReportPage({ params }: { params: Promise<{ 
         )}
         {report.analysis ? (
           <section className="analysis-card session-saved-report">
-            <NegotiationReport analysis={report.analysis} methodologyId={(report.session.methodology_id || "tarasov") as MethodologyId} opponentName={report.session.opponent_name} speechAnalytics={report.speechAnalytics} sessionId={report.session.id} />
+            <div className="saved-first-report-heading"><span className="admin-eyebrow">СОХРАНЁННЫЙ РЕЗУЛЬТАТ</span><h2>Первый отчёт по поединку</h2><p>Этот отчёт зафиксирован при первом успешном анализе и не меняется при выборе другой методологии.</p></div>
+            <NegotiationReport analysis={report.analysis} methodologyId={(report.reportMethodologyId || "tarasov") as MethodologyId} opponentName={report.session.opponent_name} speechAnalytics={report.speechAnalytics} sessionId={report.session.id} reanalysisMethodologyId={(report.session.methodology_id || "tarasov") as MethodologyId} preserveInitialReport />
           </section>
         ) : (
           <section className="analysis-card"><div className="analysis-error"><strong>Отчёт ещё не готов</strong><p>Стенограмма сохранена и не потеряется при повторном запуске анализа.</p><AnalysisRetryButton sessionId={report.session.id} /></div></section>
