@@ -24,5 +24,6 @@ describe("case role count", () => {
     const additionalRoles = schema.properties.variants.items.properties.additionalRoles;
     expect(additionalRoles.minItems).toBe(1);
     expect(additionalRoles.maxItems).toBe(1);
+    expect(schema.properties.variants.items.properties.negotiationPairs.minItems).toBe(2);
   });
 });

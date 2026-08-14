@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         user_id: user.userId,
         case_id: negotiationCase.id.startsWith("default-") ? null : negotiationCase.id,
         case_code: negotiationCase.slug,
-        case_context: `${negotiationCase.situation}\n\nЦентральный конфликт: ${negotiationCase.conflict}`,
+        case_context: `${negotiationCase.situation}\n\nЦентральный конфликт: ${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}`,
         participant_role_name: selected.participantRole.name,
         opponent_name: selected.opponentRole.name,
         opponent_voice: clean(body.opponentVoice, 80) || (selected.opponentRole.voiceGender === "male" ? "cedar" : "marin"),

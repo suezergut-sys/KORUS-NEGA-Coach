@@ -47,7 +47,7 @@ export async function createRealtimeSession(request: Request, options: { adminCa
     role: `${opponentRole.name}, ${opponentRole.position}`,
     negotiationStyle,
     context: negotiationCase.situation,
-    conflict: negotiationCase.conflict,
+    conflict: `${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}`,
     startSituation: negotiationCase.startSituation,
     stakes: negotiationCase.stakes,
     userRole,

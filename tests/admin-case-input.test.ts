@@ -26,6 +26,7 @@ function validCase() {
     userRole: baseRole,
     opponentRole: { ...baseRole, name: "Алексей Воронцов", voiceGender: "male" },
     additionalRoles: [],
+    negotiationPairs: [{ roleAIndex: 0, roleBIndex: 1, reason: "У ролей есть прямой конфликт интересов и предмет переговоров." }],
     stakes: ["Репутация"],
     evaluationFocus: ["Работа с интересами"],
     methodologyBasis: [],

@@ -1,4 +1,5 @@
 import { isCanonicalPersonName, normalizeCaseRole, type CaseRole, type MethodologyBasis } from "./case-types";
+import { assertNegotiationPairs } from "./case-negotiation-pairs";
 
 const STATUSES = new Set(["draft", "published", "archived"]);
 const ORIGINS = new Set(["seed", "quick_upload", "builder"]);
@@ -56,6 +57,7 @@ export function parseAdminCaseInput(value: unknown) {
   const additionalRoles = Array.isArray(body.additionalRoles) ? body.additionalRoles.slice(0, 2).map(role) : [];
   const names = [userRole, opponentRole, ...additionalRoles].map((item) => item.name.toLocaleLowerCase("ru"));
   if (new Set(names).size !== names.length) throw new Error("У ролей должны быть разные имена.");
+  const negotiationPairs = assertNegotiationPairs(body.negotiationPairs, 2 + additionalRoles.length);
   return {
     title,
     summary,
@@ -64,6 +66,7 @@ export function parseAdminCaseInput(value: unknown) {
     userRole,
     opponentRole,
     additionalRoles,
+    negotiationPairs,
     stakes: list(body.stakes),
     startSituation,
     difficultyReason,

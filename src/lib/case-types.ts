@@ -1,3 +1,5 @@
+import { normalizeNegotiationPairs } from "@/lib/case-negotiation-pairs";
+
 export type CaseRole = {
   name: string;
   position: string;
@@ -7,6 +9,12 @@ export type CaseRole = {
   constraints: string[];
   hiddenMotives: string[];
   leverage: string[];
+};
+
+export type NegotiationPair = {
+  roleAIndex: number;
+  roleBIndex: number;
+  reason: string;
 };
 
 export type CanonicalCase = {
@@ -19,6 +27,7 @@ export type CanonicalCase = {
   userRole: CaseRole;
   opponentRole: CaseRole;
   additionalRoles: CaseRole[];
+  negotiationPairs: NegotiationPair[];
   stakes: string[];
   startSituation: string;
   difficultyReason: string;
@@ -76,6 +85,7 @@ export type CaseWorkspaceView = {
 };
 
 export function mapCaseRow(row: Record<string, unknown>): CanonicalCase {
+  const additionalRoles = (row.additional_roles || []) as CaseRole[];
   return {
     id: String(row.id),
     slug: String(row.slug),
@@ -85,7 +95,8 @@ export function mapCaseRow(row: Record<string, unknown>): CanonicalCase {
     conflict: String(row.conflict),
     userRole: row.user_role as CaseRole,
     opponentRole: row.opponent_role as CaseRole,
-    additionalRoles: (row.additional_roles || []) as CaseRole[],
+    additionalRoles,
+    negotiationPairs: normalizeNegotiationPairs(row.negotiation_pairs, 2 + additionalRoles.length),
     stakes: (row.stakes || []) as string[],
     startSituation: String(row.start_situation),
     difficultyReason: String(row.difficulty_reason),
@@ -123,6 +134,17 @@ const roleSchema = {
   required: ["name", "position", "voiceGender", "publicGoal", "interests", "constraints", "hiddenMotives", "leverage"],
 } as const;
 
+const negotiationPairSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    roleAIndex: { type: "integer", minimum: 0, maximum: 3 },
+    roleBIndex: { type: "integer", minimum: 0, maximum: 3 },
+    reason: { type: "string", minLength: 10, description: "Конкретный предмет переговоров и несовместимые интересы этой пары ролей." },
+  },
+  required: ["roleAIndex", "roleBIndex", "reason"],
+} as const;
+
 export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, roleCount?: 2 | 3 | 4) {
   const additionalRoleCount = roleCount === undefined ? undefined : roleCount - 2;
   return {
@@ -149,6 +171,13 @@ export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, ro
               maxItems: additionalRoleCount ?? 2,
               items: roleSchema,
             },
+            negotiationPairs: {
+              type: "array",
+              minItems: roleCount ? roleCount - 1 : 1,
+              maxItems: roleCount ? roleCount * (roleCount - 1) / 2 : 6,
+              items: negotiationPairSchema,
+              description: "Только пары ролей с прямым конфликтом и самостоятельным предметом переговоров. Индексы соответствуют порядку userRole, opponentRole, additionalRoles.",
+            },
             stakes: stringArray,
             startSituation: { type: "string" },
             difficultyReason: { type: "string" },
@@ -171,7 +200,7 @@ export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, ro
           },
           required: [
             "title", "summary", "situation", "conflict", "userRole", "opponentRole",
-            "additionalRoles", "stakes", "startSituation", "difficultyReason", "evaluationFocus", "methodologyBasis",
+            "additionalRoles", "negotiationPairs", "stakes", "startSituation", "difficultyReason", "evaluationFocus", "methodologyBasis",
           ],
         },
       },

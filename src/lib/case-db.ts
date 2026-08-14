@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { extractUploadedFile, validateFiles } from "@/lib/case-files";
 import { isCanonicalPersonName, mapCaseRow, normalizeCaseRole, type CanonicalCase, type CaseWorkspaceView, type GeneratedCaseVariant } from "@/lib/case-types";
+import { assertNegotiationPairs } from "@/lib/case-negotiation-pairs";
 import type { CaseVisibility } from "@/lib/case-visibility";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
@@ -13,11 +14,13 @@ function assertCanonicalRoleNames(...roles: Array<{ name?: string }>) {
 }
 
 function normalizeGeneratedVariant(variant: GeneratedCaseVariant) {
+  const roleCount = 2 + variant.additionalRoles.length;
   return {
     ...variant,
     userRole: normalizeCaseRole(variant.userRole),
     opponentRole: normalizeCaseRole(variant.opponentRole),
     additionalRoles: variant.additionalRoles.map(normalizeCaseRole),
+    negotiationPairs: assertNegotiationPairs(variant.negotiationPairs, roleCount),
   };
 }
 
@@ -32,6 +35,7 @@ function variantInsertRow(workspaceId: string, variant: GeneratedCaseVariant) {
     user_role: normalized.userRole,
     opponent_role: normalized.opponentRole,
     additional_roles: normalized.additionalRoles,
+    negotiation_pairs: normalized.negotiationPairs,
     stakes: normalized.stakes,
     start_situation: normalized.startSituation,
     difficulty_reason: normalized.difficultyReason,
@@ -190,6 +194,7 @@ export async function getVariantForRevision(variantId: string, ownerUserId: stri
       userRole: variant.user_role,
       opponentRole: variant.opponent_role,
       additionalRoles: variant.additional_roles || [],
+      negotiationPairs: variant.negotiation_pairs || [],
       stakes: variant.stakes,
       startSituation: variant.start_situation,
       difficultyReason: variant.difficulty_reason,
@@ -287,6 +292,7 @@ export async function getWorkspaceView(workspaceId: string, ownerUserId: string)
       userRole: { ...item.user_role, hiddenMotives: [] },
       opponentRole: { ...item.opponent_role, hiddenMotives: [] },
       additionalRoles: (item.additional_roles || []).map((role: CanonicalCase["userRole"]) => ({ ...role, hiddenMotives: [] })),
+      negotiationPairs: item.negotiation_pairs || [],
       stakes: item.stakes,
       startSituation: item.start_situation,
       difficultyReason: item.difficulty_reason,
