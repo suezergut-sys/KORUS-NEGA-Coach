@@ -12,6 +12,34 @@ function assertCanonicalRoleNames(...roles: Array<{ name?: string }>) {
   }
 }
 
+function normalizeGeneratedVariant(variant: GeneratedCaseVariant) {
+  return {
+    ...variant,
+    userRole: normalizeCaseRole(variant.userRole),
+    opponentRole: normalizeCaseRole(variant.opponentRole),
+    additionalRoles: variant.additionalRoles.map(normalizeCaseRole),
+  };
+}
+
+function variantInsertRow(workspaceId: string, variant: GeneratedCaseVariant) {
+  const normalized = normalizeGeneratedVariant(variant);
+  return {
+    workspace_id: workspaceId,
+    title: normalized.title,
+    summary: normalized.summary,
+    situation: normalized.situation,
+    conflict: normalized.conflict,
+    user_role: normalized.userRole,
+    opponent_role: normalized.opponentRole,
+    additional_roles: normalized.additionalRoles,
+    stakes: normalized.stakes,
+    start_situation: normalized.startSituation,
+    difficulty_reason: normalized.difficultyReason,
+    evaluation_focus: normalized.evaluationFocus,
+    methodology_basis: normalized.methodologyBasis,
+  };
+}
+
 export async function createOrUpdateWorkspace(input: { workspaceId?: string; title: string; notes: string; ownerUserId: string }) {
   const supabase = getSupabaseAdmin();
   if (input.workspaceId) {
@@ -127,29 +155,9 @@ export async function saveGeneratedVariants(workspaceId: string, variants: Gener
     .eq("owner_user_id", ownerUserId)
     .maybeSingle();
   if (workspaceLookupError || !workspace) throw new Error("Черновик кейса не найден или принадлежит другому пользователю.");
-  const normalized = variants.map((variant) => ({
-    ...variant,
-    userRole: normalizeCaseRole(variant.userRole),
-    opponentRole: normalizeCaseRole(variant.opponentRole),
-    additionalRoles: variant.additionalRoles.map(normalizeCaseRole),
-  }));
   const { data, error } = await supabase
     .from("case_variants")
-    .insert(normalized.map((variant) => ({
-      workspace_id: workspaceId,
-      title: variant.title,
-      summary: variant.summary,
-      situation: variant.situation,
-      conflict: variant.conflict,
-      user_role: variant.userRole,
-      opponent_role: variant.opponentRole,
-      additional_roles: variant.additionalRoles,
-      stakes: variant.stakes,
-      start_situation: variant.startSituation,
-      difficulty_reason: variant.difficultyReason,
-      evaluation_focus: variant.evaluationFocus,
-      methodology_basis: variant.methodologyBasis,
-    })))
+    .insert(variants.map((variant) => variantInsertRow(workspaceId, variant)))
     .select("*");
   if (error) throw new Error(`Варианты кейса: ${error.message}`);
   const { error: workspaceError } = await supabase.from("case_workspaces").update({ status: "analyzed", updated_at: new Date().toISOString() }).eq("id", workspaceId);
@@ -158,6 +166,72 @@ export async function saveGeneratedVariants(workspaceId: string, variants: Gener
     throw new Error(`Статус черновика: ${workspaceError.message}`);
   }
   return data || [];
+}
+
+export async function getVariantForRevision(variantId: string, ownerUserId: string) {
+  const supabase = getSupabaseAdmin();
+  const { data: variant, error: variantError } = await supabase.from("case_variants").select("*").eq("id", variantId).maybeSingle();
+  if (variantError || !variant) throw new Error("Вариант кейса не найден.");
+  const { data: workspace, error: workspaceError } = await supabase
+    .from("case_workspaces")
+    .select("id")
+    .eq("id", variant.workspace_id)
+    .eq("owner_user_id", ownerUserId)
+    .maybeSingle();
+  if (workspaceError || !workspace) throw new Error("Вариант кейса не найден или принадлежит другому пользователю.");
+  if (variant.approved_at) throw new Error("Утверждённый кейс нельзя заменить через конструктор.");
+  return {
+    workspaceId: workspace.id,
+    variant: {
+      title: variant.title,
+      summary: variant.summary,
+      situation: variant.situation,
+      conflict: variant.conflict,
+      userRole: variant.user_role,
+      opponentRole: variant.opponent_role,
+      additionalRoles: variant.additional_roles || [],
+      stakes: variant.stakes,
+      startSituation: variant.start_situation,
+      difficultyReason: variant.difficulty_reason,
+      evaluationFocus: variant.evaluation_focus,
+      methodologyBasis: variant.methodology_basis,
+    } as GeneratedCaseVariant,
+  };
+}
+
+export async function replaceWorkspaceVariants(workspaceId: string, revised: GeneratedCaseVariant, ownerUserId: string) {
+  const supabase = getSupabaseAdmin();
+  const { data: workspace, error: workspaceError } = await supabase
+    .from("case_workspaces")
+    .select("id")
+    .eq("id", workspaceId)
+    .eq("owner_user_id", ownerUserId)
+    .maybeSingle();
+  if (workspaceError || !workspace) throw new Error("Черновик кейса не найден или принадлежит другому пользователю.");
+  const { data: inserted, error: insertError } = await supabase
+    .from("case_variants")
+    .insert(variantInsertRow(workspaceId, revised))
+    .select("id")
+    .single();
+  if (insertError || !inserted) throw new Error(`Исправленный вариант: ${insertError?.message || "не сохранён"}`);
+
+  const { error: deleteError } = await supabase
+    .from("case_variants")
+    .delete()
+    .eq("workspace_id", workspaceId)
+    .is("approved_at", null)
+    .neq("id", inserted.id);
+  if (deleteError) {
+    await supabase.from("case_variants").delete().eq("id", inserted.id);
+    throw new Error(`Замена прежних вариантов: ${deleteError.message}`);
+  }
+  const { error: statusError } = await supabase
+    .from("case_workspaces")
+    .update({ status: "analyzed", updated_at: new Date().toISOString() })
+    .eq("id", workspaceId)
+    .eq("owner_user_id", ownerUserId);
+  if (statusError) throw new Error(`Статус черновика: ${statusError.message}`);
+  return inserted.id;
 }
 
 export async function approveVariant(

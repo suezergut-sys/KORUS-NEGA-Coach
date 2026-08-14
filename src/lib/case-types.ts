@@ -123,15 +123,15 @@ const roleSchema = {
   required: ["name", "position", "voiceGender", "publicGoal", "interests", "constraints", "hiddenMotives", "leverage"],
 } as const;
 
-export function createCaseVariantsSchema(atomIds: string[]) {
+export function createCaseVariantsSchema(atomIds: string[], variantCount = 2) {
   return {
     type: "object",
     additionalProperties: false,
     properties: {
       variants: {
         type: "array",
-        minItems: 2,
-        maxItems: 2,
+        minItems: variantCount,
+        maxItems: variantCount,
         items: {
           type: "object",
           additionalProperties: false,

@@ -36,5 +36,6 @@ describe("shared application visuals", () => {
     expect(markup).toContain('aria-label="Начать голосовой ввод"');
     expect(markup).toContain("ГОЛОСОВОЙ ВВОД");
     expect(markup).toContain("builder-notes-mic");
+    expect(markup).toContain("уточнять текстом или голосом до одобрения");
   });
 });

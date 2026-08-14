@@ -3,6 +3,7 @@ import "server-only";
 import { ANALYSIS_MODEL, getOpenAI } from "@/lib/openai-server";
 import { assertDiverseCaseCharacterNames, blockedCaseCharacterNames, recentCaseCharacterNames } from "@/lib/case-name-diversity";
 import { createCaseVariantsSchema, type GeneratedCaseVariant } from "@/lib/case-types";
+import { buildCaseRevisionInput } from "@/lib/case-revision";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getMethodology } from "@/lib/methodologies";
 import { getMethodologySource } from "@/lib/methodology-server";
@@ -92,4 +93,34 @@ ${methodology || "Подходящих атомов пока нет; сформ�
   if (!parsed.variants?.length) throw new Error("Модель не предложила ни одного варианта кейса.");
   assertDiverseCaseCharacterNames(parsed.variants, blockedNames, sourceText);
   return parsed.variants;
+}
+
+export async function reviseCaseVariant(variant: GeneratedCaseVariant, instructions: string) {
+  const atomIds = [...new Set(variant.methodologyBasis.map((item) => item.atomId).filter(Boolean))];
+  const response = await getOpenAI().responses.create({
+    model: ANALYSIS_MODEL,
+    reasoning: { effort: "low" },
+    instructions: `
+Ты аккуратно редактируешь один готовый русскоязычный учебный кейс управленческого поединка.
+
+Верни ровно один исправленный вариант. Выполни все корректировки пользователя, но сохрани без содержательных изменений всё, чего они не касаются. Не создавай альтернативный сценарий и не предлагай второй вариант. Не добавляй факты, которых нет в исходном варианте или корректировках.
+
+Сохрани каноническую структуру кейса. У каждой роли должны остаться полное личное имя минимум из имени и фамилии, отдельная должность position, пол voiceGender, цели, интересы, ограничения, скрытые мотивы и рычаги. Не раскрывай скрытые мотивы в summary, situation или публичных целях. Сохрани только существующие atomId в methodologyBasis. Пиши конкретно, без упоминания нейросети.
+    `.trim(),
+    input: buildCaseRevisionInput(variant, instructions),
+    text: {
+      format: {
+        type: "json_schema",
+        name: "tarasov_case_revision",
+        strict: true,
+        schema: createCaseVariantsSchema(atomIds, 1),
+      },
+    },
+  });
+
+  const parsed = JSON.parse(response.output_text) as { variants: GeneratedCaseVariant[] };
+  const revised = parsed.variants?.[0];
+  if (!revised) throw new Error("Модель не вернула исправленный вариант кейса.");
+  assertDiverseCaseCharacterNames([revised], { fullNames: [], firstNames: [] }, buildCaseRevisionInput(variant, instructions));
+  return revised;
 }
