@@ -11,6 +11,8 @@ export default function NegotiationReport({
   speechAnalytics,
   sessionId,
   onReanalyzed,
+  reanalysisMethodologyId,
+  preserveInitialReport,
 }: {
   analysis: NegotiationAnalysis;
   methodologyId: MethodologyId;
@@ -18,6 +20,8 @@ export default function NegotiationReport({
   speechAnalytics?: SpeechAnalytics | null;
   sessionId?: string;
   onReanalyzed?: (analysis: NegotiationAnalysis, methodologyId: MethodologyId) => void;
+  reanalysisMethodologyId?: MethodologyId;
+  preserveInitialReport?: boolean;
 }) {
   const methodology = getMethodology(methodologyId);
   const confidence = Number(analysis.outcome.confidence);
@@ -124,7 +128,7 @@ export default function NegotiationReport({
 
       <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span><Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link></footer>
-      {sessionId && <ReportMethodologySwitcher sessionId={sessionId} methodologyId={methodologyId} onGenerated={onReanalyzed} />}
+      {sessionId && <ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} />}
     </>
   );
 }

@@ -28,7 +28,13 @@ type SessionRow = {
   status: string;
   methodology_id?: MethodologyId;
 };
-type EvaluationRow = { session_id: string; overall_score: number | null; result: NegotiationAnalysis | null };
+type EvaluationRow = {
+  session_id: string;
+  overall_score: number | null;
+  result: NegotiationAnalysis | null;
+  initial_overall_score: number | null;
+  initial_result: NegotiationAnalysis | null;
+};
 type CaseRow = {
   id: string;
   title: string;
@@ -48,6 +54,14 @@ export type DuelHistoryItem = {
   score: number | null;
   ranked: boolean;
   status: string;
+};
+
+export type SavedTranscriptTurn = {
+  id: number;
+  sequence: number;
+  speaker: "user" | "opponent" | "system";
+  text: string;
+  spokenAt: string | null;
 };
 
 export type SkillProgressItem = {
@@ -89,7 +103,14 @@ export type UserStanding = {
 };
 
 function evaluationMap(rows: EvaluationRow[]) {
-  return new Map(rows.map((row) => [row.session_id, { winner: row.result?.outcome?.winner || "", score: row.overall_score, result: row.result }]));
+  return new Map(rows.map((row) => {
+    const firstResult = row.initial_result || row.result;
+    return [row.session_id, {
+      winner: firstResult?.outcome?.winner || "",
+      score: row.initial_overall_score ?? row.overall_score,
+      result: firstResult,
+    }];
+  }));
 }
 
 function resultLabel(winner: string): DuelHistoryItem["result"] {
@@ -146,7 +167,7 @@ export async function getUserDashboard(userId: string) {
   const ids = sessionRows.map((item) => item.id);
   const caseIds = [...new Set(sessionRows.map((item) => item.case_id).filter(Boolean))] as string[];
   const [{ data: evaluations }, cases] = await Promise.all([
-    ids.length ? supabase.from("evaluations").select("session_id,overall_score,result").in("session_id", ids) : Promise.resolve({ data: [] }),
+    ids.length ? supabase.from("evaluations").select("session_id,overall_score,result,initial_overall_score,initial_result").in("session_id", ids) : Promise.resolve({ data: [] }),
     loadCases(caseIds),
   ]);
   const evaluationRows = (evaluations || []) as EvaluationRow[];
@@ -184,7 +205,7 @@ export async function getUserDashboard(userId: string) {
     lastDuel: sessionRows[0]?.ended_at || null,
     topCases: [...caseCounts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ru")).slice(0, 3),
     history,
-    skillProgress: calculateSkillProgress(orderedEvaluations.map((item) => item.result)) as SkillProgressItem[],
+    skillProgress: calculateSkillProgress(orderedEvaluations.map((item) => item.initial_result || item.result)) as SkillProgressItem[],
     learningGoal: (learningGoal || { focus_skill: "", goal_text: "", next_session_target: "", updated_at: null }) as LearningGoal,
     tasks: (tasks || []) as PracticeTask[],
   };
@@ -200,13 +221,24 @@ export async function getUserSessionReport(userId: string, sessionId: string) {
     .maybeSingle();
   if (sessionError) throw new Error(sessionError.message);
   if (!session) return null;
-  const [{ data: evaluation }, { data: metrics }, cases] = await Promise.all([
-    db.from("evaluations").select("overall_score,result,created_at").eq("session_id", sessionId).maybeSingle(),
+  const [{ data: evaluation }, { data: metrics }, { data: turnRows }, cases] = await Promise.all([
+    db.from("evaluations").select("overall_score,result,created_at,initial_result,initial_methodology_id,initial_methodology_version,initial_overall_score").eq("session_id", sessionId).maybeSingle(),
     db.from("session_metrics").select("setup_latency_ms,reply_latency_p50_ms,reply_latency_p95_ms,reply_latency_samples,recovery_count,interruption_count,connection_error_count,details").eq("session_id", sessionId).maybeSingle(),
+    db.from("turns").select("id,sequence,speaker,text,spoken_at").eq("session_id", sessionId).order("sequence", { ascending: true }),
     loadCases(session.case_id ? [session.case_id] : []),
   ]);
   const speechAnalytics = readSpeechAnalytics((metrics?.details as { speechAnalytics?: unknown } | null)?.speechAnalytics);
-  if (!evaluation?.result) return { session, analysis: null, metrics, speechAnalytics, caseName: caseName(session as SessionRow, new Map(cases.map((item) => [item.id, item]))), previous: null };
+  const transcript = (turnRows || []).map((turn) => ({
+    id: turn.id,
+    sequence: turn.sequence,
+    speaker: turn.speaker,
+    text: turn.text,
+    spokenAt: turn.spoken_at,
+  })) as SavedTranscriptTurn[];
+  if (!evaluation?.result) return { session, analysis: null, reportMethodologyId: session.methodology_id, transcript, metrics, speechAnalytics, caseName: caseName(session as SessionRow, new Map(cases.map((item) => [item.id, item]))), previous: null };
+
+  const firstAnalysis = (evaluation.initial_result || evaluation.result) as NegotiationAnalysis;
+  const reportMethodologyId = (evaluation.initial_methodology_id || session.methodology_id || "tarasov") as MethodologyId;
 
   const { data: previousSession } = await db
     .from("training_sessions")
@@ -219,15 +251,21 @@ export async function getUserSessionReport(userId: string, sessionId: string) {
     .limit(1)
     .maybeSingle();
   const { data: previousEvaluation } = previousSession
-    ? await db.from("evaluations").select("overall_score,result").eq("session_id", previousSession.id).maybeSingle()
+    ? await db.from("evaluations").select("overall_score,result,initial_overall_score,initial_result").eq("session_id", previousSession.id).maybeSingle()
     : { data: null };
   return {
     session,
-    analysis: evaluation.result as NegotiationAnalysis,
+    analysis: firstAnalysis,
+    reportMethodologyId,
+    transcript,
     metrics,
     speechAnalytics,
     caseName: caseName(session as SessionRow, new Map(cases.map((item) => [item.id, item]))),
-    previous: previousEvaluation ? { sessionId: previousSession?.id, score: previousEvaluation.overall_score, analysis: previousEvaluation.result as NegotiationAnalysis } : null,
+    previous: previousEvaluation ? {
+      sessionId: previousSession?.id,
+      score: previousEvaluation.initial_overall_score ?? previousEvaluation.overall_score,
+      analysis: (previousEvaluation.initial_result || previousEvaluation.result) as NegotiationAnalysis,
+    } : null,
   };
 }
 

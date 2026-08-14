@@ -10,10 +10,12 @@ export default function ReportMethodologySwitcher({
   sessionId,
   methodologyId,
   onGenerated,
+  preserveInitialReport = false,
 }: {
   sessionId: string;
   methodologyId: MethodologyId;
   onGenerated?: (analysis: NegotiationAnalysis, methodologyId: MethodologyId) => void;
+  preserveInitialReport?: boolean;
 }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<MethodologyId>(methodologyId);
@@ -49,7 +51,9 @@ export default function ReportMethodologySwitcher({
       <div>
         <span>ПОВТОРНЫЙ АНАЛИЗ</span>
         <h3>Посмотреть переговоры через другую методологию</h3>
-        <p>Стенограмма останется прежней, а текущий отчёт будет заменён только после успешного анализа.</p>
+        <p>{preserveInitialReport
+          ? "Стенограмма и первый отчёт останутся неизменными. Новый разбор сохранится как текущий только после успешного анализа."
+          : "Стенограмма останется прежней, а текущий отчёт будет заменён только после успешного анализа."}</p>
       </div>
       <div className="report-methodology-controls">
         <label htmlFor={`report-methodology-${sessionId}`}>

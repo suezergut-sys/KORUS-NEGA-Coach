@@ -56,7 +56,7 @@ export default async function AccountPage() {
           <div className="duel-history-wrap">
             <table className="duel-history-table">
               <thead><tr><th>Дата</th><th>Кейс</th><th>В какой роли</th><th>Результат</th><th>Баллы из 100</th></tr></thead>
-              <tbody>{dashboard.history.map((duel) => <tr key={duel.id}><td>{historyDate(duel.endedAt)}</td><td><Link href={`/account/sessions/${duel.id}`}><strong>{duel.caseName}</strong></Link>{!duel.ranked && <small>нерейтинговый</small>}</td><td>{duel.participantRole}</td><td><span className={`duel-result ${duel.result === "Победа" ? "win" : duel.result === "Поражение" ? "loss" : "draw"}`}>{duel.status === "analysis_failed" ? "Нужен повтор" : duel.result}</span></td><td><b className="duel-score">{duel.score ?? "—"}</b></td></tr>)}</tbody>
+              <tbody>{dashboard.history.map((duel) => <tr key={duel.id}><td>{historyDate(duel.endedAt)}</td><td><Link href={`/account/sessions/${duel.id}`}><strong>{duel.caseName}</strong></Link>{!duel.ranked && <small>нерейтинговый</small>}</td><td>{duel.participantRole}</td><td><Link href={`/account/sessions/${duel.id}`} className={`duel-result ${duel.result === "Победа" ? "win" : duel.result === "Поражение" ? "loss" : "draw"}`} title="Стенограмма и отчёт" aria-label={`${duel.status === "analysis_failed" ? "Нужен повтор" : duel.result}. Стенограмма и отчёт`}>{duel.status === "analysis_failed" ? "Нужен повтор" : duel.result}</Link></td><td><b className="duel-score">{duel.score ?? "—"}</b></td></tr>)}</tbody>
             </table>
           </div>
           {!dashboard.history.length && <div className="dashboard-empty">История появится после первого завершённого поединка.</div>}
