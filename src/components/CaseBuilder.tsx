@@ -7,6 +7,7 @@ import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { CaseVisibility } from "@/lib/case-visibility";
 import { readJsonResponse } from "@/lib/http-response";
+import { caseApprovalRedirectUrl } from "@/lib/case-approval-navigation";
 
 type BuilderStatus = "idle" | "analyzing" | "revising" | "approving" | "error";
 type TranscriptionPayload = { error?: string; text?: string };
@@ -43,7 +44,6 @@ export default function CaseBuilder() {
   const [workspace, setWorkspace] = useState<CaseWorkspaceView | null>(null);
   const [status, setStatus] = useState<BuilderStatus>("idle");
   const [error, setError] = useState("");
-  const [approvedCase, setApprovedCase] = useState<CanonicalCase | null>(null);
   const [visibility, setVisibility] = useState<CaseVisibility>("public");
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -154,7 +154,6 @@ export default function CaseBuilder() {
     actionPendingRef.current = true;
     setStatus("analyzing");
     setError("");
-    setApprovedCase(null);
     try {
       const form = new FormData();
       if (workspace?.id) form.set("workspaceId", workspace.id);
@@ -190,8 +189,7 @@ export default function CaseBuilder() {
       });
       const payload = (await response.json()) as { case?: CanonicalCase; error?: string };
       if (!response.ok || !payload.case) throw new Error(payload.error || "Не удалось утвердить кейс.");
-      setApprovedCase(payload.case);
-      setStatus("idle");
+      window.location.assign(caseApprovalRedirectUrl(payload.case.id));
     } catch (caught) {
       setStatus("error");
       setError(caught instanceof Error ? caught.message : "Не удалось утвердить кейс.");
@@ -293,13 +291,6 @@ export default function CaseBuilder() {
         <p className="builder-method-note">Система проверяет, что интересы сторон действительно конфликтуют, ставки значимы, а очевидного решения, устраивающего всех, нет.</p>
         {error && <div className="error-banner"><strong>Не удалось продолжить</strong><span>{error}</span></div>}
       </section>
-
-      {approvedCase && (
-        <section className="case-approved-banner">
-          <div><span>✓ КЕЙС ДОБАВЛЕН В БАЗУ</span><strong>{approvedCase.title}</strong><p>{approvedCase.visibility === "private" ? "Приватный кейс доступен в тренажёре только вам." : "Общедоступный кейс уже появился у всех пользователей."} Изображения и озвучка появятся через несколько минут: они генерируются в фоне.</p></div>
-          <Link href={`/?case=${approvedCase.id}`}>ВЫБРАТЬ И НАЧАТЬ ПЕРЕГОВОРЫ →</Link>
-        </section>
-      )}
 
       {workspace?.variants.length ? (
         <section className="case-variants-section">
