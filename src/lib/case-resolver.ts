@@ -6,6 +6,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { canAccessCase } from "@/lib/case-visibility";
 import { getCurrentUserSession } from "@/lib/user-auth";
 
+export { selectCaseRoles } from "@/lib/case-role-selection";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function resolvePublishedCase(caseId?: string, caseCode?: string): Promise<CanonicalCase | null> {
@@ -38,14 +40,4 @@ export async function resolvePublishedCaseForAdmin(caseId?: string): Promise<Can
     .maybeSingle();
   if (error) throw new Error(`Кейс: ${error.message}`);
   return data ? mapCaseRow(data) : null;
-}
-
-export function selectCaseRoles(item: CanonicalCase, participantIndex: number, opponentIndex: number) {
-  const roles = [item.userRole, item.opponentRole, ...item.additionalRoles];
-  const safeParticipant = Number.isInteger(participantIndex) && roles[participantIndex] ? participantIndex : 0;
-  const fallbackOpponent = roles.findIndex((_, index) => index !== safeParticipant);
-  const safeOpponent = Number.isInteger(opponentIndex) && opponentIndex !== safeParticipant && roles[opponentIndex]
-    ? opponentIndex
-    : fallbackOpponent;
-  return { roles, participantRoleIndex: safeParticipant, opponentRoleIndex: safeOpponent, participantRole: roles[safeParticipant], opponentRole: roles[safeOpponent] };
 }

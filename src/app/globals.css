@@ -1309,11 +1309,11 @@ button { color: inherit; }
 
 .case-builder-header { margin-bottom: 20px; }
 .builder-input-card { padding: 24px; border: 1px solid #17446d; border-radius: 14px; background: linear-gradient(145deg, #081d35, #061326); }
-.builder-field-grid { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 14px; }
+.builder-field-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, .55fr) minmax(0, 1fr); align-items: start; gap: 14px; }
 .builder-input-card label { display: grid; gap: 7px; color: #75a9d4; font-size: 12px; letter-spacing: .06em; }
-.builder-input-card input, .builder-input-card textarea { width: 100%; border: 1px solid #1b466e; border-radius: 8px; color: #e1edf8; background: #06162a; outline: none; }
-.builder-input-card input:focus, .builder-input-card textarea:focus { border-color: #178cff; box-shadow: 0 0 0 3px rgba(23, 140, 255, .1); }
-.builder-input-card input { min-height: 46px; padding: 0 13px; font-size: 13px; }
+.builder-input-card input, .builder-input-card textarea, .builder-input-card select { width: 100%; border: 1px solid #1b466e; border-radius: 8px; color: #e1edf8; background: #06162a; outline: none; }
+.builder-input-card input:focus, .builder-input-card textarea:focus, .builder-input-card select:focus { border-color: #178cff; box-shadow: 0 0 0 3px rgba(23, 140, 255, .1); }
+.builder-input-card input, .builder-input-card select { min-height: 46px; padding: 0 13px; font-size: 13px; }
 .builder-files input { padding: 11px; color: #9bb1c8; }
 .builder-input-card label > small { color: #58738e; font-size: 12px; line-height: 1.4; }
 .builder-notes { display: grid; gap: 7px; margin-top: 15px; color: #75a9d4; font-size: 12px; letter-spacing: .06em; }
@@ -1370,12 +1370,15 @@ button { color: inherit; }
 .variant-conflict strong, .variant-roles span { color: #ffad80; font-size: 12px; letter-spacing: .08em; }
 .variant-conflict p { margin: 6px 0; color: #d2c1b8; font-size: 13px; line-height: 1.5; }
 .variant-conflict small { color: #8a746b; font-size: 12px; line-height: 1.4; }
-.variant-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.variant-roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 9px; }
 .variant-roles section { padding: 11px; border: 1px solid #183c5d; border-radius: 8px; background: #07182b; }
 .variant-roles section > strong, .variant-roles section > small { display: block; }
 .variant-roles section > strong { margin-top: 5px; color: #cce6fa; font-size: 12px; }
 .variant-roles section > small { margin: 3px 0 7px; color: #577b9a; font-size: 12px; }
+.variant-role-details { margin-top: 9px; }
+.variant-role-details b { display: block; margin-top: 8px; color: #78a7cb; font-size: 12px; }
 .variant-roles p, .variant-roles li { color: #8ea3b7; font-size: 13px; line-height: 1.45; }
+.variant-roles p { margin: 4px 0 0; }
 .variant-roles ul { margin: 8px 0 0; padding-left: 14px; }
 .case-variant-card details { margin: 13px 0; border: 1px solid #173c5e; border-radius: 8px; color: #84a6c3; background: #061526; font-size: 12px; }
 .case-variant-card summary { padding: 10px; color: #62b9f6; cursor: pointer; }

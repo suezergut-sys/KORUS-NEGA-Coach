@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { CanonicalCase, CaseWorkspaceView } from "@/lib/case-types";
+import type { CanonicalCase, CaseRole, CaseWorkspaceView } from "@/lib/case-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { CaseVisibility } from "@/lib/case-visibility";
@@ -16,9 +16,29 @@ function fileSize(bytes: number) {
   return `${Math.round(bytes / 1024)} КБ`;
 }
 
+export function CaseVariantRoles({ roles }: { roles: CaseRole[] }) {
+  return (
+    <div className="variant-roles">
+      {roles.map((role, index) => (
+        <section key={`${role.name}-${index}`}>
+          <span>РОЛЬ {index + 1}</span>
+          <strong>{role.name}</strong>
+          <small>{role.position}</small>
+          <div className="variant-role-details">
+            <b>Цель</b><p>{role.publicGoal}</p>
+            <b>Интересы</b><ul>{role.interests.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{item}</li>)}</ul>
+            <b>Ограничения</b><ul>{role.constraints.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{item}</li>)}</ul>
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 export default function CaseBuilder() {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [roleCount, setRoleCount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [workspace, setWorkspace] = useState<CaseWorkspaceView | null>(null);
   const [status, setStatus] = useState<BuilderStatus>("idle");
@@ -140,6 +160,7 @@ export default function CaseBuilder() {
       if (workspace?.id) form.set("workspaceId", workspace.id);
       form.set("title", title || "Новый управленческий кейс");
       form.set("notes", notes);
+      form.set("roleCount", roleCount);
       files.forEach((file) => form.append("files", file));
       const response = await fetch("/api/case-builder/analyze", { method: "POST", body: form });
       const payload = (await response.json()) as { workspace?: CaseWorkspaceView; error?: string };
@@ -237,6 +258,7 @@ export default function CaseBuilder() {
       <section className="builder-input-card">
         <div className="builder-field-grid">
           <label><span>НАЗВАНИЕ РАБОЧЕГО ПРОЕКТА</span><input value={title} disabled={inputBusy} onChange={(event) => setTitle(event.target.value)} placeholder="Например: Пересмотр условий контракта" maxLength={160} /></label>
+          <label><span>КОЛИЧЕСТВО РОЛЕЙ</span><select value={roleCount} disabled={inputBusy} onChange={(event) => setRoleCount(event.target.value)}><option value="">Определить по описанию</option><option value="2">2 роли</option><option value="3">3 роли</option><option value="4">4 роли</option></select><small>При явном выборе AI обязан создать указанное число полноценных ролей.</small></label>
           <label className="builder-files"><span>МАТЕРИАЛЫ</span><input ref={fileInputRef} type="file" multiple accept=".txt,.md,.csv,.json,.xml,.html,.htm,.rtf,.pdf,.docx" disabled={inputBusy} onChange={(event) => chooseFiles(Array.from(event.target.files || []))} /><small>До 6 файлов, общий размер черновика до 4 МБ: TXT, MD, CSV, JSON, XML, HTML, RTF, PDF, DOCX</small></label>
         </div>
         <div className="builder-notes">
@@ -288,10 +310,7 @@ export default function CaseBuilder() {
               <article className="case-variant-card" key={variant.id}>
                 <header><span>{variant.approvedAt ? "УТВЕРЖДЁН" : "ВАРИАНТ"}</span><h3>{variant.title}</h3><p>{variant.summary}</p></header>
                 <div className="variant-conflict"><strong>ЦЕНТРАЛЬНЫЙ КОНФЛИКТ</strong><p>{variant.conflict}</p><small>{variant.difficultyReason}</small></div>
-                <div className="variant-roles">
-                  <section><span>ВАША РОЛЬ</span><strong>{variant.userRole.name}</strong><small>{variant.userRole.position}</small><p>{variant.userRole.publicGoal}</p><ul>{variant.userRole.interests.map((item) => <li key={item}>{item}</li>)}</ul></section>
-                  <section><span>ОППОНЕНТ</span><strong>{variant.opponentRole.name}</strong><small>{variant.opponentRole.position}</small><p>{variant.opponentRole.publicGoal}</p><ul>{variant.opponentRole.interests.map((item) => <li key={item}>{item}</li>)}</ul></section>
-                </div>
+                <CaseVariantRoles roles={[variant.userRole, variant.opponentRole, ...variant.additionalRoles]} />
                 <details><summary>Показать каноническое описание</summary><div><strong>Ситуация</strong><p>{variant.situation}</p><strong>Стартовая позиция</strong><p>{variant.startSituation}</p><strong>Ставки</strong><ul>{variant.stakes.map((item) => <li key={item}>{item}</li>)}</ul><strong>Методическая основа</strong><ul>{variant.methodologyBasis.map((item) => <li key={item.atomId}>{item.title}: {item.application}</li>)}</ul></div></details>
                 {!variant.approvedAt && (
                   <div className="variant-revision">

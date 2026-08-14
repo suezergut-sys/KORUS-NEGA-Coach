@@ -123,7 +123,8 @@ const roleSchema = {
   required: ["name", "position", "voiceGender", "publicGoal", "interests", "constraints", "hiddenMotives", "leverage"],
 } as const;
 
-export function createCaseVariantsSchema(atomIds: string[], variantCount = 2) {
+export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, roleCount?: 2 | 3 | 4) {
+  const additionalRoleCount = roleCount === undefined ? undefined : roleCount - 2;
   return {
     type: "object",
     additionalProperties: false,
@@ -142,7 +143,12 @@ export function createCaseVariantsSchema(atomIds: string[], variantCount = 2) {
             conflict: { type: "string" },
             userRole: roleSchema,
             opponentRole: roleSchema,
-            additionalRoles: { type: "array", minItems: 0, maxItems: 2, items: roleSchema },
+            additionalRoles: {
+              type: "array",
+              minItems: additionalRoleCount ?? 0,
+              maxItems: additionalRoleCount ?? 2,
+              items: roleSchema,
+            },
             stakes: stringArray,
             startSituation: { type: "string" },
             difficultyReason: { type: "string" },
