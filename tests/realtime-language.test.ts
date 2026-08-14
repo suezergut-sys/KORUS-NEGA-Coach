@@ -19,8 +19,12 @@ describe("русский язык Realtime-поединка", () => {
     expect(instructions.match(/ОБЯЗАТЕЛЬНЫЙ ЯЗЫК ТРЕНАЖЁРА/g)).toHaveLength(1);
   });
 
-  it("запрещает первой реплике превращаться в нейтральное знакомство", () => {
+  it("делает первую реплику открытой и откладывает конкретные решения", () => {
     expect(FIRST_OPPONENT_TURN_INSTRUCTIONS).toContain("сразу говори от лица персонажа");
-    expect(FIRST_OPPONENT_TURN_INSTRUCTIONS).toContain("не спрашивай, о чём пользователь хочет поговорить");
+    expect(FIRST_OPPONENT_TURN_INSTRUCTIONS).toContain("открытой и диагностической");
+    expect(FIRST_OPPONENT_TURN_INSTRUCTIONS).toContain("предложи ему первым изложить свою позицию");
+    expect(FIRST_OPPONENT_TURN_INSTRUCTIONS).toContain("не предлагай конкретное решение");
+    expect(FIRST_OPPONENT_TURN_INSTRUCTIONS).toContain("только после ответа участника");
+    expect(FIRST_OPPONENT_TURN_INSTRUCTIONS).toContain("не предлагай выбрать произвольную тему");
   });
 });
