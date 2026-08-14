@@ -532,7 +532,11 @@ button { color: inherit; }
 .opponent-identity p { margin: 0 0 14px; color: #95bdea; font-size: 13px; }
 .opponent-identity ul { padding: 0; margin: 0; list-style: none; }
 .opponent-identity li { margin: 7px 0; padding: 8px; border: 1px solid #153a62; border-radius: 6px; color: #bccce0; background: #0a1d35; font-size: 13px; }
-.opponent-style { position: absolute; z-index: 4; left: 14px; right: 14px; bottom: 12px; margin: 0; color: #7890ab; font-size: 12px; }
+.opponent-style { position: absolute; z-index: 4; left: 14px; right: 116px; bottom: 12px; margin: 0; color: #7890ab; font-size: 12px; }
+.opponent-switcher { position: absolute; z-index: 5; right: 12px; bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.opponent-switcher button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid #257cc4; border-radius: 7px; color: #cceaff; background: #0a3157; font-size: 22px; line-height: 1; cursor: pointer; }
+.opponent-switcher button:disabled { opacity: .4; cursor: not-allowed; }
+.opponent-switcher span { min-width: 30px; color: #75a9d4; font-size: 12px; text-align: center; }
 .case-title { margin-top: 22px !important; }
 .case-description { border: 1px solid #143b65; border-radius: 12px; overflow: hidden; }
 .case-block { padding: 16px 14px; border-bottom: 1px solid #14334f; }
@@ -555,7 +559,7 @@ button { color: inherit; }
 .duel-mode .opponent-panel { height: calc(100vh - 48px); display: flex; flex-direction: column; }
 .duel-mode .opponent-profile { min-height: 96px; grid-template-columns: 82px minmax(0, 1fr); flex: 0 0 96px; }
 .duel-mode .opponent-visual { min-height: 96px; }
-.duel-mode .visual-scan, .duel-mode .opponent-identity > span, .duel-mode .opponent-identity ul, .duel-mode .opponent-style { display: none; }
+.duel-mode .visual-scan, .duel-mode .opponent-identity > span, .duel-mode .opponent-identity ul, .duel-mode .opponent-style, .duel-mode .opponent-switcher { display: none; }
 .duel-mode .opponent-identity { align-self: center; padding: 10px 14px; }
 .duel-mode .opponent-identity h3 { margin: 0 0 5px; font-size: 17px; }
 .duel-mode .opponent-identity p { margin: 0; font-size: 13px; line-height: 1.35; }
@@ -1378,6 +1382,17 @@ button { color: inherit; }
 .variant-roles p, .variant-roles li { color: #8ea3b7; font-size: 13px; line-height: 1.45; }
 .variant-roles p { margin: 4px 0 0; }
 .variant-roles ul { margin: 8px 0 0; padding-left: 14px; }
+.case-negotiation-pairs { margin-top: 11px; padding: 12px; border: 1px solid #1b4d75; border-radius: 8px; background: rgba(6, 27, 49, .8); }
+.case-negotiation-pairs > strong { color: #63b8f6; font-size: 12px; letter-spacing: .07em; }
+.case-negotiation-pairs ul { display: grid; gap: 8px; margin: 9px 0 0; padding: 0; list-style: none; }
+.case-negotiation-pairs li { display: grid; gap: 3px; color: #829bb2; font-size: 12px; line-height: 1.4; }
+.case-negotiation-pairs li b { color: #cce6fa; }
+.admin-pair-editor { display: grid; gap: 10px; margin-top: 18px; padding: 16px; border: 1px solid #1a4b72; border-radius: 10px; background: rgba(5, 22, 41, .72); }
+.admin-pair-editor h3, .admin-pair-editor p { margin: 0; }
+.admin-pair-editor p { color: #718da7; font-size: 12px; }
+.admin-pair-editor label { display: grid; gap: 7px; padding: 10px; border: 1px solid #183b59; border-radius: 8px; color: #bdd5e8; font-size: 13px; }
+.admin-pair-editor input { accent-color: #168fff; }
+.admin-pair-editor textarea { min-height: 64px; padding: 9px; border: 1px solid #1d4c73; border-radius: 7px; color: #d6e6f2; background: #06162a; resize: vertical; }
 .case-variant-card details { margin: 13px 0; border: 1px solid #173c5e; border-radius: 8px; color: #84a6c3; background: #061526; font-size: 12px; }
 .case-variant-card summary { padding: 10px; color: #62b9f6; cursor: pointer; }
 .case-variant-card details > div { padding: 0 11px 11px; }

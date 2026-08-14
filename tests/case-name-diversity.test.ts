@@ -21,6 +21,7 @@ function variant(names: string[]): GeneratedCaseVariant {
     userRole: role(names[0], "female"),
     opponentRole: role(names[1], "male"),
     additionalRoles: [],
+    negotiationPairs: [{ roleAIndex: 0, roleBIndex: 1, reason: "У ролей есть прямой конфликт интересов." }],
     stakes: ["Срок"],
     startSituation: "Начало разговора",
     difficultyReason: "Нет очевидного компромисса",

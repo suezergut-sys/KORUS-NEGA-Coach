@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { CanonicalCase, CaseRole, MethodologyBasis } from "@/lib/case-types";
+import type { CanonicalCase, CaseRole, MethodologyBasis, NegotiationPair } from "@/lib/case-types";
 
 type EditableCase = Omit<CanonicalCase, "id" | "slug"> & {
   id: string;
@@ -46,6 +46,34 @@ export default function AdminCaseEditor({ initialCase }: { initialCase: Editable
 
   function set<K extends keyof EditableCase>(key: K, value: EditableCase[K]) { setItem((current) => ({ ...current, [key]: value })); }
   function setAdditional(index: number, role: CaseRole) { set("additionalRoles", item.additionalRoles.map((entry, entryIndex) => entryIndex === index ? role : entry)); }
+  const roles = [item.userRole, item.opponentRole, ...item.additionalRoles];
+
+  function pairFor(roleAIndex: number, roleBIndex: number) {
+    return item.negotiationPairs.find((pair) => pair.roleAIndex === roleAIndex && pair.roleBIndex === roleBIndex);
+  }
+
+  function togglePair(roleAIndex: number, roleBIndex: number, enabled: boolean) {
+    const remaining = item.negotiationPairs.filter((pair) => pair.roleAIndex !== roleAIndex || pair.roleBIndex !== roleBIndex);
+    set("negotiationPairs", enabled
+      ? [...remaining, { roleAIndex, roleBIndex, reason: "Опишите предмет переговоров и несовместимые интересы ролей." }]
+      : remaining);
+  }
+
+  function updatePairReason(roleAIndex: number, roleBIndex: number, reason: string) {
+    set("negotiationPairs", item.negotiationPairs.map((pair) => pair.roleAIndex === roleAIndex && pair.roleBIndex === roleBIndex ? { ...pair, reason } : pair));
+  }
+
+  function removeAdditionalRole(index: number) {
+    const removedRoleIndex = index + 2;
+    const nextPairs: NegotiationPair[] = item.negotiationPairs
+      .filter((pair) => pair.roleAIndex !== removedRoleIndex && pair.roleBIndex !== removedRoleIndex)
+      .map((pair) => ({
+        ...pair,
+        roleAIndex: pair.roleAIndex > removedRoleIndex ? pair.roleAIndex - 1 : pair.roleAIndex,
+        roleBIndex: pair.roleBIndex > removedRoleIndex ? pair.roleBIndex - 1 : pair.roleBIndex,
+      }));
+    setItem((current) => ({ ...current, additionalRoles: current.additionalRoles.filter((_, entryIndex) => entryIndex !== index), negotiationPairs: nextPairs }));
+  }
 
   async function save() {
     setStatus("saving"); setError(""); setMessage("");
@@ -101,7 +129,16 @@ export default function AdminCaseEditor({ initialCase }: { initialCase: Editable
           <div className="admin-role-editor-list">
             <RoleEditor label="Роль 1" role={item.userRole} onChange={(role) => set("userRole", role)} />
             <RoleEditor label="Роль 2" role={item.opponentRole} onChange={(role) => set("opponentRole", role)} />
-            {item.additionalRoles.map((role, index) => <RoleEditor key={index} label={`Дополнительная роль ${index + 1}`} role={role} onChange={(next) => setAdditional(index, next)} removable onRemove={() => set("additionalRoles", item.additionalRoles.filter((_, entryIndex) => entryIndex !== index))} />)}
+            {item.additionalRoles.map((role, index) => <RoleEditor key={index} label={`Дополнительная роль ${index + 1}`} role={role} onChange={(next) => setAdditional(index, next)} removable onRemove={() => removeAdditionalRole(index)} />)}
+          </div>
+          <div className="admin-pair-editor">
+            <h3>Допустимые пары оппонентов</h3>
+            <p>Включайте пару только тогда, когда у ролей есть прямой конфликт и предмет для отдельного разговора.</p>
+            {roles.flatMap((roleA, roleAIndex) => roles.slice(roleAIndex + 1).map((roleB, offset) => {
+              const roleBIndex = roleAIndex + offset + 1;
+              const pair = pairFor(roleAIndex, roleBIndex);
+              return <label key={`${roleAIndex}-${roleBIndex}`}><span><input type="checkbox" checked={Boolean(pair)} onChange={(event) => togglePair(roleAIndex, roleBIndex, event.target.checked)} /> {roleA.name || `Роль ${roleAIndex + 1}`} ↔ {roleB.name || `Роль ${roleBIndex + 1}`}</span>{pair && <textarea value={pair.reason} onChange={(event) => updatePairReason(roleAIndex, roleBIndex, event.target.value)} />}</label>;
+            }))}
           </div>
         </article>
 

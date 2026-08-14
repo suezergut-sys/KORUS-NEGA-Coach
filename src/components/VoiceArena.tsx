@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import AppNavRail from "@/components/AppNavRail";
 import CaseAddedNotice from "@/components/CaseAddedNotice";
+import CaseNegotiationPairs from "@/components/CaseNegotiationPairs";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { CanonicalCase } from "@/lib/case-types";
 import { opponentPortraitForRole } from "@/lib/opponent-portrait";
@@ -13,6 +14,7 @@ import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import type { CaseVisibility } from "@/lib/case-visibility";
+import { cycleOpponentIndex, opponentIndicesForRole } from "@/lib/case-negotiation-pairs";
 import { consumeCaseAddedNotice } from "@/lib/case-approval-navigation";
 import { realtimeResponseStatus, shouldMonitorRealtimeResponseStall, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
 import { DEFAULT_METHODOLOGY_ID, getMethodology, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
@@ -260,7 +262,9 @@ export default function VoiceArena({
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
   const allRoles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
   const participantRole = allRoles[selectedRoleIndex] || allRoles[0];
-  const aiRole = allRoles[opponentRoleIndex] || allRoles.find((_, index) => index !== selectedRoleIndex) || allRoles[0];
+  const allowedOpponentIndices = opponentIndicesForRole(selectedCase, selectedRoleIndex);
+  const effectiveOpponentRoleIndex = allowedOpponentIndices.includes(opponentRoleIndex) ? opponentRoleIndex : allowedOpponentIndices[0];
+  const aiRole = allRoles[effectiveOpponentRoleIndex] || allRoles[0];
   const voiceProfile = OPPONENTS[voiceMode];
   const opponent = {
     ...voiceProfile,
@@ -283,7 +287,7 @@ export default function VoiceArena({
   const narration = useCaseNarration({
     caseId: selectedCase.id,
     participantRoleIndex: selectedRoleIndex,
-    opponentRoleIndex,
+    opponentRoleIndex: effectiveOpponentRoleIndex,
     opponentVoice: opponent.voice,
     voiceMode,
     panels: comicPanels,
@@ -456,11 +460,11 @@ export default function VoiceArena({
       const nextCase = payload.cases.find((item) => item.id === queryId) || payload.cases[0];
       setSelectedCaseId(nextCase.id);
       const nextRoles = [nextCase.userRole, nextCase.opponentRole, ...(nextCase.additionalRoles || [])];
-      const randomOpponent = 1 + Math.floor(Math.random() * Math.max(1, nextRoles.length - 1));
-      setOpponentRoleIndex(Math.min(randomOpponent, nextRoles.length - 1));
-      const nextAiRole = nextRoles[Math.min(randomOpponent, nextRoles.length - 1)];
+      const nextOpponentIndex = opponentIndicesForRole(nextCase, 0)[0] ?? 1;
+      setOpponentRoleIndex(nextOpponentIndex);
+      const nextAiRole = nextRoles[nextOpponentIndex];
       setVoiceMode(roleVoiceGender(nextAiRole));
-      if (preferredId) setSelectedRoleIndex(0);
+      setSelectedRoleIndex(0);
       setCasesError("");
     } catch (caught) {
       setCasesError(caught instanceof Error ? caught.message : "Не удалось загрузить кейсы.");
@@ -480,10 +484,10 @@ export default function VoiceArena({
     setSelectedRoleIndex(0);
     const nextCase = cases.find((item) => item.id === caseId);
     const nextRoles = nextCase ? [nextCase.userRole, nextCase.opponentRole, ...(nextCase.additionalRoles || [])] : [];
-    const randomOpponent = nextRoles.length > 1 ? 1 + Math.floor(Math.random() * (nextRoles.length - 1)) : 0;
-    setOpponentRoleIndex(randomOpponent);
+    const nextOpponentIndex = nextCase ? opponentIndicesForRole(nextCase, 0)[0] ?? 1 : 0;
+    setOpponentRoleIndex(nextOpponentIndex);
     if (nextCase) {
-      const nextAiRole = nextRoles[randomOpponent];
+      const nextAiRole = nextRoles[nextOpponentIndex];
       setVoiceMode(roleVoiceGender(nextAiRole));
     }
     setLines([]);
@@ -499,11 +503,21 @@ export default function VoiceArena({
     stopNarration();
     resetComic();
     setSelectedRoleIndex(index);
-    const candidates = allRoles.map((_, roleIndex) => roleIndex).filter((roleIndex) => roleIndex !== index);
-    const nextOpponentIndex = candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
+    const nextOpponentIndex = opponentIndicesForRole(selectedCase, index)[0] ?? 0;
     setOpponentRoleIndex(nextOpponentIndex);
     const nextAiRole = allRoles[nextOpponentIndex];
     setVoiceMode(roleVoiceGender(nextAiRole));
+    setLines([]);
+    resetReport();
+    lifecycleDispatch({ type: "RESET" });
+  }
+
+  function chooseAdjacentOpponent(direction: -1 | 1) {
+    if (isLive || isBusy || allowedOpponentIndices.length < 2) return;
+    stopNarration();
+    const nextOpponentIndex = cycleOpponentIndex(allowedOpponentIndices, opponentRoleIndex, direction);
+    setOpponentRoleIndex(nextOpponentIndex);
+    setVoiceMode(roleVoiceGender(allRoles[nextOpponentIndex]));
     setLines([]);
     resetReport();
     lifecycleDispatch({ type: "RESET" });
@@ -1328,7 +1342,7 @@ export default function VoiceArena({
             caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
             caseCode: selectedCase.slug,
             participantRoleIndex: selectedRoleIndex,
-            opponentRoleIndex,
+            opponentRoleIndex: effectiveOpponentRoleIndex,
             opponentVoice: opponent.voice,
             methodologyId,
           }),
@@ -1381,7 +1395,7 @@ export default function VoiceArena({
         caseId: selectedCase.id,
         caseCode: selectedCase.slug,
         participantRoleIndex: String(selectedRoleIndex),
-        opponentRoleIndex: String(opponentRoleIndex),
+        opponentRoleIndex: String(effectiveOpponentRoleIndex),
         voice: opponent.voice,
       });
       const response = await fetchWithTimeout(`${realtimeEndpoint}?${params.toString()}`, {
@@ -1836,6 +1850,7 @@ export default function VoiceArena({
             <ul><li>◎ Рациональный подход</li><li>◈ Анализ интересов</li><li>♧ Ценит конкретику</li></ul>
           </div>
           <p className="opponent-style">{opponent.style}</p>
+          {allowedOpponentIndices.length > 1 && <div className="opponent-switcher" role="group" aria-label="Выбор допустимого оппонента"><button type="button" onClick={() => chooseAdjacentOpponent(-1)} disabled={isLive || isBusy || isEnding} aria-label="Предыдущий допустимый оппонент">‹</button><span>{allowedOpponentIndices.indexOf(effectiveOpponentRoleIndex) + 1} / {allowedOpponentIndices.length}</span><button type="button" onClick={() => chooseAdjacentOpponent(1)} disabled={isLive || isBusy || isEnding} aria-label="Следующий допустимый оппонент">›</button></div>}
         </section>
 
         <h2 className="case-title">ОПИСАНИЕ КЕЙСА</h2>
@@ -1844,6 +1859,7 @@ export default function VoiceArena({
           <CaseBlock icon="▤" title="КОНТЕКСТ">{selectedCase.situation}</CaseBlock>
           <CaseBlock icon="⚔" title="КОНФЛИКТ">{selectedCase.conflict}</CaseBlock>
           {allRoles.map((role, index) => <RoleCaseBlock key={role.name} title={`РОЛЬ ${index + 1}`} role={role} selected={selectedRoleIndex === index} />)}
+          <CaseNegotiationPairs roles={allRoles} pairs={selectedCase.negotiationPairs} />
         </section>
       </aside>
 
@@ -1888,6 +1904,7 @@ export default function VoiceArena({
               <div className="case-content-roles">
                 {allRoles.map((role, index) => <RoleCaseBlock key={role.name} title={`РОЛЬ ${index + 1}`} role={role} selected={selectedRoleIndex === index} />)}
               </div>
+              <CaseNegotiationPairs roles={allRoles} pairs={selectedCase.negotiationPairs} />
               {selectedCase.stakes.length > 0 && <CaseBlock icon="◆" title="СТАВКИ"><ul>{selectedCase.stakes.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock>}
               <CaseBlock icon="▶" title="НАЧАЛЬНАЯ СИТУАЦИЯ">{selectedCase.startSituation}</CaseBlock>
             </div>}

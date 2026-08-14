@@ -68,6 +68,7 @@ export async function POST(request: Request) {
 
 РОЛЬ ОППОНЕНТА: ${selected.opponentRole.name}, ${selected.opponentRole.position}
 ПУБЛИЧНАЯ ЦЕЛЬ ОППОНЕНТА: ${selected.opponentRole.publicGoal}
+ПРЕДМЕТ ПЕРЕГОВОРОВ ЭТОЙ ПАРЫ: ${selected.negotiationReason}
 
 СТЕНОГРАММА К ТЕКУЩЕЙ ПАУЗЕ:
 ${transcript}

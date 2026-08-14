@@ -10,6 +10,7 @@ const variant: GeneratedCaseVariant = {
   userRole: { name: "Анна Ларина", position: "Руководитель проекта", voiceGender: "female", publicGoal: "Получить ресурс", interests: ["Срок"], constraints: ["Бюджет"], hiddenMotives: ["Повышение"], leverage: ["Поддержка заказчика"] },
   opponentRole: { name: "Илья Романов", position: "Руководитель отдела", voiceGender: "male", publicGoal: "Сохранить ресурс", interests: ["Качество"], constraints: ["Загрузка"], hiddenMotives: ["Репутация"], leverage: ["Экспертиза"] },
   additionalRoles: [],
+  negotiationPairs: [{ roleAIndex: 0, roleBIndex: 1, reason: "У ролей есть прямой конфликт интересов." }],
   stakes: ["Срок запуска"],
   startSituation: "Илья отказывает.",
   difficultyReason: "Обе стороны отвечают за результат.",

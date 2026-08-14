@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import AppBrandMark from "../src/components/AppBrandMark";
 import AppSectionIcon, { APP_SECTION_ICON_NAMES } from "../src/components/AppSectionIcon";
 import CaseBuilder, { CaseVariantRoles } from "../src/components/CaseBuilder";
+import CaseNegotiationPairs from "../src/components/CaseNegotiationPairs";
 import { DEFAULT_CASE } from "../src/lib/default-case";
 
 describe("shared application visuals", () => {
@@ -59,5 +60,13 @@ describe("shared application visuals", () => {
     expect(markup).toContain("Не допустить рискованного запуска");
     expect(markup).toContain("Нельзя снизить обязательные проверки");
     expect(markup).not.toContain("Скрытый тестовый мотив");
+  });
+
+  it("explains which role pairs can negotiate", () => {
+    const roles = [DEFAULT_CASE.userRole, DEFAULT_CASE.opponentRole];
+    const markup = renderToStaticMarkup(<CaseNegotiationPairs roles={roles} pairs={DEFAULT_CASE.negotiationPairs} />);
+    expect(markup).toContain("ВОЗМОЖНЫЕ ПОЕДИНКИ");
+    expect(markup).toContain(`${roles[0].name} ↔ ${roles[1].name}`);
+    expect(markup).toContain(DEFAULT_CASE.negotiationPairs[0].reason);
   });
 });

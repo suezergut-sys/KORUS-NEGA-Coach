@@ -28,6 +28,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       user_role: item.userRole,
       opponent_role: item.opponentRole,
       additional_roles: item.additionalRoles,
+      negotiation_pairs: item.negotiationPairs,
       stakes: item.stakes,
       start_situation: item.startSituation,
       difficulty_reason: item.difficultyReason,

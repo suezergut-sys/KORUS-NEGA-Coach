@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import CaseNegotiationPairs from "@/components/CaseNegotiationPairs";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { CaseLibraryItem } from "@/lib/case-library";
@@ -83,6 +84,7 @@ export default function CaseLibrary({ cases }: { cases: CaseLibraryItem[] }) {
             <section className="case-library-roles">
               {[selected.userRole, selected.opponentRole, ...selected.additionalRoles].map((role, index) => <RoleDetails role={role} index={index} key={`${role.name}-${index}`} />)}
             </section>
+            <CaseNegotiationPairs roles={[selected.userRole, selected.opponentRole, ...selected.additionalRoles]} pairs={selected.negotiationPairs} />
             <footer className="case-library-dialog-actions"><button type="button" onClick={() => setSelected(null)}>Закрыть</button><Link href={`/?case=${selected.id}`}>Сыграть кейс →</Link></footer>
           </div>
         </div>

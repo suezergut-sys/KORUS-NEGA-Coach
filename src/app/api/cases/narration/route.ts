@@ -2,6 +2,7 @@ import { getOpenAI } from "@/lib/openai-server";
 import { type CaseRole } from "@/lib/case-types";
 import { getCaseComic } from "@/lib/case-comic";
 import { resolvePublishedCase } from "@/lib/case-resolver";
+import { selectCaseRoles } from "@/lib/case-role-selection";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -30,15 +31,7 @@ export async function POST(request: Request) {
 
     const negotiationCase = await resolvePublishedCase(caseId);
     if (!negotiationCase) return Response.json({ error: "Кейс не найден или недоступен." }, { status: 404 });
-    const roles = [negotiationCase.userRole, negotiationCase.opponentRole, ...negotiationCase.additionalRoles];
-    const requestedParticipant = Number(body.participantRoleIndex);
-    const participantRoleIndex = Number.isInteger(requestedParticipant) && roles[requestedParticipant] ? requestedParticipant : 0;
-    const requestedOpponent = Number(body.opponentRoleIndex);
-    const opponentRoleIndex = Number.isInteger(requestedOpponent) && requestedOpponent !== participantRoleIndex && roles[requestedOpponent]
-      ? requestedOpponent
-      : roles.findIndex((_, index) => index !== participantRoleIndex);
-    const participantRole = roles[participantRoleIndex];
-    const opponentRole = roles[opponentRoleIndex];
+    const { roles, participantRole, opponentRole, negotiationReason } = selectCaseRoles(negotiationCase, Number(body.participantRoleIndex), Number(body.opponentRoleIndex));
     const fullNarration = [
       `Тренировочный кейс «${negotiationCase.title}».`,
       negotiationCase.summary,
@@ -48,6 +41,7 @@ export async function POST(request: Request) {
       `Ставки: ${list(negotiationCase.stakes)}.`,
       `Начальная ситуация. ${negotiationCase.startSituation}`,
       `Ваша выбранная роль: ${participantRole.name}. Искусственный интеллект играет роль: ${opponentRole.name}.`,
+      `Предмет переговоров этой пары: ${negotiationReason}.`,
     ].join("\n\n").slice(0, 9000);
     const panelIndex = typeof body.panelIndex === "number" ? body.panelIndex : -1;
     const comicPanel = getCaseComic(negotiationCase)[panelIndex];
