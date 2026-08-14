@@ -12,7 +12,9 @@ describe("стили Realtime-переговоров", () => {
     const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative" });
     expect(prompt).toContain("полностью русскоязычный тренажёр переговоров");
     expect(prompt).toContain("Первая реплика оппонента обязательно должна быть на русском языке");
-    expect(prompt).toContain("Не спрашивай, о чём пользователь хочет поговорить");
+    expect(prompt).toContain("Первая реплика должна быть открытой и диагностической");
+    expect(prompt).toContain("не предлагай конкретное решение, план, условия, сроки, цифры, уступки или обмены");
+    expect(prompt).toContain("К рациональному обсуждению конкретных вариантов переходи только после ответа участника");
   });
 
   it("с первой реплики поддерживает заданную форму обращения", () => {
