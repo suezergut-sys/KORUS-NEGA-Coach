@@ -1,4 +1,4 @@
-import { isCanonicalPersonName, normalizeCaseRole, type CaseRole, type MethodologyBasis } from "./case-types";
+import { isCanonicalPersonName, normalizeAddressForm, normalizeCaseRole, type CaseRole, type MethodologyBasis } from "./case-types";
 import { assertNegotiationPairs } from "./case-negotiation-pairs";
 
 const STATUSES = new Set(["draft", "published", "archived"]);
@@ -63,6 +63,7 @@ export function parseAdminCaseInput(value: unknown) {
     summary,
     situation,
     conflict,
+    addressForm: normalizeAddressForm(body.addressForm),
     userRole,
     opponentRole,
     additionalRoles,

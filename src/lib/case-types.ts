@@ -17,6 +17,12 @@ export type NegotiationPair = {
   reason: string;
 };
 
+export type AddressForm = "formal" | "informal";
+
+export function normalizeAddressForm(value: unknown): AddressForm {
+  return value === "informal" ? "informal" : "formal";
+}
+
 export type CanonicalCase = {
   id: string;
   slug: string;
@@ -24,6 +30,7 @@ export type CanonicalCase = {
   summary: string;
   situation: string;
   conflict: string;
+  addressForm: AddressForm;
   userRole: CaseRole;
   opponentRole: CaseRole;
   additionalRoles: CaseRole[];
@@ -93,6 +100,7 @@ export function mapCaseRow(row: Record<string, unknown>): CanonicalCase {
     summary: String(row.summary),
     situation: String(row.situation),
     conflict: String(row.conflict),
+    addressForm: normalizeAddressForm(row.address_form),
     userRole: row.user_role as CaseRole,
     opponentRole: row.opponent_role as CaseRole,
     additionalRoles,
@@ -163,6 +171,11 @@ export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, ro
             summary: { type: "string" },
             situation: { type: "string" },
             conflict: { type: "string" },
+            addressForm: {
+              type: "string",
+              enum: ["formal", "informal"],
+              description: "Форма обращения между участниками: informal — общение на «ты», formal — общение на «вы». Если материалы или пользователь не задают внутреннюю культуру явно, выбирай formal.",
+            },
             userRole: roleSchema,
             opponentRole: roleSchema,
             additionalRoles: {
@@ -199,7 +212,7 @@ export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, ro
             },
           },
           required: [
-            "title", "summary", "situation", "conflict", "userRole", "opponentRole",
+            "title", "summary", "situation", "conflict", "addressForm", "userRole", "opponentRole",
             "additionalRoles", "negotiationPairs", "stakes", "startSituation", "difficultyReason", "evaluationFocus", "methodologyBasis",
           ],
         },

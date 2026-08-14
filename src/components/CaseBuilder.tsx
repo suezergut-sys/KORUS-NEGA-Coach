@@ -301,7 +301,7 @@ export default function CaseBuilder() {
             {workspace.variants.map((variant) => (
               <article className="case-variant-card" key={variant.id}>
                 <header><span>{variant.approvedAt ? "УТВЕРЖДЁН" : "ВАРИАНТ"}</span><h3>{variant.title}</h3><p>{variant.summary}</p></header>
-                <div className="variant-conflict"><strong>ЦЕНТРАЛЬНЫЙ КОНФЛИКТ</strong><p>{variant.conflict}</p><small>{variant.difficultyReason}</small></div>
+                <div className="variant-conflict"><strong>ЦЕНТРАЛЬНЫЙ КОНФЛИКТ</strong><p>{variant.conflict}</p><small>{variant.difficultyReason}</small><small>Обращение: {variant.addressForm === "informal" ? "на «ты»" : "на «вы»"}</small></div>
                 <CaseVariantRoles roles={[variant.userRole, variant.opponentRole, ...variant.additionalRoles]} />
                 <CaseNegotiationPairs roles={[variant.userRole, variant.opponentRole, ...variant.additionalRoles]} pairs={variant.negotiationPairs} />
                 <details><summary>Показать каноническое описание</summary><div><strong>Ситуация</strong><p>{variant.situation}</p><strong>Стартовая позиция</strong><p>{variant.startSituation}</p><strong>Ставки</strong><ul>{variant.stakes.map((item) => <li key={item}>{item}</li>)}</ul><strong>Методическая основа</strong><ul>{variant.methodologyBasis.map((item) => <li key={item.atomId}>{item.title}: {item.application}</li>)}</ul></div></details>

@@ -69,6 +69,7 @@ export async function POST(request: Request) {
 РОЛЬ ОППОНЕНТА: ${selected.opponentRole.name}, ${selected.opponentRole.position}
 ПУБЛИЧНАЯ ЦЕЛЬ ОППОНЕНТА: ${selected.opponentRole.publicGoal}
 ПРЕДМЕТ ПЕРЕГОВОРОВ ЭТОЙ ПАРЫ: ${selected.negotiationReason}
+ФОРМА ОБРАЩЕНИЯ В КЕЙСЕ: ${negotiationCase.addressForm === "informal" ? "на «ты»" : "на «вы»"}. Все готовые формулировки должны соблюдать её.
 
 СТЕНОГРАММА К ТЕКУЩЕЙ ПАУЗЕ:
 ${transcript}

@@ -7,6 +7,7 @@ const variant: GeneratedCaseVariant = {
   summary: "Руководители согласуют ресурсы.",
   situation: "Исходная ситуация.",
   conflict: "Конфликт ресурсов.",
+  addressForm: "formal",
   userRole: { name: "Анна Ларина", position: "Руководитель проекта", voiceGender: "female", publicGoal: "Получить ресурс", interests: ["Срок"], constraints: ["Бюджет"], hiddenMotives: ["Повышение"], leverage: ["Поддержка заказчика"] },
   opponentRole: { name: "Илья Романов", position: "Руководитель отдела", voiceGender: "male", publicGoal: "Сохранить ресурс", interests: ["Качество"], constraints: ["Загрузка"], hiddenMotives: ["Репутация"], leverage: ["Экспертиза"] },
   additionalRoles: [],
@@ -28,6 +29,7 @@ describe("case variant revision", () => {
     const input = buildCaseRevisionInput(variant, "Измените название и уточните интерес Анны.");
     expect(input).toContain('"title": "Старое название"');
     expect(input).toContain('"hiddenMotives"');
+    expect(input).toContain('"addressForm": "formal"');
     expect(input).toContain("Измените название и уточните интерес Анны.");
   });
 
@@ -37,5 +39,6 @@ describe("case variant revision", () => {
     expect(schema.properties.variants.maxItems).toBe(1);
     expect(schema.properties.variants.items.properties.additionalRoles.minItems).toBe(1);
     expect(schema.properties.variants.items.properties.additionalRoles.maxItems).toBe(1);
+    expect(schema.properties.variants.items.properties.addressForm.enum).toEqual(["formal", "informal"]);
   });
 });

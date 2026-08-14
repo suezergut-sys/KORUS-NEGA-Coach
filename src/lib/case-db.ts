@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { extractUploadedFile, validateFiles } from "@/lib/case-files";
-import { isCanonicalPersonName, mapCaseRow, normalizeCaseRole, type CanonicalCase, type CaseWorkspaceView, type GeneratedCaseVariant } from "@/lib/case-types";
+import { isCanonicalPersonName, mapCaseRow, normalizeAddressForm, normalizeCaseRole, type CanonicalCase, type CaseWorkspaceView, type GeneratedCaseVariant } from "@/lib/case-types";
 import { assertNegotiationPairs } from "@/lib/case-negotiation-pairs";
 import type { CaseVisibility } from "@/lib/case-visibility";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
@@ -17,6 +17,7 @@ function normalizeGeneratedVariant(variant: GeneratedCaseVariant) {
   const roleCount = 2 + variant.additionalRoles.length;
   return {
     ...variant,
+    addressForm: normalizeAddressForm(variant.addressForm),
     userRole: normalizeCaseRole(variant.userRole),
     opponentRole: normalizeCaseRole(variant.opponentRole),
     additionalRoles: variant.additionalRoles.map(normalizeCaseRole),
@@ -32,6 +33,7 @@ function variantInsertRow(workspaceId: string, variant: GeneratedCaseVariant) {
     summary: normalized.summary,
     situation: normalized.situation,
     conflict: normalized.conflict,
+    address_form: normalized.addressForm,
     user_role: normalized.userRole,
     opponent_role: normalized.opponentRole,
     additional_roles: normalized.additionalRoles,
@@ -191,6 +193,7 @@ export async function getVariantForRevision(variantId: string, ownerUserId: stri
       summary: variant.summary,
       situation: variant.situation,
       conflict: variant.conflict,
+      addressForm: variant.address_form === "informal" ? "informal" : "formal",
       userRole: variant.user_role,
       opponentRole: variant.opponent_role,
       additionalRoles: variant.additional_roles || [],
@@ -289,6 +292,7 @@ export async function getWorkspaceView(workspaceId: string, ownerUserId: string)
       summary: item.summary,
       situation: item.situation,
       conflict: item.conflict,
+      addressForm: item.address_form === "informal" ? "informal" : "formal",
       userRole: { ...item.user_role, hiddenMotives: [] },
       opponentRole: { ...item.opponent_role, hiddenMotives: [] },
       additionalRoles: (item.additional_roles || []).map((role: CanonicalCase["userRole"]) => ({ ...role, hiddenMotives: [] })),

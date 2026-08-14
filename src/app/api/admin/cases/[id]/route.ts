@@ -25,6 +25,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       summary: item.summary,
       situation: item.situation,
       conflict: item.conflict,
+      address_form: item.addressForm,
       user_role: item.userRole,
       opponent_role: item.opponentRole,
       additional_roles: item.additionalRoles,

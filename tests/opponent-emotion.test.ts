@@ -128,4 +128,14 @@ describe("эмоциональная динамика голосового оп�
     expect(instructions).toContain("Не называй служебные эмоции, состояние, триггеры или числовые значения вслух");
     expect(instructions).toContain("Сохраняй роль, цели, ограничения");
   });
+
+  it("использует неформальную границу при обращении на ты", () => {
+    const instructions = buildOpponentEmotionInstructions(
+      { trust: 20, tension: 80, irritation: 70, dominance: 80, engagement: 30, tone: "irritated" },
+      ["interruption"],
+      "informal",
+    );
+    expect(instructions).toContain("Не перебивай меня");
+    expect(instructions).not.toContain("Не перебивайте меня");
+  });
 });

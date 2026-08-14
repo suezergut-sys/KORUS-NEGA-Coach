@@ -85,6 +85,7 @@ export default function CaseLibrary({ cases }: { cases: CaseLibraryItem[] }) {
               {[selected.userRole, selected.opponentRole, ...selected.additionalRoles].map((role, index) => <RoleDetails role={role} index={index} key={`${role.name}-${index}`} />)}
             </section>
             <CaseNegotiationPairs roles={[selected.userRole, selected.opponentRole, ...selected.additionalRoles]} pairs={selected.negotiationPairs} />
+            <p><strong>Обращение:</strong> {selected.addressForm === "informal" ? "на «ты»" : "на «вы»"}</p>
             <footer className="case-library-dialog-actions"><button type="button" onClick={() => setSelected(null)}>Закрыть</button><Link href={`/?case=${selected.id}`}>Сыграть кейс →</Link></footer>
           </div>
         </div>
