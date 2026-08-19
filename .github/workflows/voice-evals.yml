@@ -2,8 +2,6 @@ name: Voice evals
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "30 0 * * *"
 
 concurrency:
   group: live-voice-evals
