@@ -2,6 +2,7 @@ import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
 import { getMethodology } from "@/lib/methodologies";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import { mapDailyTrainingQuota } from "@/lib/training-quota";
 
 export const runtime = "nodejs";
 
@@ -44,32 +45,33 @@ export async function POST(request: Request) {
         { status: 412 },
       );
     }
-    const now = new Date().toISOString();
     const retentionExpiresAt = new Date(Date.now() + Number(privacy.transcript_retention_days || 365) * 86_400_000).toISOString();
-    const { data, error } = await db
-      .from("training_sessions")
-      .insert({
-        user_id: user.userId,
-        case_id: negotiationCase.id.startsWith("default-") ? null : negotiationCase.id,
-        case_code: negotiationCase.slug,
-        case_context: `${negotiationCase.situation}\n\nЦентральный конфликт: ${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}\n\nФорма обращения: ${negotiationCase.addressForm === "informal" ? "на «ты»" : "на «вы»"}`,
-        participant_role_name: selected.participantRole.name,
-        opponent_name: selected.opponentRole.name,
-        opponent_voice: clean(body.opponentVoice, 80) || (selected.opponentRole.voiceGender === "male" ? "cedar" : "marin"),
-        started_at: now,
-        ended_at: now,
-        duration_seconds: 0,
-        methodology_id: methodology.id,
-        methodology_version: methodology.candidateVersion,
-        goal_snapshot: [goal?.goal_text, goal?.next_session_target].filter(Boolean).join("\n").slice(0, 1000) || null,
-        is_ranked: true,
-        status: "live",
-        retention_expires_at: retentionExpiresAt,
-      })
-      .select("id,started_at")
-      .single();
+    const { data, error } = await db.rpc("create_training_session_with_daily_quota", {
+      p_user_id: user.userId,
+      p_case_id: negotiationCase.id.startsWith("default-") ? null : negotiationCase.id,
+      p_case_code: negotiationCase.slug,
+      p_case_context: `${negotiationCase.situation}\n\nЦентральный конфликт: ${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}\n\nФорма обращения: ${negotiationCase.addressForm === "informal" ? "на «ты»" : "на «вы»"}`,
+      p_participant_role_name: selected.participantRole.name,
+      p_opponent_name: selected.opponentRole.name,
+      p_opponent_voice: clean(body.opponentVoice, 80) || (selected.opponentRole.voiceGender === "male" ? "cedar" : "marin"),
+      p_methodology_id: methodology.id,
+      p_methodology_version: methodology.candidateVersion,
+      p_goal_snapshot: [goal?.goal_text, goal?.next_session_target].filter(Boolean).join("\n").slice(0, 1000) || null,
+      p_retention_expires_at: retentionExpiresAt,
+    });
     if (error) throw new Error(error.message);
-    return Response.json({ sessionId: data.id, startedAt: data.started_at }, { status: 201 });
+    const row = (Array.isArray(data) ? data[0] : data) as {
+      session_id?: string | null;
+      started_at?: string;
+      daily_limit?: number | null;
+      used_today?: number;
+      remaining_today?: number | null;
+    } | null;
+    const quota = mapDailyTrainingQuota(row);
+    if (!row?.session_id) {
+      return Response.json({ error: "Количество ежедневных тренировок исчерпано.", quota }, { status: 429 });
+    }
+    return Response.json({ sessionId: row.session_id, startedAt: row.started_at, quota }, { status: 201 });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Не удалось создать тренировочную сессию." },

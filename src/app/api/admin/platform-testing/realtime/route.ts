@@ -14,5 +14,5 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const denied = await rejectNonAdminApiRequest();
-  return denied || createRealtimeSession(request, { adminCaseAccess: true });
+  return denied || createRealtimeSession(request, { adminCaseAccess: true, skipTrainingSessionClaim: true });
 }

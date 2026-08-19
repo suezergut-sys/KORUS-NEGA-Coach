@@ -300,6 +300,7 @@ button { color: inherit; }
 .session-actions button { min-height: 58px; border-radius: 8px; font-weight: 800; letter-spacing: .04em; cursor: pointer; }
 .session-actions button span { margin-right: 12px; }
 .start-session { border: 1px solid #1b91ff; background: linear-gradient(135deg, #075fe0, #043a99); box-shadow: inset 0 0 20px rgba(33, 149, 255, .35), 0 0 22px rgba(0, 99, 255, .13); white-space: nowrap; }
+.start-session.quota-exhausted { border-color: #ff5d58; color: #fff; background: linear-gradient(135deg, #c92f35, #811c25); box-shadow: inset 0 0 20px rgba(255, 126, 121, .24), 0 0 24px rgba(209, 41, 48, .24); }
 .start-session.is-connecting { font-size: 12px; letter-spacing: .02em; }
 .start-session.is-connecting span { margin-right: 6px; }
 .pause-session { border: 1px solid #bc872d; color: #ffe5a9; background: linear-gradient(135deg, rgba(95, 67, 17, .86), rgba(42, 31, 14, .92)); }
@@ -974,6 +975,18 @@ button { color: inherit; }
 .admin-data-table td a { color: #62baff; text-decoration: none; }
 .admin-user-role { display: inline-flex; padding: 4px 8px; border: 1px solid #285778; border-radius: 999px; color: #90adc5; background: rgba(23, 61, 91, .26); font-size: 12px; }
 .admin-user-role.administrator { border-color: #14765d; color: #65ddb7; background: rgba(18, 107, 82, .18); }
+.admin-training-tier-control { min-width: 190px; display: grid; gap: 5px; }
+.admin-training-tier-control select { min-height: 36px; padding: 0 32px 0 10px; border: 1px solid #285778; border-radius: 7px; color: #d9e8f5; background: #071a30; color-scheme: dark; font-size: 12px; }
+.admin-training-tier-control small { color: #87a6bf; font-size: 12px; }
+.admin-training-tier-control .admin-training-tier-error { color: #ff918a; }
+
+.training-limit-overlay { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgba(3, 7, 15, .82); backdrop-filter: blur(9px); }
+.training-limit-dialog { width: min(520px, 100%); position: relative; padding: 34px; border: 1px solid #cf3e43; border-radius: 18px; color: #f8fbff; background: radial-gradient(circle at 100% 0, rgba(214, 47, 54, .24), transparent 40%), #09182a; box-shadow: 0 28px 80px rgba(0, 0, 0, .6); }
+.training-limit-dialog > span { color: #ff7975; font-size: 12px; font-weight: 900; letter-spacing: .14em; }
+.training-limit-dialog h2 { margin: 10px 44px 12px 0; font-size: 27px; }
+.training-limit-dialog p { margin: 0; color: #b8c9d8; line-height: 1.65; }
+.training-limit-dialog a { color: #64baff; font-weight: 800; }
+.training-limit-close { width: 36px; height: 36px; position: absolute; top: 16px; right: 16px; border: 1px solid rgba(255, 121, 117, .45); border-radius: 9px; color: #ffaaa7; background: rgba(89, 20, 27, .45); font-size: 24px; cursor: pointer; }
 .admin-activity-list { overflow: hidden; border: 1px solid #174367; border-radius: 12px; background: #041225; }
 .admin-activity-list article { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 18px; padding: 14px 17px; border-bottom: 1px solid #112f49; }
 .admin-activity-list article:last-of-type { border-bottom: 0; }
@@ -1478,6 +1491,7 @@ button { color: inherit; }
 .welcome-back-metrics article { min-height: 112px; display: grid; align-content: space-between; gap: 18px; padding: 19px 20px; border: 1px solid rgba(48, 125, 182, .55); border-radius: 13px; background: rgba(5, 25, 46, .68); }
 .welcome-back-metrics span { color: #82a5c1; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .welcome-back-metrics strong { color: #f5fbff; font-size: 31px; line-height: 1; }
+.welcome-back-metrics article:last-child:nth-child(odd) { grid-column: 1 / -1; min-height: 96px; }
 .welcome-back-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 25px; }
 .welcome-back-actions a { min-height: 46px; display: grid; place-items: center; padding: 8px; border: 1px solid #27608f; border-radius: 9px; color: #acd9fa; background: rgba(5, 35, 63, .82); font-size: 12px; font-weight: 900; letter-spacing: .045em; text-align: center; text-decoration: none; transition: .18s ease; }
 .welcome-back-actions a:first-child { border-color: #2da8ff; color: white; background: linear-gradient(135deg, #0b82ea, #0751a6); box-shadow: 0 10px 25px rgba(0, 111, 221, .18); }
