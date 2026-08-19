@@ -70,6 +70,12 @@ import {
   type PanelWidths,
   type ResizablePanel,
 } from "@/lib/panel-resize";
+import {
+  formatTrainingQuota,
+  isTrainingQuotaExhausted,
+  TRAINING_LIMIT_CONTACT_URL,
+  type TrainingQuota,
+} from "@/lib/training-quota";
 
 type VoiceMode = "female" | "male";
 type NegotiationStyle = "collaborative" | "hard";
@@ -112,9 +118,11 @@ function formatTime(totalSeconds: number) {
 export default function VoiceArena({
   isAdministrator = false,
   voiceEvalMode = false,
+  initialTrainingQuota,
 }: {
   isAdministrator?: boolean;
   voiceEvalMode?: boolean;
+  initialTrainingQuota?: TrainingQuota;
 }) {
   const {
     state: lifecycleState,
@@ -154,6 +162,13 @@ export default function VoiceArena({
   const [panelWidths, setPanelWidths] = useState<PanelWidths | null>(null);
   const [resizingPanel, setResizingPanel] = useState<ResizablePanel | null>(null);
   const [caseAddedNotice, setCaseAddedNotice] = useState(false);
+  const [trainingQuota, setTrainingQuota] = useState<TrainingQuota>(initialTrainingQuota || {
+    tier: "standard",
+    limit: voiceEvalMode || isAdministrator ? null : 3,
+    used: 0,
+    remaining: voiceEvalMode || isAdministrator ? null : 3,
+  });
+  const [trainingLimitOpen, setTrainingLimitOpen] = useState(false);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -1203,6 +1218,10 @@ export default function VoiceArena({
 
   async function startSession() {
     if (startPendingRef.current || isBusy || isLive || analysisStatus === "loading") return;
+    if (!voiceEvalMode && isTrainingQuotaExhausted(trainingQuota)) {
+      setTrainingLimitOpen(true);
+      return;
+    }
     startPendingRef.current = true;
     setupStartedAtRef.current = Date.now();
     stopNarration();
@@ -1348,7 +1367,14 @@ export default function VoiceArena({
             methodologyId,
           }),
         }, 15_000);
-        const sessionPayload = await sessionResponse.json() as { sessionId?: string; startedAt?: string; error?: string };
+        const sessionPayload = await sessionResponse.json() as { sessionId?: string; startedAt?: string; quota?: TrainingQuota; error?: string };
+        if (sessionPayload.quota) setTrainingQuota(sessionPayload.quota);
+        if (sessionResponse.status === 429) {
+          setTrainingLimitOpen(true);
+          const limitError = new Error(sessionPayload.error || "Количество ежедневных тренировок исчерпано.");
+          limitError.name = "TrainingLimitError";
+          throw limitError;
+        }
         if (!sessionResponse.ok || !sessionPayload.sessionId) {
           throw new Error(sessionPayload.error || "Не удалось создать тренировочную сессию.");
         }
@@ -1398,6 +1424,7 @@ export default function VoiceArena({
         participantRoleIndex: String(selectedRoleIndex),
         opponentRoleIndex: String(effectiveOpponentRoleIndex),
         voice: opponent.voice,
+        sessionId: trainingSessionIdRef.current,
       });
       const response = await fetchWithTimeout(`${realtimeEndpoint}?${params.toString()}`, {
         method: "POST",
@@ -1415,7 +1442,7 @@ export default function VoiceArena({
     } catch (caught) {
       closeSession();
       lifecycleDispatch({ type: "RESET" });
-      setError(caught instanceof Error ? caught.message : "Не удалось запустить микрофон.");
+      setError(caught instanceof Error && caught.name === "TrainingLimitError" ? "" : caught instanceof Error ? caught.message : "Не удалось запустить микрофон.");
       linesRef.current = [];
       setLines([]);
     } finally {
@@ -1765,9 +1792,22 @@ export default function VoiceArena({
 
         {error && <div className="error-banner" role="alert"><strong>Не удалось начать переговоры.</strong><span>{error}</span></div>}
 
+        {trainingLimitOpen && (
+          <div className="training-limit-overlay" role="presentation" onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setTrainingLimitOpen(false);
+          }}>
+            <section className="training-limit-dialog" role="dialog" aria-modal="true" aria-labelledby="training-limit-title">
+              <button type="button" className="training-limit-close" onClick={() => setTrainingLimitOpen(false)} aria-label="Закрыть сообщение">×</button>
+              <span>ДНЕВНОЙ ЛИМИТ</span>
+              <h2 id="training-limit-title">Тренировки на сегодня закончились</h2>
+              <p>Количество ежедневных тренировок исчерпано. Обратитесь к создателю платформы <a href={TRAINING_LIMIT_CONTACT_URL} target="_blank" rel="noreferrer">Максиму Сумину</a> для перехода на Премиум.</p>
+            </section>
+          </div>
+        )}
+
         <footer className="session-actions">
-          <button className={`start-session ${isBusy ? "is-connecting" : ""}`} onClick={startSession} disabled={isLive || isBusy || isEnding || analysisStatus === "loading"}>
-            <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : isEnding ? "АНАЛИЗ…" : isLive ? `ОСТАЛОСЬ ${formatTime(remainingSeconds)}` : "НАЧАТЬ"}
+          <button className={`start-session ${isBusy ? "is-connecting" : ""} ${isTrainingQuotaExhausted(trainingQuota) ? "quota-exhausted" : ""}`} onClick={startSession} disabled={isLive || isBusy || isEnding || analysisStatus === "loading"}>
+            <span>▶</span>{isBusy ? "ПОДКЛЮЧАЕМСЯ…" : isEnding ? "АНАЛИЗ…" : isLive ? `ОСТАЛОСЬ ${formatTime(remainingSeconds)}` : `НАЧАТЬ · ${formatTrainingQuota(trainingQuota)}`}
           </button>
           <button className={`pause-session ${isPaused ? "counting" : ""}`} onClick={togglePause} disabled={!isLive || isEnding || (pauseUsed && !isPaused)} aria-label={isPaused ? `Продолжить переговоры, осталось ${formatTime(pauseRemaining)}` : "Пауза"}>
             <svg className="pause-icon" viewBox="0 0 18 18" aria-hidden="true"><rect x="3" y="2" width="4" height="14" rx="1" /><rect x="11" y="2" width="4" height="14" rx="1" /></svg>{isPaused ? `ПАУЗА · ${formatTime(pauseRemaining)}` : "ПАУЗА"}

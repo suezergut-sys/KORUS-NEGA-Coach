@@ -1,6 +1,8 @@
 import { buildRealtimeInstructions } from "@/lib/prompt";
 import { resolvePublishedCase, resolvePublishedCaseForAdmin, selectCaseRoles } from "@/lib/case-resolver";
 import { buildRealtimeSessionConfig } from "@/lib/realtime-session";
+import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { getCurrentUserSession } from "@/lib/user-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -16,7 +18,7 @@ export async function GET() {
   );
 }
 
-export async function createRealtimeSession(request: Request, options: { adminCaseAccess?: boolean } = {}) {
+export async function createRealtimeSession(request: Request, options: { adminCaseAccess?: boolean; skipTrainingSessionClaim?: boolean } = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -57,6 +59,25 @@ export async function createRealtimeSession(request: Request, options: { adminCa
 
   if (!sdp.startsWith("v=0")) {
     return Response.json({ error: "Некорректное SDP-предложение." }, { status: 400 });
+  }
+
+  if (!options.skipTrainingSessionClaim) {
+    const user = await getCurrentUserSession();
+    if (!user) return Response.json({ error: "Требуется авторизация." }, { status: 401 });
+    const trainingSessionId = readParam(url, "sessionId", "");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trainingSessionId)) {
+      return Response.json({ error: "Некорректная тренировочная сессия." }, { status: 400 });
+    }
+    const { data: claimed, error: claimError } = await getSupabaseAdmin().rpc("claim_training_realtime", {
+      p_session_id: trainingSessionId,
+      p_user_id: user.userId,
+    });
+    if (claimError) {
+      return Response.json({ error: "Не удалось проверить дневной лимит тренировок." }, { status: 500 });
+    }
+    if (!claimed) {
+      return Response.json({ error: "Тренировочная сессия уже использована или недоступна." }, { status: 409 });
+    }
   }
 
   const sessionConfig = buildRealtimeSessionConfig({

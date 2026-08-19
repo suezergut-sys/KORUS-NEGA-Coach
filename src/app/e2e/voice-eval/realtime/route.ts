@@ -1,6 +1,6 @@
 import {
   GET as getRealtimeSession,
-  POST as createRealtimeSession,
+  createRealtimeSession,
 } from "@/app/api/realtime/session/route";
 
 function unavailable() {
@@ -14,5 +14,5 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (process.env.E2E_TEST_MODE !== "1") return unavailable();
-  return createRealtimeSession(request);
+  return createRealtimeSession(request, { skipTrainingSessionClaim: true });
 }

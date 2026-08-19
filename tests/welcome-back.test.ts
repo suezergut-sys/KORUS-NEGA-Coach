@@ -25,6 +25,7 @@ describe("welcome-back launch", () => {
     expect(component).toContain("Отыгранных кейсов");
     expect(component).toContain("Процент побед");
     expect(component).toContain("Средний балл");
+    expect(component).toContain("Доступно тренировок сегодня");
     expect(component).toContain("Цитата дня");
     expect(component).toContain("getDailyQuote()");
     expect(component).toContain("Тренировать");

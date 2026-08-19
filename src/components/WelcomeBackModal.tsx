@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { getDailyQuote } from "@/lib/daily-quotes";
 import { getOnboardingStorage, readOnboardingCompleted } from "@/lib/onboarding";
 import { shouldOpenWelcomeBack } from "@/lib/welcome-back";
+import { formatTrainingQuota, type TrainingQuota } from "@/lib/training-quota";
 
 type WelcomeStats = {
   firstName: string;
@@ -12,6 +13,7 @@ type WelcomeStats = {
   played: number;
   winRate: number;
   averageScore: number | null;
+  trainingQuota: TrainingQuota;
 };
 
 export default function WelcomeBackModal() {
@@ -85,6 +87,7 @@ export default function WelcomeBackModal() {
           <article><span>Отыгранных кейсов</span><strong>{stats.played}</strong></article>
           <article><span>Процент побед</span><strong>{stats.winRate}%</strong></article>
           <article><span>Средний балл</span><strong>{stats.averageScore ?? "—"}</strong></article>
+          <article><span>Доступно тренировок сегодня</span><strong>{formatTrainingQuota(stats.trainingQuota)}</strong></article>
         </section>
         <nav className="welcome-back-actions" aria-label="Быстрый переход">
           <Link href="/" onClick={() => setOpen(false)}>Тренировать</Link>
