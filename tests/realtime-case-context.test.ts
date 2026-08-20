@@ -92,7 +92,7 @@ describe("контекст выбранного кейса в Realtime", () => {
     expect(instructions).not.toContain("Ошибочная Дублирующая Роль");
   });
 
-  it.each([2, 3, 4])("сохраняет ФИО и должности при всех перестановках %i ролей", (roleCount) => {
+  it.each([2, 3, 4])("сохраняет роли и все стартовые настройки при всех перестановках %i ролей", (roleCount) => {
     const roles = [
       { ...DEFAULT_CASE.userRole, name: "Анна Соколова", position: "Роль руководителя" },
       { ...DEFAULT_CASE.opponentRole, name: "Борис Воронцов", position: "Роль сотрудника" },
@@ -111,15 +111,28 @@ describe("контекст выбранного кейса в Realtime", () => {
       for (let opponentIndex = 0; opponentIndex < roleCount; opponentIndex += 1) {
         if (participantIndex === opponentIndex) continue;
         const selected = selectCaseRoles(negotiationCase, participantIndex, opponentIndex);
-        const instructions = buildRealtimeInstructions({
-          negotiationStyle: "collaborative",
-          context: negotiationCase.situation,
-          userRole: selected.participantRole,
-          opponentRole: selected.opponentRole,
-        });
+        for (const firstSpeaker of ["participant", "opponent"] as const) {
+          for (const negotiationStyle of ["collaborative", "hard"] as const) {
+            for (const addressForm of ["informal", "formal"] as const) {
+              const instructions = buildRealtimeInstructions({
+                negotiationStyle,
+                firstSpeaker,
+                addressForm,
+                context: negotiationCase.situation,
+                userRole: selected.participantRole,
+                opponentRole: selected.opponentRole,
+              });
 
-        expect(instructions).toContain(`ТВОЯ РОЛЬ: ${roles[opponentIndex].name}, ${roles[opponentIndex].position}.`);
-        expect(instructions).toContain(`РОЛЬ УЧАСТНИКА: ${roles[participantIndex].name}, ${roles[participantIndex].position}.`);
+              expect(instructions).toContain(`ТВОЯ РОЛЬ: ${roles[opponentIndex].name}, ${roles[opponentIndex].position}.`);
+              expect(instructions).toContain(`РОЛЬ УЧАСТНИКА: ${roles[participantIndex].name}, ${roles[participantIndex].position}.`);
+              expect(instructions).toContain(`AI-ОППОНЕНТ: ${roles[opponentIndex].name}, ${roles[opponentIndex].position}.`);
+              expect(instructions).toContain(`УЧАСТНИК-ЧЕЛОВЕК: ${roles[participantIndex].name}, ${roles[participantIndex].position}.`);
+              expect(instructions).toContain(firstSpeaker === "participant" ? "ПЕРВЫМ ГОВОРИТ УЧАСТНИК-ЧЕЛОВЕК" : "ПЕРВЫМ ГОВОРИТ AI-ОППОНЕНТ");
+              expect(instructions).toContain(negotiationStyle === "hard" ? "СТИЛЬ AI-ОППОНЕНТА: ЖЁСТКИЙ" : "СТИЛЬ AI-ОППОНЕНТА: СОТРУДНИЧЕСТВО");
+              expect(instructions).toContain(addressForm === "informal" ? "ФОРМА ОБРАЩЕНИЯ: НА «ТЫ»" : "ФОРМА ОБРАЩЕНИЯ: НА «ВЫ»");
+            }
+          }
+        }
       }
     }
   });

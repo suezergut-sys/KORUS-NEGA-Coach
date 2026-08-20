@@ -17,6 +17,14 @@ describe("стили Realtime-переговоров", () => {
     expect(prompt).toContain("К рациональному обсуждению конкретных вариантов переходи только после ответа участника");
   });
 
+  it("при старте участника запрещает модели говорить до его первой завершённой реплики", () => {
+    const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative", firstSpeaker: "participant" });
+
+    expect(prompt).toContain("ПЕРВЫМ ГОВОРИТ УЧАСТНИК-ЧЕЛОВЕК");
+    expect(prompt).toContain("До его первой завершённой реплики молчи");
+    expect(prompt).not.toContain("6. Начни первым");
+  });
+
   it("с первой реплики поддерживает заданную форму обращения", () => {
     const informal = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative", addressForm: "informal" });
     expect(informal).toContain("ФОРМА ОБРАЩЕНИЯ: НА «ТЫ»");

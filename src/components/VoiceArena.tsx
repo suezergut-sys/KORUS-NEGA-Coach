@@ -55,6 +55,7 @@ import {
   updateOpponentEmotion,
 } from "@/lib/opponent-emotion";
 import { buildFirstOpponentTurnInstructions } from "@/lib/realtime-language";
+import { realtimeReadyMessage, type FirstSpeaker } from "@/lib/negotiation-start";
 import {
   acquireVoiceEvalInputStream,
   realtimeEventVoiceEvalDetails,
@@ -135,6 +136,7 @@ export default function VoiceArena({
   const { lines, linesRef, transcriptEndRef, setLines, replaceLine, appendDelta, clockTime } = transcript;
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("male");
   const [negotiationStyle, setNegotiationStyle] = useState<NegotiationStyle>("collaborative");
+  const [firstSpeaker, setFirstSpeaker] = useState<FirstSpeaker>("opponent");
   const [durationMinutes, setDurationMinutes] = useState<DurationMinutes>(5);
   const [inputMode, setInputMode] = useState<NegotiationInputMode>("duplex");
   const [methodologyId, setMethodologyId] = useState<MethodologyId>(DEFAULT_METHODOLOGY_ID);
@@ -1347,7 +1349,7 @@ export default function VoiceArena({
       const media = await acquireVoiceEvalInputStream(voiceEvalMode);
       streamRef.current = media;
       media.getAudioTracks().forEach((track) => {
-        track.enabled = shouldEnableMicrophone(inputModeRef.current, false, pushToTalkActiveRef.current);
+        track.enabled = false;
       });
       media.getTracks().forEach((track) => pc.addTrack(track, media));
 
@@ -1388,15 +1390,27 @@ export default function VoiceArena({
       channel.addEventListener("open", () => {
         setupLatencyMsRef.current = Math.max(0, Date.now() - setupStartedAtRef.current);
         startTimer();
+        syncMicrophoneTrack();
         lifecycleDispatch({ type: "CONNECTED" });
-        reportRealtimeDiagnostic("session_started", { peerState: pc.connectionState, channelState: channel.readyState, inputMode: inputModeRef.current });
-        const readyLines: Line[] = [{ id: "ready", author: "Система", text: `Связь установлена. ${opponent.name} начинает переговоры.`, time: clockTime() }];
+        reportRealtimeDiagnostic("session_started", {
+          peerState: pc.connectionState,
+          channelState: channel.readyState,
+          inputMode: inputModeRef.current,
+          firstSpeaker,
+          negotiationStyle,
+          addressForm: selectedCase.addressForm,
+          participantRoleIndex: selectedRoleIndex,
+          opponentRoleIndex: effectiveOpponentRoleIndex,
+        });
+        const readyLines: Line[] = [{ id: "ready", author: "Система", text: realtimeReadyMessage(firstSpeaker, opponent.name), time: clockTime() }];
         linesRef.current = readyLines;
         setLines(readyLines);
-        requestRealtimeResponse(
-          channel,
-          `${buildFirstOpponentTurnInstructions({ participantRole, opponentRole: aiRole })}\n\n${buildOpponentEmotionInstructions(opponentEmotionRef.current, [], selectedCase.addressForm)}`,
-        );
+        if (firstSpeaker === "opponent") {
+          requestRealtimeResponse(
+            channel,
+            `${buildFirstOpponentTurnInstructions({ participantRole, opponentRole: aiRole })}\n\n${buildOpponentEmotionInstructions(opponentEmotionRef.current, [], selectedCase.addressForm)}`,
+          );
+        }
       });
       channel.addEventListener("close", () => {
         if (channelRef.current === channel && !endingRef.current) {
@@ -1419,6 +1433,7 @@ export default function VoiceArena({
 
       const params = new URLSearchParams({
         negotiationStyle,
+        firstSpeaker,
         caseId: selectedCase.id,
         caseCode: selectedCase.slug,
         participantRoleIndex: String(selectedRoleIndex),
@@ -1669,6 +1684,14 @@ export default function VoiceArena({
         <CaseSelect cases={cases} value={selectedCase.id} onChange={chooseCase} disabled={isLive || isBusy} />
         <RoleSelect selectedCase={selectedCase} value={selectedRoleIndex} onChange={chooseRole} disabled={isLive || isBusy} />
         {casesError && <p className="case-select-error">{casesError}</p>}
+
+        <section className="setting-group">
+          <div className="setting-label">ВЫБЕРИ ПЕРВУЮ РЕПЛИКУ</div>
+          <div className="style-options" role="group" aria-label="Кто начинает переговоры">
+            <button className={firstSpeaker === "participant" ? "selected" : ""} onClick={() => setFirstSpeaker("participant")} disabled={isLive || isBusy} aria-pressed={firstSpeaker === "participant"}>Начинаю я</button>
+            <button className={firstSpeaker === "opponent" ? "selected" : ""} onClick={() => setFirstSpeaker("opponent")} disabled={isLive || isBusy} aria-pressed={firstSpeaker === "opponent"}>Начинает оппонент</button>
+          </div>
+        </section>
 
         <section className="setting-group">
           <div className="setting-label">ВЫБЕРИ СТИЛЬ ОППОНЕНТА</div>

@@ -3,6 +3,7 @@ import { resolvePublishedCase, resolvePublishedCaseForAdmin, selectCaseRoles } f
 import { buildRealtimeSessionConfig } from "@/lib/realtime-session";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import { matchesTrainingSessionStart, normalizeFirstSpeaker } from "@/lib/negotiation-start";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -33,6 +34,7 @@ export async function createRealtimeSession(request: Request, options: { adminCa
   const requestedVoice = readParam(url, "voice", "marin");
   const voice = requestedVoice === "cedar" ? "cedar" : "marin";
   const negotiationStyle = readParam(url, "negotiationStyle", "collaborative") === "hard" ? "hard" : "collaborative";
+  const firstSpeaker = normalizeFirstSpeaker(readParam(url, "firstSpeaker", "opponent"));
   const caseId = readParam(url, "caseId", "");
   const negotiationCase = options.adminCaseAccess
     ? await resolvePublishedCaseForAdmin(caseId)
@@ -47,6 +49,7 @@ export async function createRealtimeSession(request: Request, options: { adminCa
   const opponentRole = selected.opponentRole;
   const instructions = buildRealtimeInstructions({
     negotiationStyle,
+    firstSpeaker,
     addressForm: negotiationCase.addressForm,
     context: negotiationCase.situation,
     conflict: `${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}`,
@@ -67,7 +70,28 @@ export async function createRealtimeSession(request: Request, options: { adminCa
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trainingSessionId)) {
       return Response.json({ error: "Некорректная тренировочная сессия." }, { status: 400 });
     }
-    const { data: claimed, error: claimError } = await getSupabaseAdmin().rpc("claim_training_realtime", {
+    const db = getSupabaseAdmin();
+    const { data: trainingSession, error: sessionError } = await db
+      .from("training_sessions")
+      .select("case_id,case_code,participant_role_name,opponent_name")
+      .eq("id", trainingSessionId)
+      .eq("user_id", user.userId)
+      .maybeSingle();
+    if (sessionError) {
+      return Response.json({ error: "Не удалось проверить настройки тренировочной сессии." }, { status: 500 });
+    }
+    if (!trainingSession || !matchesTrainingSessionStart({
+      saved: trainingSession,
+      expected: {
+        caseId: negotiationCase.id.startsWith("default-") ? null : negotiationCase.id,
+        caseCode: negotiationCase.slug,
+        participantRoleName: userRole.name,
+        opponentRoleName: opponentRole.name,
+      },
+    })) {
+      return Response.json({ error: "Настройки запуска не совпадают с созданной тренировочной сессией. Запустите поединок заново." }, { status: 409 });
+    }
+    const { data: claimed, error: claimError } = await db.rpc("claim_training_realtime", {
       p_session_id: trainingSessionId,
       p_user_id: user.userId,
     });
