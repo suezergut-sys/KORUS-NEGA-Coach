@@ -37,12 +37,13 @@ describe("about product page", () => {
     expect(markup).toContain("Приватность, качество и управление");
     expect(markup).toContain("Выбор первой реплики и контроль старта");
     expect(markup).toContain("Переговоры без озвучки в режиме «Только текст»");
+    expect(markup).toContain("Запуск тренировок с методологией конфликтов");
   });
 
   it("contains every merged PR in newest-first order", () => {
-    expect(PRODUCT_HISTORY).toHaveLength(116);
+    expect(PRODUCT_HISTORY).toHaveLength(117);
     expect(PRODUCT_HISTORY.map((item) => item.pr)).toEqual(
-      [119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
+      [120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
     );
     for (let index = 1; index < PRODUCT_HISTORY.length; index += 1) {
       expect(PRODUCT_HISTORY[index - 1].date >= PRODUCT_HISTORY[index].date).toBe(true);
