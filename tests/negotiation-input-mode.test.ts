@@ -5,6 +5,7 @@ describe("режим микрофона переговоров", () => {
   it("держит микрофон включённым в дуплексе, кроме паузы", () => {
     expect(shouldEnableMicrophone("duplex", false, false)).toBe(true);
     expect(shouldEnableMicrophone("duplex", true, true)).toBe(false);
+    expect(shouldEnableMicrophone("text_only", false, true)).toBe(false);
   });
 
   it("в режиме по кнопке включает микрофон только на время удержания", () => {
