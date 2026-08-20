@@ -1,7 +1,7 @@
 import "server-only";
 
 import { ANALYSIS_MODEL, getOpenAI } from "@/lib/openai-server";
-import { assertDiverseCaseCharacterNames, blockedCaseCharacterNames, recentCaseCharacterNames } from "@/lib/case-name-diversity";
+import { assertDistinctCaseCharacterNames, blockedCaseCharacterNames, recentCaseCharacterNames } from "@/lib/case-name-diversity";
 import { createCaseVariantsSchema, type GeneratedCaseVariant } from "@/lib/case-types";
 import { buildCaseRevisionInput } from "@/lib/case-revision";
 import { detectRequestedCaseRoleCount, type CaseRoleCount } from "@/lib/case-role-count";
@@ -51,7 +51,7 @@ export async function generateCaseVariants(input: { title: string; notes: string
 1. Иметь две конкретные роли с законными, но несовместимыми интересами, ограничениями, рычагами влияния и рисками.
 1.1. Каждая сторона обязана иметь реалистичное полное личное имя — минимум имя и фамилию. В поле name пиши только ФИО, а должность и организационную роль записывай отдельно в position. Безымянные обозначения вроде «руководитель проекта», «заказчик» или имя без фамилии каноническим кейсом не считаются.
 1.1.1. Придумывай разнообразные современные имена и фамилии людей из разных регионов и культур русскоязычной деловой среды. Внутри двух вариантов не повторяй ни полные имена, ни первые имена, если конкретные люди не названы пользователем в исходных материалах.
-1.1.2. Не используй имена и полные имена из недавних кейсов, перечисленные ниже. Этот список является запретом, а не набором примеров:
+1.1.2. По возможности не используй имена и полные имена из недавних кейсов, перечисленные ниже. Разнообразие желательно, но корректный кейс важнее уникальности имени:
 ПОЛНЫЕ ИМЕНА: ${blockedNames.fullNames.join(", ") || "нет"}.
 ПЕРВЫЕ ИМЕНА: ${blockedNames.firstNames.join(", ") || "нет"}.
 1.2. Для каждой стороны обязательно заполни voiceGender значением female или male в соответствии с персонажем. Это поле управляет голосом ИИ и не заменяет имя или должность.
@@ -95,7 +95,7 @@ ${methodology || "Подходящих атомов пока нет; сформ�
 
   const parsed = JSON.parse(response.output_text) as { variants: GeneratedCaseVariant[] };
   if (!parsed.variants?.length) throw new Error("Модель не предложила ни одного варианта кейса.");
-  assertDiverseCaseCharacterNames(parsed.variants, blockedNames, sourceText);
+  assertDistinctCaseCharacterNames(parsed.variants);
   return parsed.variants;
 }
 
@@ -129,6 +129,6 @@ export async function reviseCaseVariant(variant: GeneratedCaseVariant, instructi
   const parsed = JSON.parse(response.output_text) as { variants: GeneratedCaseVariant[] };
   const revised = parsed.variants?.[0];
   if (!revised) throw new Error("Модель не вернула исправленный вариант кейса.");
-  assertDiverseCaseCharacterNames([revised], { fullNames: [], firstNames: [] }, buildCaseRevisionInput(variant, instructions));
+  assertDistinctCaseCharacterNames([revised]);
   return revised;
 }
