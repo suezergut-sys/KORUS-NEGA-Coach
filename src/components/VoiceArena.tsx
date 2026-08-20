@@ -139,6 +139,10 @@ export default function VoiceArena({
   const [firstSpeaker, setFirstSpeaker] = useState<FirstSpeaker>("opponent");
   const [durationMinutes, setDurationMinutes] = useState<DurationMinutes>(5);
   const [inputMode, setInputMode] = useState<NegotiationInputMode>("duplex");
+  const [textDraft, setTextDraft] = useState("");
+  const [textTurnPending, setTextTurnPending] = useState(false);
+  const [textRecording, setTextRecording] = useState(false);
+  const [textTranscribing, setTextTranscribing] = useState(false);
   const [methodologyId, setMethodologyId] = useState<MethodologyId>(DEFAULT_METHODOLOGY_ID);
   const [pushToTalkActive, setPushToTalkActive] = useState(false);
   const [error, setError] = useState("");
@@ -190,6 +194,11 @@ export default function VoiceArena({
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const textRecorderRef = useRef<MediaRecorder | null>(null);
+  const textRecorderStreamRef = useRef<MediaStream | null>(null);
+  const textAudioChunksRef = useRef<Blob[]>([]);
+  const discardTextRecordingRef = useRef(false);
+  const textTurnPendingRef = useRef(false);
   const channelRef = useRef<RTCDataChannel | null>(null);
   const pausedRef = useRef(false);
   const inputModeRef = useRef<NegotiationInputMode>("duplex");
@@ -546,11 +555,108 @@ export default function VoiceArena({
     inputModeRef.current = mode;
     setInputMode(mode);
     setPushToTalkCapture(false);
+    setTextDraft("");
   }
 
   function beginPushToTalk() {
     if (inputMode !== "push_to_talk" || !isLive || isPaused || isEnding) return;
     setPushToTalkCapture(true);
+  }
+
+  async function sendTextTurn(rawText: string) {
+    const text = rawText.trim().slice(0, 2000);
+    if (!text || inputModeRef.current !== "text_only" || !isLive || isPaused || isEnding || textTurnPendingRef.current) return;
+    const userLine: Line = { id: crypto.randomUUID(), author: "Вы", text, time: clockTime() };
+    const nextLines = [...linesRef.current, userLine];
+    linesRef.current = nextLines;
+    setLines(nextLines);
+    setTextDraft("");
+    textTurnPendingRef.current = true;
+    setTextTurnPending(true);
+    setOpponentSpeaking(true);
+    setRealtimeNotice("");
+    const requestStartedAt = Date.now();
+    try {
+      const response = await fetchWithTimeout("/api/text-negotiation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "turn",
+          sessionId: trainingSessionIdRef.current,
+          caseId: selectedCase.id,
+          caseCode: selectedCase.slug,
+          participantRoleIndex: selectedRoleIndex,
+          opponentRoleIndex: effectiveOpponentRoleIndex,
+          negotiationStyle,
+          firstSpeaker,
+          turns: nextLines,
+        }),
+      }, 55_000);
+      const payload = await response.json() as { reply?: string; error?: string };
+      if (!response.ok || !payload.reply) throw new Error(payload.error || "Оппонент не ответил.");
+      replyLatenciesMsRef.current.push(Date.now() - requestStartedAt);
+      if (!endingRef.current) {
+        const replyLine: Line = { id: crypto.randomUUID(), author: "Оппонент", text: payload.reply, time: clockTime() };
+        setLines((current) => [...current, replyLine]);
+      }
+    } catch (caught) {
+      connectionErrorCountRef.current += 1;
+      setRealtimeNotice(caught instanceof Error ? caught.message : "Не удалось получить текстовый ответ оппонента.");
+    } finally {
+      textTurnPendingRef.current = false;
+      setTextTurnPending(false);
+      setOpponentSpeaking(false);
+    }
+  }
+
+  async function startTextRecording() {
+    if (!isLive || isPaused || isEnding || textTurnPending || textTranscribing) return;
+    if (textRecording) {
+      textRecorderRef.current?.stop();
+      return;
+    }
+    try {
+      const media = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(media);
+      textRecorderStreamRef.current = media;
+      textRecorderRef.current = recorder;
+      textAudioChunksRef.current = [];
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data.size > 0) textAudioChunksRef.current.push(event.data);
+      });
+      recorder.addEventListener("stop", async () => {
+        setTextRecording(false);
+        textRecorderStreamRef.current?.getTracks().forEach((track) => track.stop());
+        textRecorderStreamRef.current = null;
+        const audio = new Blob(textAudioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        textAudioChunksRef.current = [];
+        if (discardTextRecordingRef.current) {
+          discardTextRecordingRef.current = false;
+          return;
+        }
+        if (!audio.size) return;
+        setTextTranscribing(true);
+        setRealtimeNotice("");
+        try {
+          const form = new FormData();
+          form.set("audio", audio, "negotiation-turn.webm");
+          form.set("sessionId", trainingSessionIdRef.current);
+          const response = await fetchWithTimeout("/api/text-negotiation/transcribe", { method: "POST", body: form }, 55_000);
+          const payload = await response.json() as { text?: string; error?: string };
+          if (!response.ok || !payload.text) throw new Error(payload.error || "Не удалось распознать реплику.");
+          await sendTextTurn(payload.text);
+        } catch (caught) {
+          setRealtimeNotice(caught instanceof Error ? caught.message : "Не удалось расшифровать голосовую реплику.");
+        } finally {
+          setTextTranscribing(false);
+        }
+      });
+      recorder.start(500);
+      discardTextRecordingRef.current = false;
+      setTextRecording(true);
+    } catch {
+      setRealtimeNotice("Не удалось включить микрофон. Можно продолжить поединок, набирая реплики текстом.");
+    }
   }
 
   async function uploadQuickCase() {
@@ -647,6 +753,12 @@ export default function VoiceArena({
       stream: streamRef.current,
       audio: audioRef.current,
     });
+    discardTextRecordingRef.current = true;
+    if (textRecorderRef.current?.state === "recording") textRecorderRef.current.stop();
+    textRecorderStreamRef.current?.getTracks().forEach((track) => track.stop());
+    textRecorderRef.current = null;
+    textRecorderStreamRef.current = null;
+    textAudioChunksRef.current = [];
     window.speechSynthesis?.cancel();
     channelRef.current = null;
     peerRef.current = null;
@@ -681,6 +793,10 @@ export default function VoiceArena({
     setUserSpeaking(false);
     setOpponentSpeaking(false);
     setPushToTalkActive(false);
+    setTextRecording(false);
+    setTextTranscribing(false);
+    textTurnPendingRef.current = false;
+    setTextTurnPending(false);
     setRealtimeNotice("");
     if (resetLifecycle) lifecycleDispatch({ type: "RESET" });
   }, [clearIncompleteTurnTimer, clearInterruptionConfirmationTimer, flushOpponentPlayback, lifecycleDispatch, resetTimer]);
@@ -1139,6 +1255,14 @@ export default function VoiceArena({
     }
     if (pauseUsed) return;
 
+    if (inputModeRef.current === "text_only") {
+      discardTextRecordingRef.current = true;
+      if (textRecorderRef.current?.state === "recording") textRecorderRef.current.stop();
+      if (!pauseTimer()) return;
+      lifecycleDispatch({ type: "PAUSE" });
+      return;
+    }
+
     const pausedAt = Date.now();
     const opponentWasAudible = opponentSpeakingRef.current && opponentSpeechStartedAtRef.current > 0;
     const responseWasActive = responseInProgressRef.current;
@@ -1278,12 +1402,13 @@ export default function VoiceArena({
     userSpeakingDurationsMsRef.current = [];
     opponentSpeakingDurationsMsRef.current = [];
     userResponseTimesMsRef.current = [];
-    const connectingLines: Line[] = [{ id: "connecting", author: "Система", text: "Устанавливаем защищённую голосовую связь…", time: clockTime() }];
+    const textOnly = inputModeRef.current === "text_only";
+    const connectingLines: Line[] = [{ id: "connecting", author: "Система", text: textOnly ? "Запускаем текстовый поединок…" : "Устанавливаем защищённую голосовую связь…", time: clockTime() }];
     linesRef.current = connectingLines;
     setLines(connectingLines);
 
     try {
-      const realtimeEndpoint = voiceEvalMode ? "/e2e/voice-eval/realtime" : "/api/realtime/session";
+      const realtimeEndpoint = voiceEvalMode ? "/e2e/voice-eval/realtime" : textOnly ? "/api/text-negotiation" : "/api/realtime/session";
       if (!voiceEvalMode) {
         const privacyResponse = await fetchWithTimeout("/api/account/privacy", { cache: "no-store" }, 10_000);
         const privacy = await privacyResponse.json().catch(() => ({})) as { consent?: boolean; error?: string };
@@ -1293,6 +1418,63 @@ export default function VoiceArena({
       }
       const health = await fetchWithTimeout(realtimeEndpoint, { cache: "no-store" }, 10_000);
       if (!health.ok) throw new Error("На сервере не настроен OpenAI API key.");
+
+      if (textOnly) {
+        const sessionResponse = await fetchWithTimeout("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            caseId: selectedCase.id === DEFAULT_CASE.id ? undefined : selectedCase.id,
+            caseCode: selectedCase.slug,
+            participantRoleIndex: selectedRoleIndex,
+            opponentRoleIndex: effectiveOpponentRoleIndex,
+            opponentVoice: opponent.voice,
+            methodologyId,
+          }),
+        }, 15_000);
+        const sessionPayload = await sessionResponse.json() as { sessionId?: string; startedAt?: string; quota?: TrainingQuota; error?: string };
+        if (sessionPayload.quota) setTrainingQuota(sessionPayload.quota);
+        if (sessionResponse.status === 429) {
+          setTrainingLimitOpen(true);
+          const limitError = new Error(sessionPayload.error || "Количество ежедневных тренировок исчерпано.");
+          limitError.name = "TrainingLimitError";
+          throw limitError;
+        }
+        if (!sessionResponse.ok || !sessionPayload.sessionId) throw new Error(sessionPayload.error || "Не удалось создать тренировочную сессию.");
+        trainingSessionIdRef.current = sessionPayload.sessionId;
+        startedAtRef.current = sessionPayload.startedAt || new Date().toISOString();
+
+        const startResponse = await fetchWithTimeout("/api/text-negotiation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "start",
+            sessionId: trainingSessionIdRef.current,
+            caseId: selectedCase.id,
+            caseCode: selectedCase.slug,
+            participantRoleIndex: selectedRoleIndex,
+            opponentRoleIndex: effectiveOpponentRoleIndex,
+            negotiationStyle,
+            firstSpeaker,
+            turns: [],
+          }),
+        }, 55_000);
+        const startPayload = await startResponse.json() as { reply?: string; ready?: boolean; error?: string };
+        if (!startResponse.ok) throw new Error(startPayload.error || "Не удалось начать текстовый поединок.");
+        setupLatencyMsRef.current = Math.max(0, Date.now() - setupStartedAtRef.current);
+        const readyLines: Line[] = [{
+          id: "ready",
+          author: "Система",
+          text: firstSpeaker === "participant" ? "Можете ввести или продиктовать первую реплику." : `${opponent.name} начинает переговоры в текстовом режиме.`,
+          time: clockTime(),
+        }];
+        if (startPayload.reply) readyLines.push({ id: crypto.randomUUID(), author: "Оппонент", text: startPayload.reply, time: clockTime() });
+        linesRef.current = readyLines;
+        setLines(readyLines);
+        startTimer();
+        lifecycleDispatch({ type: "CONNECTED" });
+        return;
+      }
 
       const pc = new RTCPeerConnection();
       peerRef.current = pc;
@@ -1482,7 +1664,7 @@ export default function VoiceArena({
     ];
     linesRef.current = completedLines;
     setLines(completedLines);
-    if (reason === "timer") {
+    if (reason === "timer" && inputModeRef.current !== "text_only") {
       applyMediaPaused(true);
       await announceTimeExpired();
     }
@@ -1709,8 +1891,8 @@ export default function VoiceArena({
         </section>
 
         <section className="setting-group">
-          <div className="setting-label">ВЫБЕРИ РЕЖИМ МИКРОФОНА</div>
-          <div className="input-mode-options" role="group" aria-label="Режим микрофона">
+          <div className="setting-label">ВЫБЕРИ ГОЛОСОВОЙ РЕЖИМ</div>
+          <div className="input-mode-options" role="group" aria-label="Голосовой режим">
             <div className={inputMode === "duplex" ? "input-mode-option selected" : "input-mode-option"}>
               <button type="button" onClick={() => chooseInputMode("duplex")} disabled={isLive || isBusy} aria-pressed={inputMode === "duplex"}>Дуплекс</button>
               <span className="mode-info" tabIndex={0} aria-label="Описание режима Дуплекс">i<span role="tooltip">Микрофон работает постоянно: можно говорить одновременно с оппонентом и перебивать его.</span></span>
@@ -1718,6 +1900,10 @@ export default function VoiceArena({
             <div className={inputMode === "push_to_talk" ? "input-mode-option selected" : "input-mode-option"}>
               <button type="button" onClick={() => chooseInputMode("push_to_talk")} disabled={isLive || isBusy} aria-pressed={inputMode === "push_to_talk"}>Обычный</button>
               <span className="mode-info" tabIndex={0} aria-label="Описание обычного режима">i<span role="tooltip">Микрофон передаёт звук только пока вы удерживаете кнопку. Подходит для шумных помещений и турниров с комментариями ведущего.</span></span>
+            </div>
+            <div className={inputMode === "text_only" ? "input-mode-option selected" : "input-mode-option"}>
+              <button type="button" onClick={() => chooseInputMode("text_only")} disabled={isLive || isBusy} aria-pressed={inputMode === "text_only"}>Только текст</button>
+              <span className="mode-info" tabIndex={0} aria-label="Описание режима Только текст">i<span role="tooltip">Оппонент общается без озвучки, только текстом. Отвечать можно текстом или через микрофон.</span></span>
             </div>
           </div>
           <p className="speech-analytics-availability">
@@ -1786,7 +1972,36 @@ export default function VoiceArena({
             </div>
           )}
 
-          <div className={`audio-deck ${isLive && !isPaused && !isEnding ? "active" : ""}`}>
+          {inputMode === "text_only" ? (
+            <form className="text-negotiation-composer" onSubmit={(event) => { event.preventDefault(); void sendTextTurn(textDraft); }}>
+              <label htmlFor="text-negotiation-turn">Ваша реплика</label>
+              <div>
+                <textarea
+                  id="text-negotiation-turn"
+                  value={textDraft}
+                  onChange={(event) => setTextDraft(event.target.value.slice(0, 2000))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendTextTurn(textDraft);
+                    }
+                  }}
+                  placeholder="Введите реплику оппоненту…"
+                  disabled={!isLive || isPaused || isEnding || textTurnPending || textRecording || textTranscribing}
+                  rows={3}
+                />
+                <button type="submit" disabled={!textDraft.trim() || !isLive || isPaused || isEnding || textTurnPending || textRecording || textTranscribing}>Отправить</button>
+                <button
+                  type="button"
+                  className={textRecording ? "text-mic recording" : "text-mic"}
+                  onClick={() => void startTextRecording()}
+                  disabled={!isLive || isPaused || isEnding || textTurnPending || textTranscribing}
+                  aria-pressed={textRecording}
+                >{textRecording ? "Остановить" : textTranscribing ? "Распознаём…" : "Ответить голосом"}</button>
+              </div>
+              <small>{textTurnPending ? "Оппонент печатает ответ…" : textRecording ? "Говорите. Нажмите «Остановить», когда закончите." : "Enter — отправить, Shift+Enter — новая строка."}</small>
+            </form>
+          ) : <div className={`audio-deck ${isLive && !isPaused && !isEnding ? "active" : ""}`}>
             <div className="listening-copy"><span className={userSpeaking ? "mini-wave active" : "mini-wave"}>▥</span><small>{isEnding ? "Запускаем анализ…" : isPaused ? `Пауза ${formatTime(pauseRemaining)}` : userSpeaking ? "Вы говорите…" : opponentSpeaking ? "Оппонент отвечает…" : inputMode === "push_to_talk" && isLive && !pushToTalkActive ? "Микрофон выключен" : isLive ? "Слушаю…" : "Ожидание"}</small></div>
             <div className="waveform" aria-hidden="true">
               {WAVE_BARS.map((height, index) => <i key={index} style={{ height: `${height}%`, animationDelay: `${index * -55}ms` }} />)}
@@ -1808,8 +2023,8 @@ export default function VoiceArena({
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></svg>
               </button>
             ) : <div className={`mic-orb ${userSpeaking ? "speaking" : ""}`}>◉</div>}
-          </div>
-          <p className="speech-note">{isPaused ? "ⓘ Микрофон и оппонент на паузе. Нажмите кнопку с таймером, чтобы продолжить." : inputMode === "push_to_talk" ? "ⓘ Удерживайте кнопку микрофона, пока говорите. Отпустите её, чтобы система перестала обрабатывать окружающие звуки." : "ⓘ Говорите естественно. Система распознает речь и отобразит её в диалоге."}</p>
+          </div>}
+          <p className="speech-note">{isPaused ? (inputMode === "text_only" ? "ⓘ Поединок на паузе. Нажмите кнопку с таймером, чтобы продолжить." : "ⓘ Микрофон и оппонент на паузе. Нажмите кнопку с таймером, чтобы продолжить.") : inputMode === "text_only" ? "ⓘ Ответы оппонента выводятся только текстом, без озвучки. Вы можете печатать или диктовать свои реплики." : inputMode === "push_to_talk" ? "ⓘ Удерживайте кнопку микрофона, пока говорите. Отпустите её, чтобы система перестала обрабатывать окружающие звуки." : "ⓘ Говорите естественно. Система распознает речь и отобразит её в диалоге."}</p>
           {realtimeNotice && <p className="realtime-notice" role="status">ⓘ {realtimeNotice}</p>}
         </div>
 

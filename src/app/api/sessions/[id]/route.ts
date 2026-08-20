@@ -69,7 +69,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       p_connection_error_count: metrics.connectionErrorCount,
       p_metric_details: {
         replyLatenciesMs: metrics.replyLatenciesMs,
-        inputMode: metricsInput.inputMode === "duplex" ? "duplex" : "push_to_talk",
+        inputMode: metricsInput.inputMode === "duplex"
+          ? "duplex"
+          : metricsInput.inputMode === "text_only" ? "text_only" : "push_to_talk",
         speechAnalytics,
         speechTiming,
       },
