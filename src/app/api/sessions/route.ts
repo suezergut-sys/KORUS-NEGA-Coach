@@ -59,7 +59,10 @@ export async function POST(request: Request) {
       p_goal_snapshot: [goal?.goal_text, goal?.next_session_target].filter(Boolean).join("\n").slice(0, 1000) || null,
       p_retention_expires_at: retentionExpiresAt,
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("Training session creation failed", { code: error.code || "unknown" });
+      throw new Error("Не удалось создать тренировочную сессию.");
+    }
     const row = (Array.isArray(data) ? data[0] : data) as {
       session_id?: string | null;
       started_at?: string;
