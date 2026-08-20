@@ -1,7 +1,7 @@
 import { RUSSIAN_LANGUAGE_CONTRACT } from "@/lib/realtime-language";
 
 export type SessionInput = {
-  role: string;
+  role?: string;
   negotiationStyle: "collaborative" | "hard";
   addressForm?: "formal" | "informal";
   context: string;
@@ -14,6 +14,7 @@ export type SessionInput = {
   };
   opponentRole?: {
     name: string;
+    position: string;
     publicGoal: string;
     interests: string[];
     constraints: string[];
@@ -29,6 +30,9 @@ const MAX_CONTEXT_LENGTH = 8000;
 
 export function buildRealtimeInstructions(input: SessionInput) {
   const safeContext = input.context.slice(0, MAX_CONTEXT_LENGTH).trim();
+  const opponentIdentity = input.opponentRole
+    ? `${input.opponentRole.name}, ${input.opponentRole.position}`
+    : input.role || "Оппонент";
   const styleInstructions = input.negotiationStyle === "hard"
     ? `
 СТИЛЬ: ЖЁСТКИЕ ПЕРЕГОВОРЫ.
@@ -52,7 +56,7 @@ ${RUSSIAN_LANGUAGE_CONTRACT}
 
 Ты — русскоязычный партнёр по управленческому поединку в голосовом тренажёре переговоров.
 
-ТВОЯ РОЛЬ: ${input.role}.
+ТВОЯ РОЛЬ: ${opponentIdentity}.
 ${addressInstructions}
 ${styleInstructions}
 ЭМОЦИОНАЛЬНАЯ ДИНАМИКА:
