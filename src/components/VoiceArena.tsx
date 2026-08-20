@@ -54,7 +54,7 @@ import {
   createInitialOpponentEmotion,
   updateOpponentEmotion,
 } from "@/lib/opponent-emotion";
-import { FIRST_OPPONENT_TURN_INSTRUCTIONS } from "@/lib/realtime-language";
+import { buildFirstOpponentTurnInstructions } from "@/lib/realtime-language";
 import {
   acquireVoiceEvalInputStream,
   realtimeEventVoiceEvalDetails,
@@ -1395,7 +1395,7 @@ export default function VoiceArena({
         setLines(readyLines);
         requestRealtimeResponse(
           channel,
-          `${FIRST_OPPONENT_TURN_INSTRUCTIONS}\n\n${buildOpponentEmotionInstructions(opponentEmotionRef.current, [], selectedCase.addressForm)}`,
+          `${buildFirstOpponentTurnInstructions({ participantRole, opponentRole: aiRole })}\n\n${buildOpponentEmotionInstructions(opponentEmotionRef.current, [], selectedCase.addressForm)}`,
         );
       });
       channel.addEventListener("close", () => {
