@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertDiverseCaseCharacterNames, blockedCaseCharacterNames, recentCaseCharacterNames } from "../src/lib/case-name-diversity";
+import { assertDistinctCaseCharacterNames, blockedCaseCharacterNames, recentCaseCharacterNames } from "../src/lib/case-name-diversity";
 import type { GeneratedCaseVariant } from "../src/lib/case-types";
 
 function variant(names: string[]): GeneratedCaseVariant {
@@ -49,13 +49,26 @@ describe("diversity of generated case character names", () => {
       .not.toContain("Марина Лебедева");
   });
 
-  it("rejects reused recent names and repeated invented first names", () => {
+  it("does not reject names reused in recent cases or between generated variants", () => {
     const blocked = blockedCaseCharacterNames(["Марина Лебедева"], "");
-    expect(() => assertDiverseCaseCharacterNames([variant(["Марина Орлова", "Тимур Хабибуллин"])], blocked, ""))
-      .toThrow("уже использовалось");
-    expect(() => assertDiverseCaseCharacterNames([
-      variant(["Оксана Чернова", "Роман Ковалёв"]),
+    expect(() => assertDistinctCaseCharacterNames([
+      variant(["Марина Лебедева", "Тимур Хабибуллин"]),
       variant(["Оксана Белова", "Егор Поляков"]),
-    ], blocked, "")).toThrow("повторяется");
+    ])).not.toThrow();
+    expect(blocked.fullNames).toContain("Марина Лебедева");
+    expect(() => assertDistinctCaseCharacterNames([
+      variant(["Оксана Чернова", "Роман Ковалёв"]),
+      variant(["Оксана Белова", "Роман Ковалёв"]),
+    ])).not.toThrow();
+  });
+
+  it("rejects only identical full names inside one case", () => {
+    expect(() => assertDistinctCaseCharacterNames([
+      variant(["Алексей Носов", "Алексей Носов"]),
+    ])).toThrow("разные полные имена");
+
+    expect(() => assertDistinctCaseCharacterNames([
+      variant(["Алексей Носов", "Алексей Орлов"]),
+    ])).not.toThrow();
   });
 });
