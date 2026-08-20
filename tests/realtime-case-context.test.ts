@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { buildRealtimeInstructions } from "@/lib/prompt";
 import { buildRealtimeSessionConfig } from "@/lib/realtime-session";
 import { buildRealtimeResponseEvents } from "@/lib/realtime-webrtc";
+import { allNegotiationPairs } from "@/lib/case-negotiation-pairs";
+import { selectCaseRoles } from "@/lib/case-role-selection";
+import { DEFAULT_CASE } from "@/lib/default-case";
 
 function sessionFor(context: string, startSituation: string) {
   const instructions = buildRealtimeInstructions({
@@ -74,5 +77,50 @@ describe("контекст выбранного кейса в Realtime", () => {
     expect(instructions).toContain("Не путай стороны");
     expect(instructions).toContain("Не спрашивай участника, хочет ли он сохранить твою работу");
     expect(instructions).toContain("описание ситуации сформулировано с точки зрения руководителя");
+  });
+
+  it("берёт личность ИИ только из выбранного объекта оппонента", () => {
+    const instructions = buildRealtimeInstructions({
+      role: "Ошибочная Дублирующая Роль, не должна использоваться",
+      negotiationStyle: "collaborative",
+      context: "Проверка единственного источника роли.",
+      userRole: managerRole,
+      opponentRole: employeeRole,
+    });
+
+    expect(instructions).toContain("ТВОЯ РОЛЬ: Леонид Башкатов, Старший бизнес-аналитик.");
+    expect(instructions).not.toContain("Ошибочная Дублирующая Роль");
+  });
+
+  it.each([2, 3, 4])("сохраняет ФИО и должности при всех перестановках %i ролей", (roleCount) => {
+    const roles = [
+      { ...DEFAULT_CASE.userRole, name: "Анна Соколова", position: "Роль руководителя" },
+      { ...DEFAULT_CASE.opponentRole, name: "Борис Воронцов", position: "Роль сотрудника" },
+      { ...DEFAULT_CASE.opponentRole, name: "Вера Орлова", position: "Роль HRBP" },
+      { ...DEFAULT_CASE.opponentRole, name: "Глеб Романов", position: "Роль заказчика" },
+    ].slice(0, roleCount);
+    const negotiationCase = {
+      ...DEFAULT_CASE,
+      userRole: roles[0],
+      opponentRole: roles[1],
+      additionalRoles: roles.slice(2),
+      negotiationPairs: allNegotiationPairs(roleCount),
+    };
+
+    for (let participantIndex = 0; participantIndex < roleCount; participantIndex += 1) {
+      for (let opponentIndex = 0; opponentIndex < roleCount; opponentIndex += 1) {
+        if (participantIndex === opponentIndex) continue;
+        const selected = selectCaseRoles(negotiationCase, participantIndex, opponentIndex);
+        const instructions = buildRealtimeInstructions({
+          negotiationStyle: "collaborative",
+          context: negotiationCase.situation,
+          userRole: selected.participantRole,
+          opponentRole: selected.opponentRole,
+        });
+
+        expect(instructions).toContain(`ТВОЯ РОЛЬ: ${roles[opponentIndex].name}, ${roles[opponentIndex].position}.`);
+        expect(instructions).toContain(`РОЛЬ УЧАСТНИКА: ${roles[participantIndex].name}, ${roles[participantIndex].position}.`);
+      }
+    }
   });
 });
