@@ -79,6 +79,37 @@ describe("контекст выбранного кейса в Realtime", () => {
     expect(instructions).toContain("описание ситуации сформулировано с точки зрения руководителя");
   });
 
+  it("передаёт точные реплики, запреты и границы полномочий в контракт кейса", () => {
+    const instructions = buildRealtimeInstructions({
+      negotiationStyle: "collaborative",
+      firstSpeaker: "opponent",
+      context: "Первый разговор об увольнении.",
+      userRole: {
+        ...managerRole,
+        roleBrief: "Сообщить решение прямо.",
+        recommendedPhrases: ["Мы приняли решение."],
+        forbiddenPhrases: ["Если не подпишешь, будет хуже."],
+      },
+      opponentRole: {
+        ...employeeRole,
+        openingLine: "Это вы не нашли мне проект.",
+        typicalObjections: ["Почему именно я?"],
+      },
+      decisionTerms: ["Один оклад"],
+      authorityLimits: ["Нельзя обещать больше одного оклада"],
+      riskZones: ["Понуждение"],
+      successOutcome: "Сотрудник понял причину и следующий шаг.",
+      expectedNextSteps: ["HR-сопровождение"],
+    });
+
+    expect(instructions).toContain("Мы приняли решение.");
+    expect(instructions).toContain("Если не подпишешь, будет хуже.");
+    expect(instructions).toContain("Это вы не нашли мне проект.");
+    expect(instructions).toContain("Почему именно я?");
+    expect(instructions).toContain("Нельзя обещать больше одного оклада");
+    expect(instructions).toContain("критерии тренировки, а не твои реплики");
+  });
+
   it("берёт личность ИИ только из выбранного объекта оппонента", () => {
     const instructions = buildRealtimeInstructions({
       role: "Ошибочная Дублирующая Роль, не должна использоваться",

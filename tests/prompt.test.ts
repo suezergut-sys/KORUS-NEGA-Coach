@@ -58,7 +58,9 @@ describe("стили Realtime-переговоров", () => {
     const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative" });
     expect(prompt).toContain("ФАКТИЧЕСКАЯ ТОЧНОСТЬ ВЫШЕ РЕАЛИСТИЧНОСТИ РОЛИ");
     expect(prompt).toContain("Не придумывай причины, события, действия, ресурсы, процессы, интеграции");
-    expect(prompt).toContain("не установлена или не указана");
+    expect(prompt).toContain("описывай только пробел в исходных данных");
+    expect(prompt).toContain("Не превращай отсутствие сведений в факт о реальной ситуации");
+    expect(prompt).toContain("не говори «по фактам нет»");
     expect(prompt).toContain("Не приписывай пользователю согласие, слова, обязательства или намерения");
   });
 

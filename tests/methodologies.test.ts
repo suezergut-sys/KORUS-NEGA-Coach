@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminMethodologyOptions, DEFAULT_METHODOLOGY_ID, getAdminMethodology, getMethodology, isMethodologyId, methodologyOptions } from "../src/lib/methodologies";
+import { adminMethodologyOptions, DEFAULT_METHODOLOGY_ID, getAdminMethodology, getMethodology, getRegisteredMethodology, isMethodologyId, isRegisteredMethodologyId, methodologyOptions } from "../src/lib/methodologies";
 
 describe("methodology registry", () => {
   it("contains all three product methodologies", () => {
@@ -26,8 +26,20 @@ describe("methodology registry", () => {
     expect(isMethodologyId("tarasov")).toBe(true);
     expect(isMethodologyId("harvard")).toBe(true);
     expect(isMethodologyId("conflicts")).toBe(true);
+    expect(isMethodologyId("dismissal_1c")).toBe(false);
+    expect(isRegisteredMethodologyId("dismissal_1c")).toBe(true);
     expect(isMethodologyId("unknown")).toBe(false);
     expect(isMethodologyId(null)).toBe(false);
+  });
+
+  it("keeps the 1C dismissal methodology case-scoped", () => {
+    expect(methodologyOptions()).not.toContainEqual(expect.objectContaining({ id: "dismissal_1c" }));
+    expect(methodologyOptions(["dismissal_1c"])).toContainEqual({
+      id: "dismissal_1c",
+      name: "1С: разговор об увольнении по соглашению сторон",
+    });
+    expect(getRegisteredMethodology("dismissal_1c")).toMatchObject({ sourceCode: "SRC-004", visibility: "case" });
+    expect(adminMethodologyOptions()).toContainEqual({ id: "dismissal_1c", name: "1С: разговор об увольнении по соглашению сторон" });
   });
 
   it("falls back to Tarasov for missing or manipulated input", () => {

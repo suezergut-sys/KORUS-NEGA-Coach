@@ -23,6 +23,11 @@ function role(value: unknown): CaseRole {
     constraints: list(item.constraints),
     hiddenMotives: list(item.hiddenMotives),
     leverage: list(item.leverage),
+    roleBrief: text(item.roleBrief, 4000),
+    openingLine: text(item.openingLine, 2000),
+    typicalObjections: list(item.typicalObjections),
+    recommendedPhrases: list(item.recommendedPhrases),
+    forbiddenPhrases: list(item.forbiddenPhrases),
   });
   if (!isCanonicalPersonName(parsed.name) || !parsed.position || !parsed.publicGoal) {
     throw new Error("Для каждой роли нужны имя и фамилия, должность и публичная цель.");
@@ -73,6 +78,12 @@ export function parseAdminCaseInput(value: unknown) {
     difficultyReason,
     evaluationFocus: list(body.evaluationFocus),
     methodologyBasis: methodology(body.methodologyBasis),
+    decisionTerms: list(body.decisionTerms),
+    authorityLimits: list(body.authorityLimits),
+    riskZones: list(body.riskZones),
+    successOutcome: text(body.successOutcome, 6000),
+    expectedNextSteps: list(body.expectedNextSteps),
+    methodologyNotes: text(body.methodologyNotes, 6000),
     status,
     origin,
     createdBy: text(body.createdBy, 160) || "Администратор",

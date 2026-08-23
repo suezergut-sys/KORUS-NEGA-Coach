@@ -36,7 +36,7 @@ export default async function AdminCasesPage() {
       createdBy: item.created_by || (item.origin === "seed" ? "Системный кейс" : "Источник не указан"),
       origin: item.origin,
       status: item.status,
-      visibility: item.visibility === "private" ? "private" : "public",
+      visibility: item.visibility === "private" || item.visibility === "department" ? item.visibility : "public",
       plays: playCounts.get(item.id) || 0,
       mediaStatus: job?.status || "missing",
       roleStatuses: roles.map((role, index) => ({ name: role.name, ready: (ready.get(index) || 0) >= 4 })),

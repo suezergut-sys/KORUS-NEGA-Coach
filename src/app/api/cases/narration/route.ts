@@ -19,7 +19,8 @@ function describeRole(role: CaseRole, number: number) {
     `Открытая цель: ${role.publicGoal}.`,
     `Интересы: ${list(role.interests)}.`,
     `Ограничения: ${list(role.constraints)}.`,
-  ].join(" ");
+    role.roleBrief ? `Задача в разговоре: ${role.roleBrief}.` : "",
+  ].filter(Boolean).join(" ");
 }
 
 export async function POST(request: Request) {
@@ -40,10 +41,12 @@ export async function POST(request: Request) {
       ...roles.map((role, index) => describeRole(role, index + 1)),
       `Ставки: ${list(negotiationCase.stakes)}.`,
       `Начальная ситуация. ${negotiationCase.startSituation}`,
+      negotiationCase.decisionTerms?.length ? `Условия решения: ${list(negotiationCase.decisionTerms)}.` : "",
+      negotiationCase.authorityLimits?.length ? `Границы полномочий: ${list(negotiationCase.authorityLimits)}.` : "",
       `Ваша выбранная роль: ${participantRole.name}. Искусственный интеллект играет роль: ${opponentRole.name}.`,
       `Предмет переговоров этой пары: ${negotiationReason}.`,
       `Принятая форма обращения между участниками: ${negotiationCase.addressForm === "informal" ? "на ты" : "на вы"}.`,
-    ].join("\n\n").slice(0, 9000);
+    ].filter(Boolean).join("\n\n").slice(0, 9000);
     const panelIndex = typeof body.panelIndex === "number" ? body.panelIndex : -1;
     const comicPanel = getCaseComic(negotiationCase)[panelIndex];
     const narration = comicPanel?.narration || fullNarration;

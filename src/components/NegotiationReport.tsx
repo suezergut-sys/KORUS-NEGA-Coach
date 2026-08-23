@@ -1,7 +1,7 @@
 import Link from "next/link";
 import ReportMethodologySwitcher from "@/components/ReportMethodologySwitcher";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
-import { getMethodology, type MethodologyId } from "@/lib/methodologies";
+import { getRegisteredMethodology, type MethodologyId } from "@/lib/methodologies";
 import type { SpeechAnalytics } from "@/lib/speech-analytics";
 
 export default function NegotiationReport({
@@ -23,7 +23,7 @@ export default function NegotiationReport({
   reanalysisMethodologyId?: MethodologyId;
   preserveInitialReport?: boolean;
 }) {
-  const methodology = getMethodology(methodologyId);
+  const methodology = getRegisteredMethodology(methodologyId);
   const confidence = Number(analysis.outcome.confidence);
   const confidenceLabel = Number.isFinite(confidence)
     ? `${Math.round(Math.min(1, Math.max(0, confidence)) * 100)}%`
@@ -97,7 +97,7 @@ export default function NegotiationReport({
               <p>{item.explanation}</p>
               <footer>
                 <span>{item.section}</span>
-                {item.methodologyAtomId && <Link href={`/methodology/${methodologyId}?atom=${item.methodologyAtomId}#atom-${item.methodologyAtomId}`}>Открыть методическое объяснение →</Link>}
+                {item.methodologyAtomId && methodology.visibility === "public" && <Link href={`/methodology/${methodologyId}?atom=${item.methodologyAtomId}#atom-${item.methodologyAtomId}`}>Открыть методическое объяснение →</Link>}
               </footer>
             </article>
           ))}
@@ -127,8 +127,8 @@ export default function NegotiationReport({
       )}
 
       <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
-      <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span><Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link></footer>
-      {sessionId && <ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} />}
+      <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span>{methodology.visibility === "public" && <Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link>}</footer>
+      {sessionId && methodology.visibility === "public" && <ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} />}
     </>
   );
 }

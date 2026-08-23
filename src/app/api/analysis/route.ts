@@ -6,7 +6,7 @@ import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { formatAnalysisTranscript, hasEnoughUserTurnsForAnalysis, INSUFFICIENT_ANALYSIS_MESSAGE, type TranscriptTurn } from "@/lib/transcript";
 import { isRetryableModelError, parseStructuredOutput } from "@/lib/structured-output";
-import { getMethodology, isMethodologyId, type MethodologyId } from "@/lib/methodologies";
+import { getRegisteredMethodology, isMethodologyId, isRegisteredMethodologyId, type MethodologyId } from "@/lib/methodologies";
 import { getMethodologySource, retrieveMethodologyChunks } from "@/lib/methodology-server";
 
 export const runtime = "nodejs";
@@ -113,10 +113,6 @@ export async function POST(request: Request) {
     const body = (await request.json()) as AnalysisRequest;
     sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     if (!UUID.test(sessionId)) return Response.json({ error: "Некорректная сессия." }, { status: 400 });
-    if (body.methodologyId !== undefined && !isMethodologyId(body.methodologyId)) {
-      return Response.json({ error: "Некорректная методология." }, { status: 400 });
-    }
-
     const db = getSupabaseAdmin();
     const { data: session, error: sessionError } = await db
       .from("training_sessions")
@@ -126,8 +122,16 @@ export async function POST(request: Request) {
       .maybeSingle<SessionRow>();
     if (sessionError) throw new Error(`Сессия: ${sessionError.message}`);
     if (!session) return Response.json({ error: "Сессия не найдена." }, { status: 404 });
+    if (body.methodologyId !== undefined && body.methodologyId !== session.methodology_id && !isMethodologyId(body.methodologyId)) {
+      return Response.json({ error: "Некорректная методология." }, { status: 400 });
+    }
     const methodologyId = (body.methodologyId || session.methodology_id) as MethodologyId;
-    if (!isMethodologyId(methodologyId)) return Response.json({ error: "Некорректная методология сессии." }, { status: 400 });
+    if (!isRegisteredMethodologyId(methodologyId)) return Response.json({ error: "Некорректная методология сессии." }, { status: 400 });
+    if (isRegisteredMethodologyId(session.methodology_id)
+      && getRegisteredMethodology(session.methodology_id).visibility !== "public"
+      && methodologyId !== session.methodology_id) {
+      return Response.json({ error: "Для этого кейса закреплена отдельная методология." }, { status: 400 });
+    }
     const storedEvaluation = await readStoredAnalysis(sessionId, userSession.userId);
     const existing = storedEvaluation?.result || null;
     hadStoredAnalysis = Boolean(storedEvaluation);
@@ -179,7 +183,7 @@ export async function POST(request: Request) {
     const caseGoal = selected.participantRole.publicGoal;
     const caseConstraints = selected.participantRole.constraints.slice(0, 10);
     const transcript = formatAnalysisTranscript(turns);
-    const methodology = getMethodology(methodologyId);
+    const methodology = getRegisteredMethodology(methodologyId);
 
     const openai = getOpenAI();
     const methodSource = await getMethodologySource(db, methodology);

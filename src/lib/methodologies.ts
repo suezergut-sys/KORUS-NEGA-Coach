@@ -29,6 +29,16 @@ export const METHODOLOGIES = [
     releaseVersion: "conflicts-v1",
     visibility: "public",
   },
+  {
+    id: "dismissal_1c",
+    name: "1С: разговор об увольнении по соглашению сторон",
+    shortName: "1С: увольнение",
+    sourceCode: "SRC-004",
+    author: "Корпоративная методология 1С",
+    candidateVersion: "dismissal-1c-v0-candidate",
+    releaseVersion: "dismissal-1c-v1",
+    visibility: "case",
+  },
 ] as const;
 
 export type MethodologyId = (typeof METHODOLOGIES)[number]["id"];
@@ -40,12 +50,20 @@ export function isMethodologyId(value: unknown): value is MethodologyId {
   return typeof value === "string" && METHODOLOGIES.some((item) => item.id === value && item.visibility === "public");
 }
 
+export function isRegisteredMethodologyId(value: unknown): value is MethodologyId {
+  return typeof value === "string" && METHODOLOGIES.some((item) => item.id === value);
+}
+
 export function getMethodology(value: unknown): Methodology {
   return METHODOLOGIES.find((item) => item.id === value && item.visibility === "public") || METHODOLOGIES[0];
 }
 
-export function methodologyOptions() {
-  return METHODOLOGIES.filter((item) => item.visibility === "public").map(({ id, name }) => ({ id, name }));
+export function getRegisteredMethodology(value: unknown): Methodology {
+  return METHODOLOGIES.find((item) => item.id === value) || METHODOLOGIES[0];
+}
+
+export function methodologyOptions(includeIds: readonly MethodologyId[] = []) {
+  return METHODOLOGIES.filter((item) => item.visibility === "public" || includeIds.includes(item.id)).map(({ id, name }) => ({ id, name }));
 }
 
 export function getAdminMethodology(value: unknown): Methodology {

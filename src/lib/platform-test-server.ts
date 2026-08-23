@@ -4,6 +4,7 @@ import type { CanonicalCase, CaseRole } from "@/lib/case-types";
 import { findUnsupportedCriticalFacts } from "@/lib/voice-eval-evaluation";
 import { ANALYSIS_MODEL, getOpenAI } from "@/lib/openai-server";
 import { parseStructuredOutput } from "@/lib/structured-output";
+import { formatCaseGuidance } from "@/lib/case-guidance";
 import {
   buildDeterministicPlatformTestReport,
   type PlatformTestAnomaly,
@@ -87,6 +88,8 @@ export async function generatePlatformTestHumanTurn(input: {
 
 ОППОНЕНТ: ${input.opponentRole.name}, ${input.opponentRole.position}
 НОМЕР ТВОЕГО ХОДА: ${input.turnIndex}
+
+${formatCaseGuidance(input.negotiationCase, input.participantRole, input.opponentRole)}
 
 СТЕНОГРАММА:
 ${formatTranscript(input.turns) || "Оппонент ещё не начал разговор."}

@@ -30,12 +30,17 @@ function RoleEditor({ label, role, onChange, removable, onRemove }: { label: str
         <label><span>Ограничения — по одному на строке</span><textarea value={lines(role.constraints)} onChange={(event) => field("constraints", split(event.target.value))} /></label>
         <label><span>Скрытые мотивы — по одному на строке</span><textarea value={lines(role.hiddenMotives)} onChange={(event) => field("hiddenMotives", split(event.target.value))} /></label>
         <label><span>Рычаги влияния — по одному на строке</span><textarea value={lines(role.leverage)} onChange={(event) => field("leverage", split(event.target.value))} /></label>
+        <label className="wide"><span>Подробная задача роли</span><textarea value={role.roleBrief || ""} onChange={(event) => field("roleBrief", event.target.value)} /></label>
+        <label className="wide"><span>Стартовая реплика</span><textarea value={role.openingLine || ""} onChange={(event) => field("openingLine", event.target.value)} /></label>
+        <label><span>Типовые возражения — по одному на строке</span><textarea value={lines(role.typicalObjections || [])} onChange={(event) => field("typicalObjections", split(event.target.value))} /></label>
+        <label><span>Рекомендуемые реплики — по одной на строке</span><textarea value={lines(role.recommendedPhrases || [])} onChange={(event) => field("recommendedPhrases", split(event.target.value))} /></label>
+        <label className="wide"><span>Запрещённые реплики — по одной на строке</span><textarea value={lines(role.forbiddenPhrases || [])} onChange={(event) => field("forbiddenPhrases", split(event.target.value))} /></label>
       </div>
     </article>
   );
 }
 
-const emptyRole = (): CaseRole => ({ name: "", position: "", voiceGender: "male", publicGoal: "", interests: [], constraints: [], hiddenMotives: [], leverage: [] });
+const emptyRole = (): CaseRole => ({ name: "", position: "", voiceGender: "male", publicGoal: "", interests: [], constraints: [], hiddenMotives: [], leverage: [], roleBrief: "", openingLine: "", typicalObjections: [], recommendedPhrases: [], forbiddenPhrases: [] });
 
 export default function AdminCaseEditor({ initialCase }: { initialCase: EditableCase }) {
   const router = useRouter();
@@ -122,6 +127,12 @@ export default function AdminCaseEditor({ initialCase }: { initialCase: Editable
             <label><span>Почему кейс сложный</span><textarea value={item.difficultyReason} onChange={(event) => set("difficultyReason", event.target.value)} /></label>
             <label><span>Ставки — по одной на строке</span><textarea value={lines(item.stakes)} onChange={(event) => set("stakes", split(event.target.value))} /></label>
             <label><span>Критерии оценки — по одному на строке</span><textarea value={lines(item.evaluationFocus)} onChange={(event) => set("evaluationFocus", split(event.target.value))} /></label>
+            <label><span>Условия решения — по одному на строке</span><textarea value={lines(item.decisionTerms || [])} onChange={(event) => set("decisionTerms", split(event.target.value))} /></label>
+            <label><span>Границы полномочий — по одной на строке</span><textarea value={lines(item.authorityLimits || [])} onChange={(event) => set("authorityLimits", split(event.target.value))} /></label>
+            <label><span>Опасные зоны — по одной на строке</span><textarea value={lines(item.riskZones || [])} onChange={(event) => set("riskZones", split(event.target.value))} /></label>
+            <label><span>Ожидаемые следующие шаги — по одному на строке</span><textarea value={lines(item.expectedNextSteps || [])} onChange={(event) => set("expectedNextSteps", split(event.target.value))} /></label>
+            <label className="wide"><span>Успешный итог диалога</span><textarea value={item.successOutcome || ""} onChange={(event) => set("successOutcome", event.target.value)} /></label>
+            <label className="wide"><span>Методические пояснения</span><textarea value={item.methodologyNotes || ""} onChange={(event) => set("methodologyNotes", event.target.value)} /></label>
           </div>
         </article>
 

@@ -23,7 +23,7 @@ describe("about product page", () => {
     expect(markup).not.toContain("НАЗНАЧЕНИЕ ПЛАТФОРМЫ");
     expect(markup).toContain("Возможности по разделам");
     expect(markup).toContain("Тренировки с AI-оппонентом");
-    expect(markup).toContain("Три методологии переговоров");
+    expect(markup).toContain("Общие и кейсовые методологии");
     expect(markup).toContain("Релиз под давлением");
     expect(markup).toContain("постепенно меняет доверие, напряжение и эмоциональную окраску голоса");
     expect(markup).toContain("Весь поединок проходит строго на русском языке");
@@ -38,6 +38,8 @@ describe("about product page", () => {
     expect(markup).toContain("Выбор первой реплики и контроль старта");
     expect(markup).toContain("Переговоры без озвучки в режиме «Только текст»");
     expect(markup).toContain("Запуск тренировок с методологией конфликтов");
+    expect(markup).toContain("Системный кейс «1С Увольнение»");
+    expect(markup).toContain("назначает пользователю департамент");
   });
 
   it("contains every merged PR in newest-first order", () => {
