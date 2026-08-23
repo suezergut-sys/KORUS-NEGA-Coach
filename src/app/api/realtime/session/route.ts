@@ -48,6 +48,8 @@ export async function createRealtimeSession(request: Request, options: { adminCa
   const userRole = selected.participantRole;
   const opponentRole = selected.opponentRole;
   const instructions = buildRealtimeInstructions({
+    title: negotiationCase.title,
+    summary: negotiationCase.summary,
     negotiationStyle,
     firstSpeaker,
     addressForm: negotiationCase.addressForm,
@@ -55,6 +57,9 @@ export async function createRealtimeSession(request: Request, options: { adminCa
     conflict: `${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}`,
     startSituation: negotiationCase.startSituation,
     stakes: negotiationCase.stakes,
+    difficultyReason: negotiationCase.difficultyReason,
+    evaluationFocus: negotiationCase.evaluationFocus,
+    methodologyBasis: negotiationCase.methodologyBasis,
     scenarioConditions: negotiationCase.scenarioConditions,
     decisionTerms: negotiationCase.decisionTerms,
     authorityLimits: negotiationCase.authorityLimits,

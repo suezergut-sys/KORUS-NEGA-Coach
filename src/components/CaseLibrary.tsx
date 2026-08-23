@@ -1,31 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import CaseNegotiationPairs from "@/components/CaseNegotiationPairs";
+import CaseCanonicalDetails from "@/components/CaseCanonicalDetails";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { CaseLibraryItem } from "@/lib/case-library";
-import type { CaseRole } from "@/lib/case-types";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "long", year: "numeric", timeZone: "Europe/Moscow" }).format(new Date(value));
-}
-
-function RoleDetails({ role, index }: { role: CaseRole; index: number }) {
-  return (
-    <article className="case-library-role">
-      <span>РОЛЬ {index + 1}</span>
-      <h3>{role.name}</h3>
-      <p className="case-library-position">{role.position}</p>
-      <dl>
-        <div><dt>Открытая цель</dt><dd>{role.publicGoal}</dd></div>
-        <div><dt>Интересы</dt><dd>{role.interests.join("; ")}</dd></div>
-        <div><dt>Ограничения</dt><dd>{role.constraints.join("; ")}</dd></div>
-        <div><dt>Ресурсы влияния</dt><dd>{role.leverage.join("; ")}</dd></div>
-        {role.roleBrief && <div><dt>Задача в разговоре</dt><dd>{role.roleBrief}</dd></div>}
-      </dl>
-    </article>
-  );
 }
 
 export default function CaseLibrary({ cases }: { cases: CaseLibraryItem[] }) {
@@ -75,20 +57,7 @@ export default function CaseLibrary({ cases }: { cases: CaseLibraryItem[] }) {
             <button className="case-library-dialog-x" type="button" onClick={() => setSelected(null)} aria-label="Закрыть подробное описание">×</button>
             <span className="admin-eyebrow">ПОДРОБНОЕ ОПИСАНИЕ КЕЙСА</span>
             <h2 id="case-library-dialog-title">{selected.title}</h2>
-            <p className="case-library-dialog-summary">{selected.summary}</p>
-            <section className="case-library-context">
-              <article><span>КОНТЕКСТ</span><p>{selected.situation}</p></article>
-              <article><span>ЦЕНТРАЛЬНЫЙ КОНФЛИКТ</span><p>{selected.conflict}</p></article>
-              <article><span>НАЧАЛЬНАЯ СИТУАЦИЯ</span><p>{selected.startSituation}</p></article>
-              {selected.stakes.length > 0 && <article><span>СТАВКИ</span><ul>{selected.stakes.map((stake) => <li key={stake}>{stake}</li>)}</ul></article>}
-              {selected.scenarioConditions?.length ? <article><span>СЦЕНАРНЫЕ УСЛОВИЯ</span><ul>{selected.scenarioConditions.map((condition) => <li key={condition}>{condition}</li>)}</ul></article> : null}
-              {selected.decisionTerms?.length ? <article><span>УСЛОВИЯ РЕШЕНИЯ</span><ul>{selected.decisionTerms.map((term) => <li key={term}>{term}</li>)}</ul></article> : null}
-            </section>
-            <section className="case-library-roles">
-              {[selected.userRole, selected.opponentRole, ...selected.additionalRoles].map((role, index) => <RoleDetails role={role} index={index} key={`${role.name}-${index}`} />)}
-            </section>
-            <CaseNegotiationPairs roles={[selected.userRole, selected.opponentRole, ...selected.additionalRoles]} pairs={selected.negotiationPairs} />
-            <p><strong>Обращение:</strong> {selected.addressForm === "informal" ? "на «ты»" : "на «вы»"}</p>
+            <CaseCanonicalDetails item={selected} />
             <footer className="case-library-dialog-actions"><button type="button" onClick={() => setSelected(null)}>Закрыть</button><Link href={`/?case=${selected.id}`}>Сыграть кейс →</Link></footer>
           </div>
         </div>

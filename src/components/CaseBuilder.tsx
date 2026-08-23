@@ -4,11 +4,18 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { CanonicalCase, CaseRole, CaseWorkspaceView } from "@/lib/case-types";
 import CaseNegotiationPairs from "@/components/CaseNegotiationPairs";
+import CaseCanonicalDetails from "@/components/CaseCanonicalDetails";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { CaseVisibility } from "@/lib/case-visibility";
 import { readJsonResponse } from "@/lib/http-response";
 import { caseApprovalRedirectUrl } from "@/lib/case-approval-navigation";
+import {
+  emptyCaseGeneratorFields,
+  formatCaseGeneratorFields,
+  type CaseGeneratorFields,
+  type CaseGeneratorRoleFields,
+} from "@/lib/case-generator-fields";
 
 type BuilderStatus = "idle" | "analyzing" | "revising" | "approving" | "error";
 type TranscriptionPayload = { error?: string; text?: string };
@@ -41,6 +48,7 @@ export default function CaseBuilder() {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [roleCount, setRoleCount] = useState("");
+  const [caseFields, setCaseFields] = useState<CaseGeneratorFields>(emptyCaseGeneratorFields);
   const [files, setFiles] = useState<File[]>([]);
   const [workspace, setWorkspace] = useState<CaseWorkspaceView | null>(null);
   const [status, setStatus] = useState<BuilderStatus>("idle");
@@ -60,6 +68,18 @@ export default function CaseBuilder() {
 
   const statusBusy = status === "analyzing" || status === "revising" || status === "approving";
   const inputBusy = statusBusy || recording || transcribing;
+  const visibleRoleCount = Number(roleCount) || 2;
+
+  function setCaseField<K extends keyof Omit<CaseGeneratorFields, "roles">>(key: K, value: CaseGeneratorFields[K]) {
+    setCaseFields((current) => ({ ...current, [key]: value }));
+  }
+
+  function setRoleField<K extends keyof CaseGeneratorRoleFields>(index: number, key: K, value: string) {
+    setCaseFields((current) => ({
+      ...current,
+      roles: current.roles.map((role, roleIndex) => roleIndex === index ? { ...role, [key]: value } : role),
+    }));
+  }
 
   function releaseMicrophone() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -159,7 +179,7 @@ export default function CaseBuilder() {
       const form = new FormData();
       if (workspace?.id) form.set("workspaceId", workspace.id);
       form.set("title", title || "Новый управленческий кейс");
-      form.set("notes", notes);
+      form.set("notes", [notes.trim(), formatCaseGeneratorFields(caseFields, visibleRoleCount)].filter(Boolean).join("\n\n"));
       form.set("roleCount", roleCount);
       files.forEach((file) => form.append("files", file));
       const response = await fetch("/api/case-builder/analyze", { method: "POST", body: form });
@@ -279,6 +299,50 @@ export default function CaseBuilder() {
           {voiceError && <small className="builder-voice-error" role="alert">{voiceError}</small>}
         </div>
 
+        <details className="builder-structured-case">
+          <summary>Заполнить подробные поля кейса</summary>
+          <p>Заполните только известные поля. Незаданные значения останутся пустыми и будут показаны в базе как «Не задано».</p>
+          <div className="builder-structured-grid">
+            <label><span>КРАТКОЕ ОПИСАНИЕ</span><textarea value={caseFields.summary} disabled={inputBusy} onChange={(event) => setCaseField("summary", event.target.value)} /></label>
+            <label><span>СИТУАЦИЯ И КОНТЕКСТ</span><textarea value={caseFields.situation} disabled={inputBusy} onChange={(event) => setCaseField("situation", event.target.value)} /></label>
+            <label><span>ЦЕНТРАЛЬНЫЙ КОНФЛИКТ</span><textarea value={caseFields.conflict} disabled={inputBusy} onChange={(event) => setCaseField("conflict", event.target.value)} /></label>
+            <label><span>ФОРМА ОБРАЩЕНИЯ</span><select value={caseFields.addressForm} disabled={inputBusy} onChange={(event) => setCaseField("addressForm", event.target.value as CaseGeneratorFields["addressForm"])}><option value="">Не задано</option><option value="formal">На «вы»</option><option value="informal">На «ты»</option></select></label>
+            <label><span>НАЧАЛЬНАЯ СИТУАЦИЯ</span><textarea value={caseFields.startSituation} disabled={inputBusy} onChange={(event) => setCaseField("startSituation", event.target.value)} /></label>
+            <label><span>СТАВКИ — ПО ОДНОЙ НА СТРОКЕ</span><textarea value={caseFields.stakes} disabled={inputBusy} onChange={(event) => setCaseField("stakes", event.target.value)} /></label>
+            <label><span>ПОЧЕМУ КЕЙС СЛОЖНЫЙ</span><textarea value={caseFields.difficultyReason} disabled={inputBusy} onChange={(event) => setCaseField("difficultyReason", event.target.value)} /></label>
+            <label><span>ФОКУС ОЦЕНКИ — ПО ОДНОМУ НА СТРОКЕ</span><textarea value={caseFields.evaluationFocus} disabled={inputBusy} onChange={(event) => setCaseField("evaluationFocus", event.target.value)} /></label>
+            <label><span>ПРЕДМЕТЫ ПЕРЕГОВОРОВ МЕЖДУ РОЛЯМИ</span><textarea value={caseFields.negotiationPairs} disabled={inputBusy} onChange={(event) => setCaseField("negotiationPairs", event.target.value)} /></label>
+            <label><span>СЦЕНАРНЫЕ УСЛОВИЯ</span><textarea value={caseFields.scenarioConditions} disabled={inputBusy} onChange={(event) => setCaseField("scenarioConditions", event.target.value)} placeholder="Например: возразить не менее трёх раз; перебить участника ровно один раз" /></label>
+            <label><span>УСЛОВИЯ РЕШЕНИЯ</span><textarea value={caseFields.decisionTerms} disabled={inputBusy} onChange={(event) => setCaseField("decisionTerms", event.target.value)} /></label>
+            <label><span>ГРАНИЦЫ ПОЛНОМОЧИЙ</span><textarea value={caseFields.authorityLimits} disabled={inputBusy} onChange={(event) => setCaseField("authorityLimits", event.target.value)} /></label>
+            <label><span>ОПАСНЫЕ ЗОНЫ</span><textarea value={caseFields.riskZones} disabled={inputBusy} onChange={(event) => setCaseField("riskZones", event.target.value)} /></label>
+            <label><span>УСПЕШНЫЙ ИТОГ</span><textarea value={caseFields.successOutcome} disabled={inputBusy} onChange={(event) => setCaseField("successOutcome", event.target.value)} /></label>
+            <label><span>ОЖИДАЕМЫЕ СЛЕДУЮЩИЕ ШАГИ</span><textarea value={caseFields.expectedNextSteps} disabled={inputBusy} onChange={(event) => setCaseField("expectedNextSteps", event.target.value)} /></label>
+            <label><span>МЕТОДИЧЕСКИЕ ПОЯСНЕНИЯ</span><textarea value={caseFields.methodologyNotes} disabled={inputBusy} onChange={(event) => setCaseField("methodologyNotes", event.target.value)} /></label>
+          </div>
+          <div className="builder-role-fields">
+            {caseFields.roles.slice(0, visibleRoleCount).map((role, index) => (
+              <fieldset key={index}>
+                <legend>РОЛЬ {index + 1}</legend>
+                <div className="builder-structured-grid">
+                  <label><span>ФИО</span><input value={role.name} disabled={inputBusy} onChange={(event) => setRoleField(index, "name", event.target.value)} /></label>
+                  <label><span>ДОЛЖНОСТЬ</span><input value={role.position} disabled={inputBusy} onChange={(event) => setRoleField(index, "position", event.target.value)} /></label>
+                  <label><span>ОТКРЫТАЯ ЦЕЛЬ</span><textarea value={role.publicGoal} disabled={inputBusy} onChange={(event) => setRoleField(index, "publicGoal", event.target.value)} /></label>
+                  <label><span>ИНТЕРЕСЫ</span><textarea value={role.interests} disabled={inputBusy} onChange={(event) => setRoleField(index, "interests", event.target.value)} /></label>
+                  <label><span>ОГРАНИЧЕНИЯ</span><textarea value={role.constraints} disabled={inputBusy} onChange={(event) => setRoleField(index, "constraints", event.target.value)} /></label>
+                  <label><span>СКРЫТЫЕ МОТИВЫ</span><textarea value={role.hiddenMotives} disabled={inputBusy} onChange={(event) => setRoleField(index, "hiddenMotives", event.target.value)} /></label>
+                  <label><span>РЕСУРСЫ ВЛИЯНИЯ</span><textarea value={role.leverage} disabled={inputBusy} onChange={(event) => setRoleField(index, "leverage", event.target.value)} /></label>
+                  <label><span>ЗАДАЧА В РАЗГОВОРЕ</span><textarea value={role.roleBrief} disabled={inputBusy} onChange={(event) => setRoleField(index, "roleBrief", event.target.value)} /></label>
+                  <label><span>СТАРТОВАЯ РЕПЛИКА</span><textarea value={role.openingLine} disabled={inputBusy} onChange={(event) => setRoleField(index, "openingLine", event.target.value)} /></label>
+                  <label><span>ТИПОВЫЕ ВОЗРАЖЕНИЯ</span><textarea value={role.typicalObjections} disabled={inputBusy} onChange={(event) => setRoleField(index, "typicalObjections", event.target.value)} /></label>
+                  <label><span>РЕКОМЕНДУЕМЫЕ ФОРМУЛИРОВКИ</span><textarea value={role.recommendedPhrases} disabled={inputBusy} onChange={(event) => setRoleField(index, "recommendedPhrases", event.target.value)} /></label>
+                  <label><span>ЗАПРЕЩЁННЫЕ ФОРМУЛИРОВКИ</span><textarea value={role.forbiddenPhrases} disabled={inputBusy} onChange={(event) => setRoleField(index, "forbiddenPhrases", event.target.value)} /></label>
+                </div>
+              </fieldset>
+            ))}
+          </div>
+        </details>
+
         {(files.length > 0 || workspace?.materials.length) && (
           <div className="material-list">
             {workspace?.materials.map((item) => <span key={item.id}>✓ {item.fileName} <small>{fileSize(item.sizeBytes)}</small></span>)}
@@ -304,7 +368,7 @@ export default function CaseBuilder() {
                 <div className="variant-conflict"><strong>ЦЕНТРАЛЬНЫЙ КОНФЛИКТ</strong><p>{variant.conflict}</p><small>{variant.difficultyReason}</small><small>Обращение: {variant.addressForm === "informal" ? "на «ты»" : "на «вы»"}</small></div>
                 <CaseVariantRoles roles={[variant.userRole, variant.opponentRole, ...variant.additionalRoles]} />
                 <CaseNegotiationPairs roles={[variant.userRole, variant.opponentRole, ...variant.additionalRoles]} pairs={variant.negotiationPairs} />
-                <details><summary>Показать каноническое описание</summary><div><strong>Ситуация</strong><p>{variant.situation}</p><strong>Стартовая позиция</strong><p>{variant.startSituation}</p><strong>Ставки</strong><ul>{variant.stakes.map((item) => <li key={item}>{item}</li>)}</ul><strong>Методическая основа</strong><ul>{variant.methodologyBasis.map((item) => <li key={item.atomId}>{item.title}: {item.application}</li>)}</ul></div></details>
+                <details><summary>Показать подробное описание</summary><CaseCanonicalDetails item={variant} /></details>
                 {!variant.approvedAt && (
                   <div className="variant-revision">
                     <label htmlFor={`case-revision-${variant.id}`}>ЧТО ИЗМЕНИТЬ В ЭТОМ ВАРИАНТЕ</label>
