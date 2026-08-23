@@ -53,6 +53,8 @@ export type CanonicalCase = {
   expectedNextSteps?: string[];
   methodologyNotes?: string;
   requiredMethodologyId?: MethodologyId | null;
+  requiredParticipantRoleIndex?: number | null;
+  requiredFirstSpeaker?: "participant" | "opponent" | null;
   departmentId?: string | null;
   origin: "seed" | "quick_upload" | "builder";
   visibility: "public" | "private" | "department";
@@ -140,6 +142,8 @@ export function mapCaseRow(row: Record<string, unknown>): CanonicalCase {
     expectedNextSteps: (row.expected_next_steps || []) as string[],
     methodologyNotes: String(row.methodology_notes || ""),
     requiredMethodologyId: (row.required_methodology_id || null) as MethodologyId | null,
+    requiredParticipantRoleIndex: Number.isInteger(row.required_participant_role_index) ? Number(row.required_participant_role_index) : null,
+    requiredFirstSpeaker: row.required_first_speaker === "participant" || row.required_first_speaker === "opponent" ? row.required_first_speaker : null,
     departmentId: row.department_id ? String(row.department_id) : null,
     origin: row.origin as CanonicalCase["origin"],
     visibility: row.visibility === "private" || row.visibility === "department" ? row.visibility : "public",

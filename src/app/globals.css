@@ -1301,6 +1301,7 @@ button { color: inherit; }
 .case-select-shell select:disabled { opacity: .65; cursor: not-allowed; }
 .case-select-shell > i { position: absolute; right: 12px; color: #7892ad; font-style: normal; pointer-events: none; }
 .case-select-error { margin: -7px 0 10px; color: #ff918a; font-size: 12px; line-height: 1.4; }
+.case-setting-lock { display: block; margin: -13px 0 16px; color: #78a8cf; font-size: 12px; line-height: 1.4; }
 
 .case-upload-modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; }
 .case-modal-backdrop { position: absolute; inset: 0; width: 100%; border: 0; background: rgba(0, 7, 17, .82); backdrop-filter: blur(8px); cursor: pointer; }

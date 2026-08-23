@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildNegotiationStartContract,
+  firstSpeakerForCase,
   matchesTrainingSessionStart,
   normalizeFirstSpeaker,
   realtimeReadyMessage,
@@ -56,6 +57,12 @@ describe("стартовый контракт переговоров", () => {
     expect(realtimeReadyMessage("opponent", "Борис Воронцов")).toBe("Связь установлена. Борис Воронцов начинает переговоры.");
   });
 
+  it("закрепляет первую реплику только за кейсом с обязательным инициатором", () => {
+    expect(firstSpeakerForCase({ requiredFirstSpeaker: "participant" }, "opponent")).toBe("participant");
+    expect(firstSpeakerForCase({ requiredFirstSpeaker: null }, "opponent")).toBe("opponent");
+    expect(firstSpeakerForCase({}, "participant")).toBe("participant");
+  });
+
   it("не открывает Realtime при рассинхронизации сохранённых ролей и выбранного старта", () => {
     const saved = {
       case_id: "case-1",
@@ -89,6 +96,12 @@ describe("стартовый контракт переговоров", () => {
     expect(arena).toContain("track.enabled = false");
     expect(arena).toContain("syncMicrophoneTrack();");
     const route = readFileSync("src/app/api/realtime/session/route.ts", "utf8");
+    const textRoute = readFileSync("src/app/api/text-negotiation/route.ts", "utf8");
+    const platformPanel = readFileSync("src/components/PlatformTestingPanel.tsx", "utf8");
+    expect(route).toContain("firstSpeakerForCase(negotiationCase");
+    expect(textRoute).toContain("firstSpeakerForCase(negotiationCase");
+    expect(platformPanel).toContain('selectedCase.requiredFirstSpeaker === "participant"');
+    expect(platformPanel).toContain("generateHumanTurnRef.current()");
     expect(route.indexOf("matchesTrainingSessionStart")).toBeLessThan(route.indexOf('rpc("claim_training_realtime"'));
   });
 });

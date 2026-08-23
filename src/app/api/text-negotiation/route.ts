@@ -1,7 +1,7 @@
 import { buildRealtimeInstructions } from "@/lib/prompt";
 import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
 import { buildFirstOpponentTurnInstructions } from "@/lib/realtime-language";
-import { normalizeFirstSpeaker, matchesTrainingSessionStart } from "@/lib/negotiation-start";
+import { firstSpeakerForCase, matchesTrainingSessionStart } from "@/lib/negotiation-start";
 import { getOpenAI } from "@/lib/openai-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { TEXT_NEGOTIATION_MODEL, textNegotiationInput } from "@/lib/text-negotiation";
@@ -32,10 +32,10 @@ export async function POST(request: Request) {
     const sessionId = clean(body.sessionId, 80);
     if (!UUID.test(sessionId)) return Response.json({ error: "Некорректная тренировочная сессия." }, { status: 400 });
     const action = body.action === "start" ? "start" : "turn";
-    const firstSpeaker = normalizeFirstSpeaker(body.firstSpeaker);
     const negotiationStyle = body.negotiationStyle === "hard" ? "hard" : "collaborative";
     const negotiationCase = await resolvePublishedCase(clean(body.caseId, 80), clean(body.caseCode));
     if (!negotiationCase) return Response.json({ error: "Опубликованный кейс не найден." }, { status: 404 });
+    const firstSpeaker = firstSpeakerForCase(negotiationCase, body.firstSpeaker);
     const selected = selectCaseRoles(negotiationCase, Number(body.participantRoleIndex), Number(body.opponentRoleIndex));
     const db = getSupabaseAdmin();
     const { data: trainingSession, error: sessionError } = await db

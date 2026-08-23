@@ -27,4 +27,14 @@ describe("three-role case selection", () => {
     expect(selected.opponentRoleIndex).toBe(1);
     expect(selected.negotiationReason).toContain("процедуру");
   });
+
+  it("forces the configured participant role only for a locked system case", () => {
+    const locked = selectCaseRoles({ ...DEFAULT_CASE, requiredParticipantRoleIndex: 0 }, 1, 0);
+    const regular = selectCaseRoles(DEFAULT_CASE, 1, 0);
+
+    expect(locked.participantRoleIndex).toBe(0);
+    expect(locked.participantRole).toBe(DEFAULT_CASE.userRole);
+    expect(regular.participantRoleIndex).toBe(1);
+    expect(regular.participantRole).toBe(DEFAULT_CASE.opponentRole);
+  });
 });

@@ -15,6 +15,7 @@ import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
 import type { CaseVisibility } from "@/lib/case-visibility";
 import { cycleOpponentIndex, opponentIndicesForRole } from "@/lib/case-negotiation-pairs";
+import { participantRoleIndexForCase } from "@/lib/case-role-selection";
 import { consumeCaseAddedNotice } from "@/lib/case-approval-navigation";
 import { realtimeResponseStatus, shouldMonitorRealtimeResponseStall, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
 import { DEFAULT_METHODOLOGY_ID, getRegisteredMethodology, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
@@ -55,7 +56,7 @@ import {
   updateOpponentEmotion,
 } from "@/lib/opponent-emotion";
 import { buildFirstOpponentTurnInstructions } from "@/lib/realtime-language";
-import { realtimeReadyMessage, type FirstSpeaker } from "@/lib/negotiation-start";
+import { firstSpeakerForCase, realtimeReadyMessage, type FirstSpeaker } from "@/lib/negotiation-start";
 import {
   acquireVoiceEvalInputStream,
   realtimeEventVoiceEvalDetails,
@@ -136,7 +137,7 @@ export default function VoiceArena({
   const { lines, linesRef, transcriptEndRef, setLines, replaceLine, appendDelta, clockTime } = transcript;
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("male");
   const [negotiationStyle, setNegotiationStyle] = useState<NegotiationStyle>("collaborative");
-  const [firstSpeaker, setFirstSpeaker] = useState<FirstSpeaker>("opponent");
+  const [requestedFirstSpeaker, setFirstSpeaker] = useState<FirstSpeaker>("opponent");
   const [durationMinutes, setDurationMinutes] = useState<DurationMinutes>(5);
   const [inputMode, setInputMode] = useState<NegotiationInputMode>("duplex");
   const [textDraft, setTextDraft] = useState("");
@@ -156,7 +157,7 @@ export default function VoiceArena({
   const [hintUsed, setHintUsed] = useState(false);
   const [cases, setCases] = useState<CanonicalCase[]>([DEFAULT_CASE]);
   const [selectedCaseId, setSelectedCaseId] = useState(DEFAULT_CASE.id);
-  const [selectedRoleIndex, setSelectedRoleIndex] = useState(0);
+  const [requestedRoleIndex, setSelectedRoleIndex] = useState(0);
   const [opponentRoleIndex, setOpponentRoleIndex] = useState(1);
   const [casesError, setCasesError] = useState("");
   const [quickUploadOpen, setQuickUploadOpen] = useState(false);
@@ -267,6 +268,10 @@ export default function VoiceArena({
   } | null>(null);
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
+  const selectedRoleIndex = participantRoleIndexForCase(selectedCase, requestedRoleIndex);
+  const firstSpeaker = firstSpeakerForCase(selectedCase, requestedFirstSpeaker);
+  const roleSelectionLocked = Number.isInteger(selectedCase.requiredParticipantRoleIndex);
+  const firstSpeakerLocked = Boolean(selectedCase.requiredFirstSpeaker);
   const requiredMethodologyId = selectedCase.requiredMethodologyId || null;
   const effectiveMethodologyId = requiredMethodologyId || methodologyId;
   const report = useNegotiationReport({
@@ -490,11 +495,12 @@ export default function VoiceArena({
       const nextCase = payload.cases.find((item) => item.id === queryId) || payload.cases[0];
       setSelectedCaseId(nextCase.id);
       const nextRoles = [nextCase.userRole, nextCase.opponentRole, ...(nextCase.additionalRoles || [])];
-      const nextOpponentIndex = opponentIndicesForRole(nextCase, 0)[0] ?? 1;
+      const nextParticipantIndex = participantRoleIndexForCase(nextCase, 0);
+      const nextOpponentIndex = opponentIndicesForRole(nextCase, nextParticipantIndex)[0] ?? 1;
       setOpponentRoleIndex(nextOpponentIndex);
       const nextAiRole = nextRoles[nextOpponentIndex];
       setVoiceMode(roleVoiceGender(nextAiRole));
-      setSelectedRoleIndex(0);
+      setSelectedRoleIndex(nextParticipantIndex);
       setCasesError("");
     } catch (caught) {
       setCasesError(caught instanceof Error ? caught.message : "Не удалось загрузить кейсы.");
@@ -511,10 +517,11 @@ export default function VoiceArena({
     stopNarration();
     setSelectedCaseId(caseId);
     resetComic();
-    setSelectedRoleIndex(0);
     const nextCase = cases.find((item) => item.id === caseId);
     const nextRoles = nextCase ? [nextCase.userRole, nextCase.opponentRole, ...(nextCase.additionalRoles || [])] : [];
-    const nextOpponentIndex = nextCase ? opponentIndicesForRole(nextCase, 0)[0] ?? 1 : 0;
+    const nextParticipantIndex = nextCase ? participantRoleIndexForCase(nextCase, 0) : 0;
+    setSelectedRoleIndex(nextParticipantIndex);
+    const nextOpponentIndex = nextCase ? opponentIndicesForRole(nextCase, nextParticipantIndex)[0] ?? 1 : 0;
     setOpponentRoleIndex(nextOpponentIndex);
     if (nextCase) {
       const nextAiRole = nextRoles[nextOpponentIndex];
@@ -1867,15 +1874,17 @@ export default function VoiceArena({
         <h2><span>⚙</span> НАСТРОЙКИ</h2>
 
         <CaseSelect cases={cases} value={selectedCase.id} onChange={chooseCase} disabled={isLive || isBusy} />
-        <RoleSelect selectedCase={selectedCase} value={selectedRoleIndex} onChange={chooseRole} disabled={isLive || isBusy} />
+        <RoleSelect selectedCase={selectedCase} value={selectedRoleIndex} onChange={chooseRole} disabled={roleSelectionLocked || isLive || isBusy} />
+        {roleSelectionLocked && <small className="case-setting-lock">Роль закреплена за этим системным кейсом.</small>}
         {casesError && <p className="case-select-error">{casesError}</p>}
 
         <section className="setting-group">
           <div className="setting-label">ВЫБЕРИ ПЕРВУЮ РЕПЛИКУ</div>
           <div className="style-options" role="group" aria-label="Кто начинает переговоры">
-            <button className={firstSpeaker === "participant" ? "selected" : ""} onClick={() => setFirstSpeaker("participant")} disabled={isLive || isBusy} aria-pressed={firstSpeaker === "participant"}>Начинаю я</button>
-            <button className={firstSpeaker === "opponent" ? "selected" : ""} onClick={() => setFirstSpeaker("opponent")} disabled={isLive || isBusy} aria-pressed={firstSpeaker === "opponent"}>Начинает оппонент</button>
+            <button className={firstSpeaker === "participant" ? "selected" : ""} onClick={() => setFirstSpeaker("participant")} disabled={firstSpeakerLocked || isLive || isBusy} aria-pressed={firstSpeaker === "participant"}>Начинаю я</button>
+            <button className={firstSpeaker === "opponent" ? "selected" : ""} onClick={() => setFirstSpeaker("opponent")} disabled={firstSpeakerLocked || isLive || isBusy} aria-pressed={firstSpeaker === "opponent"}>Начинает оппонент</button>
           </div>
+          {firstSpeakerLocked && <small className="case-setting-lock">Первую реплику всегда произносит руководитель.</small>}
         </section>
 
         <section className="setting-group">
