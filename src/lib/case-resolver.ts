@@ -4,6 +4,7 @@ import { DEFAULT_CASE, DEFAULT_CASE_ID } from "@/lib/default-case";
 import { mapCaseRow, type CanonicalCase } from "@/lib/case-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { canAccessCase } from "@/lib/case-visibility";
+import { getCaseAccessContext } from "@/lib/case-access-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
 
 export { selectCaseRoles } from "@/lib/case-role-selection";
@@ -26,7 +27,8 @@ export async function resolvePublishedCase(caseId?: string, caseCode?: string): 
   if (error) throw new Error(`Кейс: ${error.message}`);
   if (!data) return null;
   const session = await getCurrentUserSession();
-  return canAccessCase(data, session?.userId) ? mapCaseRow(data) : null;
+  if (!session) return null;
+  return canAccessCase(data, await getCaseAccessContext(session)) ? mapCaseRow(data) : null;
 }
 
 export async function resolvePublishedCaseForAdmin(caseId?: string): Promise<CanonicalCase | null> {

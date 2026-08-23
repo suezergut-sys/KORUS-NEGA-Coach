@@ -4,6 +4,7 @@ import { createNegotiationHintSchema, type NegotiationHint } from "@/lib/hint-ty
 import { formatAnalysisTranscript, normalizeAnalysisTurns, type TranscriptTurn } from "@/lib/transcript";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { formatCaseGuidance } from "@/lib/case-guidance";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -70,6 +71,8 @@ export async function POST(request: Request) {
 ПУБЛИЧНАЯ ЦЕЛЬ ОППОНЕНТА: ${selected.opponentRole.publicGoal}
 ПРЕДМЕТ ПЕРЕГОВОРОВ ЭТОЙ ПАРЫ: ${selected.negotiationReason}
 ФОРМА ОБРАЩЕНИЯ В КЕЙСЕ: ${negotiationCase.addressForm === "informal" ? "на «ты»" : "на «вы»"}. Все готовые формулировки должны соблюдать её.
+
+${formatCaseGuidance(negotiationCase, selected.participantRole, selected.opponentRole)}
 
 СТЕНОГРАММА К ТЕКУЩЕЙ ПАУЗЕ:
 ${transcript}

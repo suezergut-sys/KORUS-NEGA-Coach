@@ -1,4 +1,5 @@
 import { normalizeNegotiationPairs } from "@/lib/case-negotiation-pairs";
+import type { MethodologyId } from "@/lib/methodologies";
 
 export type CaseRole = {
   name: string;
@@ -9,6 +10,11 @@ export type CaseRole = {
   constraints: string[];
   hiddenMotives: string[];
   leverage: string[];
+  roleBrief?: string;
+  openingLine?: string;
+  typicalObjections?: string[];
+  recommendedPhrases?: string[];
+  forbiddenPhrases?: string[];
 };
 
 export type NegotiationPair = {
@@ -40,8 +46,16 @@ export type CanonicalCase = {
   difficultyReason: string;
   evaluationFocus: string[];
   methodologyBasis: MethodologyBasis[];
+  decisionTerms?: string[];
+  authorityLimits?: string[];
+  riskZones?: string[];
+  successOutcome?: string;
+  expectedNextSteps?: string[];
+  methodologyNotes?: string;
+  requiredMethodologyId?: MethodologyId | null;
+  departmentId?: string | null;
   origin: "seed" | "quick_upload" | "builder";
-  visibility: "public" | "private";
+  visibility: "public" | "private" | "department";
 };
 
 export type MethodologyBasis = {
@@ -64,7 +78,16 @@ export function isCanonicalPersonName(value: string) {
 }
 
 export function normalizeCaseRole(role: CaseRole): CaseRole {
-  return { ...role, name: normalizePersonName(role.name), position: role.position.normalize("NFC").trim() };
+  return {
+    ...role,
+    name: normalizePersonName(role.name),
+    position: role.position.normalize("NFC").trim(),
+    roleBrief: String(role.roleBrief || "").trim(),
+    openingLine: String(role.openingLine || "").trim(),
+    typicalObjections: role.typicalObjections || [],
+    recommendedPhrases: role.recommendedPhrases || [],
+    forbiddenPhrases: role.forbiddenPhrases || [],
+  };
 }
 
 export function toPublicCase(item: CanonicalCase): CanonicalCase {
@@ -110,8 +133,16 @@ export function mapCaseRow(row: Record<string, unknown>): CanonicalCase {
     difficultyReason: String(row.difficulty_reason),
     evaluationFocus: (row.evaluation_focus || []) as string[],
     methodologyBasis: (row.methodology_basis || []) as MethodologyBasis[],
+    decisionTerms: (row.decision_terms || []) as string[],
+    authorityLimits: (row.authority_limits || []) as string[],
+    riskZones: (row.risk_zones || []) as string[],
+    successOutcome: String(row.success_outcome || ""),
+    expectedNextSteps: (row.expected_next_steps || []) as string[],
+    methodologyNotes: String(row.methodology_notes || ""),
+    requiredMethodologyId: (row.required_methodology_id || null) as MethodologyId | null,
+    departmentId: row.department_id ? String(row.department_id) : null,
     origin: row.origin as CanonicalCase["origin"],
-    visibility: row.visibility === "private" ? "private" : "public",
+    visibility: row.visibility === "private" || row.visibility === "department" ? row.visibility : "public",
   };
 }
 
@@ -138,8 +169,16 @@ const roleSchema = {
     constraints: stringArray,
     hiddenMotives: { ...stringArray, minItems: 0 },
     leverage: stringArray,
+    roleBrief: { type: "string" },
+    openingLine: { type: "string" },
+    typicalObjections: { ...stringArray, minItems: 0 },
+    recommendedPhrases: { ...stringArray, minItems: 0 },
+    forbiddenPhrases: { ...stringArray, minItems: 0 },
   },
-  required: ["name", "position", "voiceGender", "publicGoal", "interests", "constraints", "hiddenMotives", "leverage"],
+  required: [
+    "name", "position", "voiceGender", "publicGoal", "interests", "constraints", "hiddenMotives", "leverage",
+    "roleBrief", "openingLine", "typicalObjections", "recommendedPhrases", "forbiddenPhrases",
+  ],
 } as const;
 
 const negotiationPairSchema = {
@@ -195,6 +234,12 @@ export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, ro
             startSituation: { type: "string" },
             difficultyReason: { type: "string" },
             evaluationFocus: stringArray,
+            decisionTerms: { ...stringArray, minItems: 0 },
+            authorityLimits: { ...stringArray, minItems: 0 },
+            riskZones: { ...stringArray, minItems: 0 },
+            successOutcome: { type: "string" },
+            expectedNextSteps: { ...stringArray, minItems: 0 },
+            methodologyNotes: { type: "string" },
             methodologyBasis: {
               type: "array",
               minItems: atomIds.length ? 1 : 0,
@@ -214,6 +259,7 @@ export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, ro
           required: [
             "title", "summary", "situation", "conflict", "addressForm", "userRole", "opponentRole",
             "additionalRoles", "negotiationPairs", "stakes", "startSituation", "difficultyReason", "evaluationFocus", "methodologyBasis",
+            "decisionTerms", "authorityLimits", "riskZones", "successOutcome", "expectedNextSteps", "methodologyNotes",
           ],
         },
       },

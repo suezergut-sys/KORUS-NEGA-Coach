@@ -43,6 +43,12 @@ function variantInsertRow(workspaceId: string, variant: GeneratedCaseVariant) {
     difficulty_reason: normalized.difficultyReason,
     evaluation_focus: normalized.evaluationFocus,
     methodology_basis: normalized.methodologyBasis,
+    decision_terms: normalized.decisionTerms || [],
+    authority_limits: normalized.authorityLimits || [],
+    risk_zones: normalized.riskZones || [],
+    success_outcome: normalized.successOutcome || "",
+    expected_next_steps: normalized.expectedNextSteps || [],
+    methodology_notes: normalized.methodologyNotes || "",
   };
 }
 
@@ -203,6 +209,12 @@ export async function getVariantForRevision(variantId: string, ownerUserId: stri
       difficultyReason: variant.difficulty_reason,
       evaluationFocus: variant.evaluation_focus,
       methodologyBasis: variant.methodology_basis,
+      decisionTerms: variant.decision_terms || [],
+      authorityLimits: variant.authority_limits || [],
+      riskZones: variant.risk_zones || [],
+      successOutcome: variant.success_outcome || "",
+      expectedNextSteps: variant.expected_next_steps || [],
+      methodologyNotes: variant.methodology_notes || "",
     } as GeneratedCaseVariant,
   };
 }
@@ -302,6 +314,12 @@ export async function getWorkspaceView(workspaceId: string, ownerUserId: string)
       difficultyReason: item.difficulty_reason,
       evaluationFocus: item.evaluation_focus,
       methodologyBasis: item.methodology_basis,
+      decisionTerms: item.decision_terms || [],
+      authorityLimits: item.authority_limits || [],
+      riskZones: item.risk_zones || [],
+      successOutcome: item.success_outcome || "",
+      expectedNextSteps: item.expected_next_steps || [],
+      methodologyNotes: item.methodology_notes || "",
       approvedAt: item.approved_at,
     })),
   };

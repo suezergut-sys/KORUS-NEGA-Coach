@@ -8,7 +8,7 @@
     "dev:voice-evals": "cross-env E2E_TEST_MODE=1 next dev --hostname 127.0.0.1 --port 3101",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src tests e2e voice-evals playwright.config.ts playwright.voice.config.ts && node --check scripts/ingest-methodology.mjs && node --check scripts/seed-harvard-core-atoms.mjs && node --check scripts/seed-conflicts-core-atoms.mjs && node --check scripts/set-harvard-review-status.mjs && node --check scripts/audit-and-conditionally-verify-methodologies.mjs && node --check scripts/publish-conflict-test-case.mjs",
+    "lint": "eslint src tests e2e voice-evals playwright.config.ts playwright.voice.config.ts && node --check scripts/ingest-methodology.mjs && node --check scripts/seed-harvard-core-atoms.mjs && node --check scripts/seed-conflicts-core-atoms.mjs && node --check scripts/set-harvard-review-status.mjs && node --check scripts/audit-and-conditionally-verify-methodologies.mjs && node --check scripts/publish-conflict-test-case.mjs && node --check scripts/publish-1c-dismissal-case.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "node --env-file=.env.local ./node_modules/vitest/vitest.mjs run tests/integration",
@@ -24,6 +24,8 @@
     "methodology:audit-verify:apply": "node scripts/audit-and-conditionally-verify-methodologies.mjs --apply",
     "case:publish-conflict-test": "node scripts/publish-conflict-test-case.mjs",
     "case:publish-conflict-test:apply": "node scripts/publish-conflict-test-case.mjs --apply",
+    "case:publish-1c-dismissal": "node scripts/publish-1c-dismissal-case.mjs",
+    "case:publish-1c-dismissal:apply": "node scripts/publish-1c-dismissal-case.mjs --apply",
     "methodology:harvard:verify": "node scripts/set-harvard-review-status.mjs verify",
     "methodology:harvard:review": "node scripts/set-harvard-review-status.mjs review"
   },

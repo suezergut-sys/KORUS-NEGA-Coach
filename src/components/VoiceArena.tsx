@@ -17,7 +17,7 @@ import type { CaseVisibility } from "@/lib/case-visibility";
 import { cycleOpponentIndex, opponentIndicesForRole } from "@/lib/case-negotiation-pairs";
 import { consumeCaseAddedNotice } from "@/lib/case-approval-navigation";
 import { realtimeResponseStatus, shouldMonitorRealtimeResponseStall, shouldRecoverRealtimeResponse } from "@/lib/realtime-diagnostics";
-import { DEFAULT_METHODOLOGY_ID, getMethodology, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
+import { DEFAULT_METHODOLOGY_ID, getRegisteredMethodology, methodologyOptions, type MethodologyId } from "@/lib/methodologies";
 import NegotiationReport from "@/components/NegotiationReport";
 import { useNegotiationMachine } from "@/hooks/useNegotiationMachine";
 import { useNegotiationTranscript, type TranscriptLine as Line } from "@/hooks/useNegotiationTranscript";
@@ -266,8 +266,11 @@ export default function VoiceArena({
     conversationWidth: number;
   } | null>(null);
 
+  const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
+  const requiredMethodologyId = selectedCase.requiredMethodologyId || null;
+  const effectiveMethodologyId = requiredMethodologyId || methodologyId;
   const report = useNegotiationReport({
-    methodologyId,
+    methodologyId: effectiveMethodologyId,
     onAnalyze: () => lifecycleDispatch({ type: "ANALYZE" }),
     onComplete: () => lifecycleDispatch({ type: "COMPLETE" }),
   });
@@ -286,7 +289,6 @@ export default function VoiceArena({
     reset: resetReport,
   } = report;
 
-  const selectedCase = cases.find((item) => item.id === selectedCaseId) || cases[0] || DEFAULT_CASE;
   const allRoles = [selectedCase.userRole, selectedCase.opponentRole, ...(selectedCase.additionalRoles || [])];
   const participantRole = allRoles[selectedRoleIndex] || allRoles[0];
   const allowedOpponentIndices = opponentIndicesForRole(selectedCase, selectedRoleIndex);
@@ -329,6 +331,7 @@ export default function VoiceArena({
     toggle: toggleNarration,
   } = narration;
   const isBusy = lifecycleState.phase === "connecting";
+
   const isDuelMode = isBusy || isLive || isEnding;
   const isSettingsCollapsed = isDuelMode && settingsCollapsed;
   const totalDurationSeconds = durationMinutes * 60;
@@ -1429,7 +1432,7 @@ export default function VoiceArena({
             participantRoleIndex: selectedRoleIndex,
             opponentRoleIndex: effectiveOpponentRoleIndex,
             opponentVoice: opponent.voice,
-            methodologyId,
+            methodologyId: effectiveMethodologyId,
           }),
         }, 15_000);
         const sessionPayload = await sessionResponse.json() as { sessionId?: string; startedAt?: string; quota?: TrainingQuota; error?: string };
@@ -1548,7 +1551,7 @@ export default function VoiceArena({
             participantRoleIndex: selectedRoleIndex,
             opponentRoleIndex: effectiveOpponentRoleIndex,
             opponentVoice: opponent.voice,
-            methodologyId,
+            methodologyId: effectiveMethodologyId,
           }),
         }, 15_000);
         const sessionPayload = await sessionResponse.json() as { sessionId?: string; startedAt?: string; quota?: TrainingQuota; error?: string };
@@ -1913,9 +1916,10 @@ export default function VoiceArena({
 
         <section className="setting-group methodology-setting">
           <label className="setting-label" htmlFor="negotiation-methodology">МЕТОДОЛОГИЯ ПЕРЕГОВОРОВ</label>
-          <select id="negotiation-methodology" value={methodologyId} onChange={(event) => setMethodologyId(event.target.value as MethodologyId)} disabled={isLive || isBusy || isEnding || analysisStatus === "loading"}>
-            {methodologyOptions().map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          <select id="negotiation-methodology" value={effectiveMethodologyId} onChange={(event) => setMethodologyId(event.target.value as MethodologyId)} disabled={Boolean(requiredMethodologyId) || isLive || isBusy || isEnding || analysisStatus === "loading"}>
+            {methodologyOptions(requiredMethodologyId ? [requiredMethodologyId] : []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
+          {requiredMethodologyId && <small>Методология закреплена за этим системным кейсом.</small>}
         </section>
         </>)}
       </aside>
@@ -2079,7 +2083,7 @@ export default function VoiceArena({
         {analysisStatus !== "idle" && (
           <section className="analysis-card" aria-live="polite" ref={analysisRef}>
             {analysisStatus === "loading" && (
-            <div className="analysis-loading"><span className="analysis-spinner" /><div><strong>АНАЛИЗИРУЕМ ПОЕДИНОК</strong><p>Сопоставляем стенограмму с методологией «{getMethodology(analysisMethodologyId).shortName}»…</p></div></div>
+            <div className="analysis-loading"><span className="analysis-spinner" /><div><strong>АНАЛИЗИРУЕМ ПОЕДИНОК</strong><p>Сопоставляем стенограмму с методологией «{getRegisteredMethodology(analysisMethodologyId).shortName}»…</p></div></div>
             )}
             {analysisStatus === "error" && (
               <div className="analysis-error">
@@ -2187,6 +2191,9 @@ export default function VoiceArena({
               </div>
               <CaseNegotiationPairs roles={allRoles} pairs={selectedCase.negotiationPairs} />
               {selectedCase.stakes.length > 0 && <CaseBlock icon="◆" title="СТАВКИ"><ul>{selectedCase.stakes.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock>}
+              {participantRole.roleBrief && <CaseBlock icon="◎" title="ЗАДАЧА ВАШЕЙ РОЛИ">{participantRole.roleBrief}</CaseBlock>}
+              {selectedCase.decisionTerms?.length ? <CaseBlock icon="§" title="УСЛОВИЯ РЕШЕНИЯ"><ul>{selectedCase.decisionTerms.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock> : null}
+              {selectedCase.authorityLimits?.length ? <CaseBlock icon="◇" title="ГРАНИЦЫ ПОЛНОМОЧИЙ"><ul>{selectedCase.authorityLimits.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock> : null}
               <CaseBlock icon="▶" title="НАЧАЛЬНАЯ СИТУАЦИЯ">{selectedCase.startSituation}</CaseBlock>
             </div>}
             {(narrationError || comicError) && <p className="narration-error">{narrationError || comicError}</p>}

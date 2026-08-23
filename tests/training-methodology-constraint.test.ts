@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  new URL("../supabase/migrations/20260820194000_allow_conflicts_training_methodology.sql", import.meta.url),
+  new URL("../supabase/migrations/20260823120000_department_case_methodology.sql", import.meta.url),
   "utf8",
 );
 const sessionsRoute = readFileSync(
@@ -11,9 +11,9 @@ const sessionsRoute = readFileSync(
 );
 
 describe("training session methodology constraint", () => {
-  it("allows every methodology exposed to participants", () => {
+  it("allows public methodologies and the case-scoped 1C methodology", () => {
     expect(migration).toContain("drop constraint if exists training_sessions_methodology_id_check");
-    expect(migration).toContain("methodology_id in ('tarasov', 'harvard', 'conflicts')");
+    expect(migration).toContain("methodology_id in ('tarasov', 'harvard', 'conflicts', 'dismissal_1c')");
   });
 
   it("does not expose raw database errors to participants", () => {

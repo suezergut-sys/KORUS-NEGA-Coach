@@ -17,16 +17,32 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!UUID.test(id)) return Response.json({ error: "Некорректный пользователь." }, { status: 400 });
 
   try {
-    const body = await request.json() as { trainingTier?: unknown };
-    if (body.trainingTier !== "standard" && body.trainingTier !== "premium") {
-      return Response.json({ error: "Некорректный статус тренировок." }, { status: 400 });
+    const body = await request.json() as { trainingTier?: unknown; departmentId?: unknown };
+    const updates: { training_tier?: string; department_id?: string | null; updated_at: string } = { updated_at: new Date().toISOString() };
+    if (body.trainingTier !== undefined) {
+      if (body.trainingTier !== "standard" && body.trainingTier !== "premium") {
+        return Response.json({ error: "Некорректный статус тренировок." }, { status: 400 });
+      }
+      updates.training_tier = normalizeTrainingTier(body.trainingTier);
+    } else if (body.departmentId === null || body.departmentId === "") {
+      updates.department_id = null;
+    } else if (typeof body.departmentId === "string" && UUID.test(body.departmentId)) {
+      const { data: department, error: departmentError } = await getSupabaseAdmin()
+        .from("departments")
+        .select("id")
+        .eq("id", body.departmentId)
+        .maybeSingle();
+      if (departmentError) throw new Error(departmentError.message);
+      if (!department) return Response.json({ error: "Департамент не найден." }, { status: 400 });
+      updates.department_id = body.departmentId;
+    } else {
+      return Response.json({ error: "Некорректный департамент." }, { status: 400 });
     }
-    const trainingTier = normalizeTrainingTier(body.trainingTier);
     const { data, error } = await getSupabaseAdmin()
       .from("user_profiles")
-      .update({ training_tier: trainingTier, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq("id", id)
-      .select("id,training_tier")
+      .select("id,training_tier,department_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return Response.json({ error: "Пользователь не найден." }, { status: 404 });

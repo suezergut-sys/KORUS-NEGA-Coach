@@ -11,7 +11,7 @@ export type AdminCaseListItem = {
   createdBy: string;
   origin: string;
   status: string;
-  visibility: "public" | "private";
+  visibility: "public" | "private" | "department";
   plays: number;
   mediaStatus: string;
   roleStatuses: Array<{ name: string; ready: boolean }>;
@@ -20,6 +20,7 @@ export type AdminCaseListItem = {
 const originLabels: Record<string, string> = { seed: "Системный", quick_upload: "Загружен", builder: "Сгенерирован" };
 const statusLabels: Record<string, string> = { draft: "Черновик", published: "Опубликован", archived: "В архиве" };
 const mediaLabels: Record<string, string> = { pending: "В очереди", processing: "Создаётся", ready: "Готов", failed: "Ошибка", missing: "Не запущен" };
+const visibilityLabels: Record<AdminCaseListItem["visibility"], string> = { public: "Публичный", private: "Приватный", department: "Департамент" };
 
 export default function AdminCaseList({ initialCases }: { initialCases: AdminCaseListItem[] }) {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function AdminCaseList({ initialCases }: { initialCases: AdminCas
                 <td><strong>{item.title}</strong><span className={`admin-case-state ${item.status}`}>{statusLabels[item.status] || item.status}</span></td>
                 <td><time dateTime={item.createdAt}>{new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Moscow" }).format(new Date(item.createdAt))}</time></td>
                 <td><strong>{item.createdBy}</strong><small>{originLabels[item.origin] || item.origin}</small></td>
-                <td><span className={`admin-visibility-state ${item.visibility}`}>{item.visibility === "private" ? "Приватный" : "Публичный"}</span></td>
+                <td><span className={`admin-visibility-state ${item.visibility}`}>{visibilityLabels[item.visibility]}</span></td>
                 <td>
                   <span className={`admin-media-state ${item.mediaStatus}`}>{mediaLabels[item.mediaStatus] || item.mediaStatus}</span>
                   <div className="admin-role-statuses">{item.roleStatuses.map((role, index) => <span className={role.ready ? "ready" : "waiting"} key={`${role.name}-${index}`} title={role.ready ? "Комикс готов" : "Комикс ещё не готов"}>{role.ready ? "✓" : "○"} {role.name}</span>)}</div>

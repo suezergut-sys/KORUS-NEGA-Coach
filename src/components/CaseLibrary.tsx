@@ -22,6 +22,7 @@ function RoleDetails({ role, index }: { role: CaseRole; index: number }) {
         <div><dt>Интересы</dt><dd>{role.interests.join("; ")}</dd></div>
         <div><dt>Ограничения</dt><dd>{role.constraints.join("; ")}</dd></div>
         <div><dt>Ресурсы влияния</dt><dd>{role.leverage.join("; ")}</dd></div>
+        {role.roleBrief && <div><dt>Задача в разговоре</dt><dd>{role.roleBrief}</dd></div>}
       </dl>
     </article>
   );
@@ -80,6 +81,7 @@ export default function CaseLibrary({ cases }: { cases: CaseLibraryItem[] }) {
               <article><span>ЦЕНТРАЛЬНЫЙ КОНФЛИКТ</span><p>{selected.conflict}</p></article>
               <article><span>НАЧАЛЬНАЯ СИТУАЦИЯ</span><p>{selected.startSituation}</p></article>
               {selected.stakes.length > 0 && <article><span>СТАВКИ</span><ul>{selected.stakes.map((stake) => <li key={stake}>{stake}</li>)}</ul></article>}
+              {selected.decisionTerms?.length ? <article><span>УСЛОВИЯ РЕШЕНИЯ</span><ul>{selected.decisionTerms.map((term) => <li key={term}>{term}</li>)}</ul></article> : null}
             </section>
             <section className="case-library-roles">
               {[selected.userRole, selected.opponentRole, ...selected.additionalRoles].map((role, index) => <RoleDetails role={role} index={index} key={`${role.name}-${index}`} />)}

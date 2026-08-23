@@ -1,5 +1,6 @@
 import { resolvePublishedCase, selectCaseRoles } from "@/lib/case-resolver";
-import { getMethodology } from "@/lib/methodologies";
+import { formatCaseGuidance } from "@/lib/case-guidance";
+import { getMethodology, getRegisteredMethodology } from "@/lib/methodologies";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { mapDailyTrainingQuota } from "@/lib/training-quota";
@@ -32,7 +33,9 @@ export async function POST(request: Request) {
       Number(body.participantRoleIndex),
       Number(body.opponentRoleIndex),
     );
-    const methodology = getMethodology(body.methodologyId);
+    const methodology = negotiationCase.requiredMethodologyId
+      ? getRegisteredMethodology(negotiationCase.requiredMethodologyId)
+      : getMethodology(body.methodologyId);
     const db = getSupabaseAdmin();
     const [{ data: goal }, { data: privacy, error: privacyError }] = await Promise.all([
       db.from("user_learning_goals").select("goal_text,next_session_target").eq("user_id", user.userId).maybeSingle(),
@@ -50,7 +53,7 @@ export async function POST(request: Request) {
       p_user_id: user.userId,
       p_case_id: negotiationCase.id.startsWith("default-") ? null : negotiationCase.id,
       p_case_code: negotiationCase.slug,
-      p_case_context: `${negotiationCase.situation}\n\nЦентральный конфликт: ${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}\n\nФорма обращения: ${negotiationCase.addressForm === "informal" ? "на «ты»" : "на «вы»"}`,
+      p_case_context: `${negotiationCase.situation}\n\nЦентральный конфликт: ${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}\n\nФорма обращения: ${negotiationCase.addressForm === "informal" ? "на «ты»" : "на «вы»"}\n\n${formatCaseGuidance(negotiationCase, selected.participantRole, selected.opponentRole)}`,
       p_participant_role_name: selected.participantRole.name,
       p_opponent_name: selected.opponentRole.name,
       p_opponent_voice: clean(body.opponentVoice, 80) || (selected.opponentRole.voiceGender === "male" ? "cedar" : "marin"),

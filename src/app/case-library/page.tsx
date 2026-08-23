@@ -3,6 +3,7 @@ import CaseLibrary from "@/components/CaseLibrary";
 import { publicCaseAuthor, sortCaseLibrary, type CaseLibraryItem } from "@/lib/case-library";
 import { mapCaseRow, toPublicCase } from "@/lib/case-types";
 import { canAccessCase } from "@/lib/case-visibility";
+import { getCaseAccessContext } from "@/lib/case-access-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
 
@@ -12,6 +13,7 @@ export default async function CaseLibraryPage() {
   const session = await getCurrentUserSession();
   if (!session) return null;
   const db = getSupabaseAdmin();
+  const access = await getCaseAccessContext(session);
   const [{ data: caseRows, error }, { data: sessions }, { data: jobs }] = await Promise.all([
     db.from("negotiation_cases").select("*").eq("status", "published").limit(500),
     db.from("training_sessions").select("case_id").not("case_id", "is", null).limit(10000),
@@ -19,7 +21,7 @@ export default async function CaseLibraryPage() {
   ]);
   if (error) throw new Error(error.message);
 
-  const accessibleRows = (caseRows || []).filter((row) => canAccessCase(row, session.userId));
+  const accessibleRows = (caseRows || []).filter((row) => canAccessCase(row, access));
   const ownerIds = [...new Set(accessibleRows.map((row) => row.owner_user_id).filter(Boolean))] as string[];
   const { data: profiles } = ownerIds.length
     ? await db.from("user_profiles").select("id,first_name,last_name").in("id", ownerIds)

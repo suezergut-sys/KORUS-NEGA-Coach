@@ -14,12 +14,15 @@ export const FIRST_OPPONENT_TURN_INSTRUCTIONS = `
 В первой реплике не предлагай конкретное решение, план, условия, сроки, цифры, уступки или обмены; не выдвигай требования и не проси зафиксировать обязательства. К обсуждению конкретных вариантов переходи только после ответа участника. Не используй нейтральное знакомство и не предлагай выбрать произвольную тему, не связанную с кейсом.
 `.trim();
 
-type FirstTurnRole = Pick<CaseRole, "name" | "position" | "publicGoal">;
+type FirstTurnRole = Pick<CaseRole, "name" | "position" | "publicGoal" | "openingLine">;
 
 export function buildFirstOpponentTurnInstructions(input: {
   participantRole: FirstTurnRole;
   opponentRole: FirstTurnRole;
 }) {
+  if (input.opponentRole.openingLine?.trim()) {
+    return `Начни переговоры дословно этой репликой, без приветствия, вступления и дополнительных условий: «${input.opponentRole.openingLine.trim()}»`;
+  }
   return `
 ${FIRST_OPPONENT_TURN_INSTRUCTIONS}
 

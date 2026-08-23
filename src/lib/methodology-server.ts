@@ -32,7 +32,7 @@ export async function retrieveMethodologyChunks(
     match_count: matchCount,
   });
 
-  if (!error) return (data || []) as RetrievedMethodChunk[];
+  if (!error && data?.length) return data as RetrievedMethodChunk[];
 
   // Совместимость на время между публикацией приложения и применением миграции RPC.
   const fallback = await supabase.rpc("match_method_chunks", {
@@ -40,8 +40,19 @@ export async function retrieveMethodologyChunks(
     match_threshold: 0.3,
     match_count: 20,
   });
-  if (fallback.error) throw new Error(`RAG: ${fallback.error.message}`);
-  return ((fallback.data || []) as RetrievedMethodChunk[])
+  if (!fallback.error) {
+    const matches = ((fallback.data || []) as RetrievedMethodChunk[])
     .filter((chunk) => chunk.source_id === sourceId)
     .slice(0, matchCount);
+    if (matches.length) return matches;
+  }
+
+  const staticChunks = await supabase
+    .from("document_chunks")
+    .select("id,source_id,section_path,content")
+    .eq("source_id", sourceId)
+    .order("chunk_index")
+    .limit(matchCount);
+  if (staticChunks.error) throw new Error(`RAG: ${staticChunks.error.message}`);
+  return (staticChunks.data || []).map((chunk) => ({ ...chunk, similarity: 0 }));
 }

@@ -1071,6 +1071,7 @@ button { color: inherit; }
 .admin-media-state.processing { border-color: #2f6e9c; color: #65bfff; }
 .admin-visibility-state { display: inline-flex; padding: 4px 7px; border: 1px solid #15765f; border-radius: 12px; color: #4ed4a9; background: rgba(17, 109, 83, .12); font-size: 12px; }
 .admin-visibility-state.private { border-color: #7456a8; color: #c5a9ff; background: rgba(91, 58, 145, .16); }
+.admin-visibility-state.department { border-color: #b37a28; color: #ffd58b; background: rgba(142, 91, 18, .16); }
 .admin-role-statuses { display: flex; flex-wrap: wrap; gap: 5px; max-width: 300px; margin-top: 8px; }
 .admin-role-statuses span { padding: 3px 6px; border-radius: 5px; color: #728ca5; background: #0a2036; font-size: 12px; }
 .admin-role-statuses .ready { color: #55d6ae; }
