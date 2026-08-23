@@ -3,7 +3,7 @@ import { resolvePublishedCase, resolvePublishedCaseForAdmin, selectCaseRoles } f
 import { buildRealtimeSessionConfig } from "@/lib/realtime-session";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
-import { matchesTrainingSessionStart, normalizeFirstSpeaker } from "@/lib/negotiation-start";
+import { firstSpeakerForCase, matchesTrainingSessionStart } from "@/lib/negotiation-start";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -34,12 +34,12 @@ export async function createRealtimeSession(request: Request, options: { adminCa
   const requestedVoice = readParam(url, "voice", "marin");
   const voice = requestedVoice === "cedar" ? "cedar" : "marin";
   const negotiationStyle = readParam(url, "negotiationStyle", "collaborative") === "hard" ? "hard" : "collaborative";
-  const firstSpeaker = normalizeFirstSpeaker(readParam(url, "firstSpeaker", "opponent"));
   const caseId = readParam(url, "caseId", "");
   const negotiationCase = options.adminCaseAccess
     ? await resolvePublishedCaseForAdmin(caseId)
     : await resolvePublishedCase(caseId, readParam(url, "caseCode", ""));
   if (!negotiationCase) return Response.json({ error: "Опубликованный кейс не найден." }, { status: 404 });
+  const firstSpeaker = firstSpeakerForCase(negotiationCase, readParam(url, "firstSpeaker", "opponent"));
   const selected = selectCaseRoles(
     negotiationCase,
     Number(readParam(url, "participantRoleIndex", "0")),

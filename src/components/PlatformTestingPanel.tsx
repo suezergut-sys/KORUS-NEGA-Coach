@@ -408,6 +408,7 @@ export default function PlatformTestingPanel({ cases }: { cases: PlatformTestCas
       endpoint.searchParams.set("participantRoleIndex", "0");
       endpoint.searchParams.set("opponentRoleIndex", "1");
       endpoint.searchParams.set("negotiationStyle", "collaborative");
+      endpoint.searchParams.set("firstSpeaker", selectedCase.requiredFirstSpeaker || "opponent");
       endpoint.searchParams.set("voice", selectedCase.opponentVoiceGender === "male" ? "cedar" : "marin");
       const answer = await fetchWithTimeout(endpoint, {
         method: "POST",
@@ -429,7 +430,11 @@ export default function PlatformTestingPanel({ cases }: { cases: PlatformTestCas
         setRemainingSeconds(remaining);
         if (remaining === 0) void finishTestRef.current("timer");
       }, 1_000);
-      requestRealtimeResponse(channel, FIRST_OPPONENT_TURN_INSTRUCTIONS);
+      if (selectedCase.requiredFirstSpeaker === "participant") {
+        void generateHumanTurnRef.current();
+      } else {
+        requestRealtimeResponse(channel, FIRST_OPPONENT_TURN_INSTRUCTIONS);
+      }
     } catch (caught) {
       runningRef.current = false;
       recordEvent("connection_failed", { message: caught instanceof Error ? caught.message : "Неизвестная ошибка" });

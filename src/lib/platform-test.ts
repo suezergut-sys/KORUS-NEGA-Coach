@@ -12,6 +12,7 @@ export type PlatformTestCaseOption = {
   opponentName: string;
   opponentPosition: string;
   opponentVoiceGender: "female" | "male";
+  requiredFirstSpeaker: "participant" | "opponent" | null;
 };
 
 export type PlatformTestTurn = {

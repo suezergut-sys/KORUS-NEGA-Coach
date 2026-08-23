@@ -1,4 +1,4 @@
-import type { AddressForm, CaseRole } from "@/lib/case-types";
+import type { AddressForm, CanonicalCase, CaseRole } from "@/lib/case-types";
 
 export type FirstSpeaker = "participant" | "opponent";
 export type NegotiationStyle = "collaborative" | "hard";
@@ -7,6 +7,10 @@ type StartRole = Pick<CaseRole, "name" | "position" | "publicGoal">;
 
 export function normalizeFirstSpeaker(value: unknown): FirstSpeaker {
   return value === "participant" ? "participant" : "opponent";
+}
+
+export function firstSpeakerForCase(item: Pick<CanonicalCase, "requiredFirstSpeaker">, requested: unknown): FirstSpeaker {
+  return item.requiredFirstSpeaker || normalizeFirstSpeaker(requested);
 }
 
 export function realtimeReadyMessage(firstSpeaker: FirstSpeaker, opponentName: string) {

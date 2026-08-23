@@ -4,7 +4,7 @@ import type { CaseRole } from "@/lib/case-types";
 import type { PlatformTestCaseOption } from "@/lib/platform-test";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
-function optionFromCase(input: { id: string; title: string; userRole: CaseRole; opponentRole: CaseRole }): PlatformTestCaseOption {
+function optionFromCase(input: { id: string; title: string; userRole: CaseRole; opponentRole: CaseRole; requiredFirstSpeaker?: unknown }): PlatformTestCaseOption {
   return {
     id: input.id,
     title: input.title,
@@ -13,13 +13,14 @@ function optionFromCase(input: { id: string; title: string; userRole: CaseRole; 
     opponentName: input.opponentRole.name,
     opponentPosition: input.opponentRole.position,
     opponentVoiceGender: input.opponentRole.voiceGender,
+    requiredFirstSpeaker: input.requiredFirstSpeaker === "participant" || input.requiredFirstSpeaker === "opponent" ? input.requiredFirstSpeaker : null,
   };
 }
 
 export default async function PlatformTestingPage() {
   const { data, error } = await getSupabaseAdmin()
     .from("negotiation_cases")
-    .select("id,title,user_role,opponent_role")
+    .select("id,title,user_role,opponent_role,required_first_speaker")
     .eq("status", "published")
     .order("title")
     .limit(500);
@@ -29,7 +30,7 @@ export default async function PlatformTestingPage() {
     optionFromCase({ id: DEFAULT_CASE.id, title: DEFAULT_CASE.title, userRole: DEFAULT_CASE.userRole, opponentRole: DEFAULT_CASE.opponentRole }),
     ...(data || [])
       .filter((item) => item.id !== DEFAULT_CASE.id && item.user_role && item.opponent_role)
-      .map((item) => optionFromCase({ id: item.id, title: item.title, userRole: item.user_role as CaseRole, opponentRole: item.opponent_role as CaseRole })),
+      .map((item) => optionFromCase({ id: item.id, title: item.title, userRole: item.user_role as CaseRole, opponentRole: item.opponent_role as CaseRole, requiredFirstSpeaker: item.required_first_speaker })),
   ];
 
   return (

@@ -22,7 +22,7 @@ integration("department-restricted case contracts", () => {
 
   it("keeps the seeded case restricted and tied to its candidate methodology", async () => {
     const { data, error } = await db!.from("negotiation_cases")
-      .select("slug,status,visibility,department_id,required_methodology_id,decision_terms,risk_zones")
+      .select("slug,status,visibility,department_id,required_methodology_id,required_participant_role_index,required_first_speaker,user_role,decision_terms,risk_zones")
       .eq("slug", "1c-dismissal")
       .single();
     expect(error).toBeNull();
@@ -30,6 +30,9 @@ integration("department-restricted case contracts", () => {
       slug: "1c-dismissal",
       visibility: "department",
       required_methodology_id: "dismissal_1c",
+      required_participant_role_index: 0,
+      required_first_speaker: "participant",
+      user_role: expect.objectContaining({ name: "Мария Соколова" }),
     });
     expect(["draft", "published"]).toContain(data?.status);
     expect(data?.department_id).toBeTruthy();
