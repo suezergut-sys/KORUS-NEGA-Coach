@@ -2,6 +2,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import { evaluateVoiceEvalTrace } from "@/lib/voice-eval-evaluation";
 import type { VoiceEvalRecord } from "@/lib/voice-eval";
+import { transcriptWordErrorRate } from "@/lib/transcription";
 import {
   installVoiceEvalBridge,
   playVoiceEvalAudio,
@@ -85,6 +86,11 @@ test.describe("живые голосовые eval-сценарии", () => {
       name: "conversation.item.input_audio_transcription.completed",
       afterAtMs: firstPlayback?.atMs,
     }, 30_000);
+    const recognizedText = String(userTurn?.details.transcript || "");
+    expect(
+      transcriptWordErrorRate(scenario.userPhrases[0], recognizedText),
+      `Распознано: ${recognizedText}`,
+    ).toBeLessThanOrEqual(0.1);
     await waitForVoiceEvalRecord(page, { source: "realtime", name: "response.done", afterAtMs: userTurn?.atMs }, 45_000);
     await finishAndGrade(page, scenario, testInfo);
   });

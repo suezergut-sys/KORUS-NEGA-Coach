@@ -56,6 +56,7 @@ import {
   updateOpponentEmotion,
 } from "@/lib/opponent-emotion";
 import { buildFirstOpponentTurnInstructions } from "@/lib/realtime-language";
+import { finalTranscriptText } from "@/lib/transcription";
 import { firstSpeakerForCase, realtimeReadyMessage, type FirstSpeaker } from "@/lib/negotiation-start";
 import {
   acquireVoiceEvalInputStream,
@@ -1022,7 +1023,7 @@ export default function VoiceArena({
         appendDelta("Вы", String(event.delta || ""), itemId);
       }
       if (type === "conversation.item.input_audio_transcription.completed") {
-        const transcript = String(event.transcript || "").trim();
+        const transcript = finalTranscriptText(event.transcript);
         const meaningfulTranscript = isMeaningfulUserSpeechTranscript(transcript);
         const candidate = interruptionCandidateRef.current?.itemId === itemId
           ? interruptionCandidateRef.current

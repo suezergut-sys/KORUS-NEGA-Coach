@@ -2,6 +2,7 @@ import { readBoundedFormData } from "@/lib/bounded-form-data";
 import { getOpenAI } from "@/lib/openai-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { TEXT_NEGOTIATION_MAX_AUDIO_BYTES, validateTextNegotiationAudio } from "@/lib/text-negotiation";
+import { buildVerbatimTranscriptionPrompt, finalTranscriptText } from "@/lib/transcription";
 import { getCurrentUserSession } from "@/lib/user-auth";
 
 export const runtime = "nodejs";
@@ -30,11 +31,11 @@ export async function POST(request: Request) {
     const audio = validateTextNegotiationAudio(form.get("audio"));
     const transcription = await getOpenAI().audio.transcriptions.create({
       file: audio,
-      model: process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe",
+      model: process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-transcribe",
       language: "ru",
-      prompt: "Русскоязычная реплика участника управленческого поединка KORUS NEGA AI.",
+      prompt: buildVerbatimTranscriptionPrompt("реплика участника управленческого поединка на русском языке"),
     });
-    const text = transcription.text.trim();
+    const text = finalTranscriptText(transcription.text);
     if (!text) throw new Error("Не удалось распознать речь. Попробуйте записать реплику ещё раз.");
     return Response.json({ text });
   } catch (error) {
