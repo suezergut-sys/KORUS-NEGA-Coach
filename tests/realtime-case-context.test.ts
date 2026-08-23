@@ -83,7 +83,12 @@ describe("контекст выбранного кейса в Realtime", () => {
     const instructions = buildRealtimeInstructions({
       negotiationStyle: "collaborative",
       firstSpeaker: "opponent",
+      title: "Увольнение",
+      summary: "Первый разговор руководителя и сотрудника.",
       context: "Первый разговор об увольнении.",
+      difficultyReason: "Решение принято, но сотрудник не виноват.",
+      evaluationFocus: ["Выдержать возражения"],
+      methodologyBasis: [{ title: "Не давить", application: "Не требовать немедленного согласия" }],
       userRole: {
         ...managerRole,
         roleBrief: "Сообщить решение прямо.",
@@ -107,9 +112,15 @@ describe("контекст выбранного кейса в Realtime", () => {
     expect(instructions).toContain("Если не подпишешь, будет хуже.");
     expect(instructions).toContain("Это вы не нашли мне проект.");
     expect(instructions).toContain("Почему именно я?");
+    expect(instructions).toContain("КРАТКОЕ ОПИСАНИЕ: Первый разговор руководителя и сотрудника.");
+    expect(instructions).toContain("ПОЧЕМУ КЕЙС СЛОЖНЫЙ: Решение принято, но сотрудник не виноват.");
+    expect(instructions).toContain("ФОКУС ОЦЕНКИ: Выдержать возражения");
+    expect(instructions).toContain("Не давить: Не требовать немедленного согласия");
     expect(instructions).toContain("ОБЯЗАТЕЛЬНЫЕ СЦЕНАРНЫЕ УСЛОВИЯ");
     expect(instructions).toContain("не менее трёх разных содержательных возражений");
     expect(instructions).toContain("Молча отслеживай их выполнение по истории разговора");
+    expect(instructions).toContain("единый внутренний журнал количественных сценарных условий");
+    expect(instructions).toContain("намеренные перебивания");
     expect(instructions).toContain("Нельзя обещать больше одного оклада");
     expect(instructions).toContain("критерии тренировки, а не твои реплики");
   });

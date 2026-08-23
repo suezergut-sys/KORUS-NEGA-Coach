@@ -1393,6 +1393,17 @@ button { color: inherit; }
 .builder-analyze { min-height: 50px; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 18px; padding: 0 20px; border: 1px solid #21a0ff; border-radius: 9px; color: white; background: linear-gradient(135deg, #0877e8, #06408d); font-size: 12px; font-weight: 900; letter-spacing: .06em; cursor: pointer; }
 .builder-analyze:disabled { opacity: .7; cursor: wait; }
 .builder-method-note { margin: 10px 0 0; color: #637f9b; font-size: 12px; line-height: 1.5; }
+.builder-structured-case { margin-top: 16px; border: 1px solid #17446d; border-radius: 11px; background: rgba(5, 22, 42, .72); }
+.builder-structured-case > summary { padding: 14px 16px; color: #62b9f6; font-size: 13px; font-weight: 800; cursor: pointer; }
+.builder-structured-case > p { margin: 0; padding: 0 16px 14px; color: #7895ae; font-size: 12px; line-height: 1.5; }
+.builder-structured-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0 16px 16px; }
+.builder-structured-grid label { display: grid; align-content: start; gap: 6px; }
+.builder-structured-grid label > span { color: #7895ae; font-size: 12px; font-weight: 800; letter-spacing: .07em; }
+.builder-structured-grid input, .builder-structured-grid select, .builder-structured-grid textarea { box-sizing: border-box; }
+.builder-structured-grid textarea { min-height: 82px; padding: 9px 10px; resize: vertical; }
+.builder-role-fields { display: grid; gap: 13px; padding: 0 16px 16px; }
+.builder-role-fields fieldset { min-width: 0; padding: 14px 0 0; border: 1px solid #173c5e; border-radius: 9px; }
+.builder-role-fields legend { margin-left: 14px; padding: 0 6px; color: #50b7ff; font-size: 12px; font-weight: 900; letter-spacing: .08em; }
 .case-added-notice { position: fixed; top: 20px; left: 50%; z-index: 120; display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100vw - 32px); padding: 13px 14px 13px 16px; border: 1px solid #2fc99b; border-radius: 10px; color: #d9fff3; background: rgba(5, 58, 50, .97); box-shadow: 0 16px 42px rgba(0, 0, 0, .38); transform: translateX(-50%); }
 .case-added-notice > span { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 50%; color: #062a25; background: #53dfb1; font-weight: 900; }
 .case-added-notice strong { font-size: 14px; }
@@ -1454,6 +1465,9 @@ button { color: inherit; }
 .case-variant-card details { margin: 13px 0; border: 1px solid #173c5e; border-radius: 8px; color: #84a6c3; background: #061526; font-size: 12px; }
 .case-variant-card summary { padding: 10px; color: #62b9f6; cursor: pointer; }
 .case-variant-card details > div { padding: 0 11px 11px; }
+.case-variant-card details > .canonical-case-details { padding: 0 11px 11px; }
+.case-variant-card .canonical-case-details .case-library-context, .case-variant-card .canonical-case-details .case-library-roles { grid-template-columns: 1fr; }
+.case-variant-card .canonical-case-details .case-library-role dl div { grid-template-columns: 1fr; gap: 3px; }
 .case-variant-card details p, .case-variant-card details li { color: #8ca2b7; line-height: 1.5; }
 .variant-revision { display: grid; gap: 8px; margin: 14px 0; padding: 12px; border: 1px solid #245782; border-radius: 9px; background: rgba(8, 31, 53, .86); }
 .variant-revision > label { color: #7fbce9; font-size: 12px; font-weight: 800; letter-spacing: .07em; }
@@ -1469,7 +1483,7 @@ button { color: inherit; }
 
 @media (max-width: 900px) {
   .infra-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .builder-field-grid, .case-variant-grid { grid-template-columns: 1fr; }
+  .builder-field-grid, .builder-structured-grid, .case-variant-grid { grid-template-columns: 1fr; }
   .case-variants-section > header { align-items: flex-start; flex-direction: column; }
   .case-variants-section > header > small { text-align: left; }
 }

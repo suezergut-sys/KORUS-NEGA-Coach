@@ -75,6 +75,8 @@ export async function POST(request: Request) {
     }
 
     const baseInstructions = buildRealtimeInstructions({
+      title: negotiationCase.title,
+      summary: negotiationCase.summary,
       negotiationStyle,
       firstSpeaker,
       addressForm: negotiationCase.addressForm,
@@ -82,6 +84,9 @@ export async function POST(request: Request) {
       conflict: `${negotiationCase.conflict}\n\nПредмет переговоров выбранной пары: ${selected.negotiationReason}`,
       startSituation: negotiationCase.startSituation,
       stakes: negotiationCase.stakes,
+      difficultyReason: negotiationCase.difficultyReason,
+      evaluationFocus: negotiationCase.evaluationFocus,
+      methodologyBasis: negotiationCase.methodologyBasis,
       scenarioConditions: negotiationCase.scenarioConditions,
       decisionTerms: negotiationCase.decisionTerms,
       authorityLimits: negotiationCase.authorityLimits,
