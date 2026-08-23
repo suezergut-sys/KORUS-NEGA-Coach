@@ -26,6 +26,8 @@ ${roleGuidance("Участник", participantRole)}
 
 ${roleGuidance("Оппонент", opponentRole)}
 
+Сценарные условия:
+${bullets(negotiationCase.scenarioConditions)}
 Условия решения:
 ${bullets(negotiationCase.decisionTerms)}
 Границы полномочий:

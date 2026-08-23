@@ -78,6 +78,7 @@ export function parseAdminCaseInput(value: unknown) {
     difficultyReason,
     evaluationFocus: list(body.evaluationFocus),
     methodologyBasis: methodology(body.methodologyBasis),
+    scenarioConditions: list(body.scenarioConditions),
     decisionTerms: list(body.decisionTerms),
     authorityLimits: list(body.authorityLimits),
     riskZones: list(body.riskZones),

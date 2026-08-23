@@ -46,6 +46,7 @@ export type CanonicalCase = {
   difficultyReason: string;
   evaluationFocus: string[];
   methodologyBasis: MethodologyBasis[];
+  scenarioConditions?: string[];
   decisionTerms?: string[];
   authorityLimits?: string[];
   riskZones?: string[];
@@ -135,6 +136,7 @@ export function mapCaseRow(row: Record<string, unknown>): CanonicalCase {
     difficultyReason: String(row.difficulty_reason),
     evaluationFocus: (row.evaluation_focus || []) as string[],
     methodologyBasis: (row.methodology_basis || []) as MethodologyBasis[],
+    scenarioConditions: (row.scenario_conditions || []) as string[],
     decisionTerms: (row.decision_terms || []) as string[],
     authorityLimits: (row.authority_limits || []) as string[],
     riskZones: (row.risk_zones || []) as string[],
@@ -238,6 +240,7 @@ export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, ro
             startSituation: { type: "string" },
             difficultyReason: { type: "string" },
             evaluationFocus: stringArray,
+            scenarioConditions: { ...stringArray, minItems: 0 },
             decisionTerms: { ...stringArray, minItems: 0 },
             authorityLimits: { ...stringArray, minItems: 0 },
             riskZones: { ...stringArray, minItems: 0 },
@@ -263,7 +266,7 @@ export function createCaseVariantsSchema(atomIds: string[], variantCount = 2, ro
           required: [
             "title", "summary", "situation", "conflict", "addressForm", "userRole", "opponentRole",
             "additionalRoles", "negotiationPairs", "stakes", "startSituation", "difficultyReason", "evaluationFocus", "methodologyBasis",
-            "decisionTerms", "authorityLimits", "riskZones", "successOutcome", "expectedNextSteps", "methodologyNotes",
+            "scenarioConditions", "decisionTerms", "authorityLimits", "riskZones", "successOutcome", "expectedNextSteps", "methodologyNotes",
           ],
         },
       },

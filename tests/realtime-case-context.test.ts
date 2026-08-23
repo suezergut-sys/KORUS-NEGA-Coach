@@ -95,6 +95,7 @@ describe("контекст выбранного кейса в Realtime", () => {
         openingLine: "Это вы не нашли мне проект.",
         typicalObjections: ["Почему именно я?"],
       },
+      scenarioConditions: ["Высказать не менее трёх разных содержательных возражений против увольнения."],
       decisionTerms: ["Один оклад"],
       authorityLimits: ["Нельзя обещать больше одного оклада"],
       riskZones: ["Понуждение"],
@@ -106,6 +107,9 @@ describe("контекст выбранного кейса в Realtime", () => {
     expect(instructions).toContain("Если не подпишешь, будет хуже.");
     expect(instructions).toContain("Это вы не нашли мне проект.");
     expect(instructions).toContain("Почему именно я?");
+    expect(instructions).toContain("ОБЯЗАТЕЛЬНЫЕ СЦЕНАРНЫЕ УСЛОВИЯ");
+    expect(instructions).toContain("не менее трёх разных содержательных возражений");
+    expect(instructions).toContain("Молча отслеживай их выполнение по истории разговора");
     expect(instructions).toContain("Нельзя обещать больше одного оклада");
     expect(instructions).toContain("критерии тренировки, а не твои реплики");
   });

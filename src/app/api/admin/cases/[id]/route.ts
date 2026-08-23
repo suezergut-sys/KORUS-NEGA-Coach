@@ -35,6 +35,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       difficulty_reason: item.difficultyReason,
       evaluation_focus: item.evaluationFocus,
       methodology_basis: item.methodologyBasis,
+      scenario_conditions: item.scenarioConditions,
       decision_terms: item.decisionTerms,
       authority_limits: item.authorityLimits,
       risk_zones: item.riskZones,

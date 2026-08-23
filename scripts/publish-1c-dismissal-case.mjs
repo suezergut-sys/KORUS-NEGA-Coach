@@ -17,7 +17,7 @@ const db = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: f
 const [{ data: department, error: departmentError }, { data: source, error: sourceError }, { data: negotiationCase, error: caseError }] = await Promise.all([
   db.from("departments").select("id,code,name").eq("code", "1c").single(),
   db.from("method_sources").select("id,code,methodology_version,verification_status").eq("code", "SRC-004").single(),
-  db.from("negotiation_cases").select("id,slug,title,status,visibility,department_id,required_methodology_id").eq("slug", "1c-dismissal").single(),
+  db.from("negotiation_cases").select("id,slug,title,status,visibility,department_id,required_methodology_id,scenario_conditions").eq("slug", "1c-dismissal").single(),
 ]);
 if (departmentError) throw departmentError;
 if (sourceError) throw sourceError;
@@ -27,6 +27,9 @@ if (negotiationCase.visibility !== "department" || negotiationCase.department_id
 }
 if (negotiationCase.required_methodology_id !== "dismissal_1c") {
   throw new Error("За кейсом не закреплена методология dismissal_1c.");
+}
+if (!negotiationCase.scenario_conditions?.some((condition) => condition.includes("не менее трёх разных содержательных возражений"))) {
+  throw new Error("В кейсе не закреплено сценарное условие о трёх возражениях сотрудника.");
 }
 
 const { count, error: atomsError } = await db
@@ -46,7 +49,7 @@ const { data: published, error: publishError } = await db
   .from("negotiation_cases")
   .update({ status: "published", updated_at: new Date().toISOString() })
   .eq("id", negotiationCase.id)
-  .select("id,slug,title,status,visibility,department_id,required_methodology_id")
+  .select("id,slug,title,status,visibility,department_id,required_methodology_id,scenario_conditions")
   .single();
 if (publishError) throw publishError;
 const { error: mediaError } = await db.rpc("enqueue_case_media_job", { p_case_id: published.id, p_force: true });
