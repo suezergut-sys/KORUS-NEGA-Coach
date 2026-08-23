@@ -9,7 +9,12 @@ import CaseNegotiationPairs from "@/components/CaseNegotiationPairs";
 import CaseVisibilityPicker from "@/components/CaseVisibilityPicker";
 import type { CanonicalCase } from "@/lib/case-types";
 import { opponentPortraitForRole } from "@/lib/opponent-portrait";
-import { shouldEnableMicrophone, type NegotiationInputMode } from "@/lib/negotiation-input-mode";
+import {
+  initialNegotiationInputMode,
+  NEGOTIATION_INPUT_MODE_OPTIONS,
+  shouldEnableMicrophone,
+  type NegotiationInputMode,
+} from "@/lib/negotiation-input-mode";
 import { DEFAULT_CASE } from "@/lib/default-case";
 import type { NegotiationHint } from "@/lib/hint-types";
 import { validateUploadSelection } from "@/lib/case-upload-constraints";
@@ -140,7 +145,8 @@ export default function VoiceArena({
   const [negotiationStyle, setNegotiationStyle] = useState<NegotiationStyle>("collaborative");
   const [requestedFirstSpeaker, setFirstSpeaker] = useState<FirstSpeaker>("opponent");
   const [durationMinutes, setDurationMinutes] = useState<DurationMinutes>(5);
-  const [inputMode, setInputMode] = useState<NegotiationInputMode>("duplex");
+  const initialInputMode = initialNegotiationInputMode(voiceEvalMode);
+  const [inputMode, setInputMode] = useState<NegotiationInputMode>(initialInputMode);
   const [textDraft, setTextDraft] = useState("");
   const [textTurnPending, setTextTurnPending] = useState(false);
   const [textRecording, setTextRecording] = useState(false);
@@ -203,7 +209,7 @@ export default function VoiceArena({
   const textTurnPendingRef = useRef(false);
   const channelRef = useRef<RTCDataChannel | null>(null);
   const pausedRef = useRef(false);
-  const inputModeRef = useRef<NegotiationInputMode>("duplex");
+  const inputModeRef = useRef<NegotiationInputMode>(initialInputMode);
   const pushToTalkActiveRef = useRef(false);
   const endingRef = useRef(false);
   const hintUsedRef = useRef(false);
@@ -1906,18 +1912,12 @@ export default function VoiceArena({
         <section className="setting-group">
           <div className="setting-label">ВЫБЕРИ ГОЛОСОВОЙ РЕЖИМ</div>
           <div className="input-mode-options" role="group" aria-label="Голосовой режим">
-            <div className={inputMode === "duplex" ? "input-mode-option selected" : "input-mode-option"}>
-              <button type="button" onClick={() => chooseInputMode("duplex")} disabled={isLive || isBusy} aria-pressed={inputMode === "duplex"}>Дуплекс</button>
-              <span className="mode-info" tabIndex={0} aria-label="Описание режима Дуплекс">i<span role="tooltip">Микрофон работает постоянно: можно говорить одновременно с оппонентом и перебивать его.</span></span>
-            </div>
-            <div className={inputMode === "push_to_talk" ? "input-mode-option selected" : "input-mode-option"}>
-              <button type="button" onClick={() => chooseInputMode("push_to_talk")} disabled={isLive || isBusy} aria-pressed={inputMode === "push_to_talk"}>Обычный</button>
-              <span className="mode-info" tabIndex={0} aria-label="Описание обычного режима">i<span role="tooltip">Микрофон передаёт звук только пока вы удерживаете кнопку. Подходит для шумных помещений и турниров с комментариями ведущего.</span></span>
-            </div>
-            <div className={inputMode === "text_only" ? "input-mode-option selected" : "input-mode-option"}>
-              <button type="button" onClick={() => chooseInputMode("text_only")} disabled={isLive || isBusy} aria-pressed={inputMode === "text_only"}>Только текст</button>
-              <span className="mode-info" tabIndex={0} aria-label="Описание режима Только текст">i<span role="tooltip">Оппонент общается без озвучки, только текстом. Отвечать можно текстом или через микрофон.</span></span>
-            </div>
+            {NEGOTIATION_INPUT_MODE_OPTIONS.map((option) => (
+              <div key={option.mode} className={inputMode === option.mode ? "input-mode-option selected" : "input-mode-option"}>
+                <button type="button" onClick={() => chooseInputMode(option.mode)} disabled={isLive || isBusy} aria-pressed={inputMode === option.mode}>{option.label}</button>
+                <span className="mode-info" tabIndex={0} aria-label={option.infoLabel}>i<span role="tooltip">{option.description}</span></span>
+              </div>
+            ))}
           </div>
           <p className="speech-analytics-availability">
             Речевая аналитика темпа, пауз, доли говорения и реакции на давление формируется только в режиме «Дуплекс».
@@ -1964,7 +1964,7 @@ export default function VoiceArena({
           </div>
         </header>
 
-        <div className="dialogue-surface">
+        <div className={inputMode === "text_only" ? "dialogue-surface text-only" : "dialogue-surface"}>
           {lines.length === 0 ? (
             <div className="empty-dialogue">
               <h3>Переговоры ещё не начались</h3>
@@ -2002,7 +2002,7 @@ export default function VoiceArena({
                   }}
                   placeholder="Введите реплику оппоненту…"
                   disabled={!isLive || isPaused || isEnding || textTurnPending || textRecording || textTranscribing}
-                  rows={3}
+                  rows={2}
                 />
                 <button type="submit" disabled={!textDraft.trim() || !isLive || isPaused || isEnding || textTurnPending || textRecording || textTranscribing}>Отправить</button>
                 <button
