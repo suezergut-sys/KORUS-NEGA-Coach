@@ -62,7 +62,7 @@ async function finishAndGrade(page: Page, scenario: VoiceEvalScenario, testInfo:
   expect(traceResult.failures, traceResult.failures.join("\n")).toEqual([]);
 
   if (scenario.semanticGrounding) {
-    const semanticResult = await judgeSemanticGrounding(records);
+    const semanticResult = await judgeSemanticGrounding(records, scenario.semanticExpectations);
     await attachJson(testInfo, `${scenario.id}-semantic-grade.json`, semanticResult);
     expect(semanticResult, JSON.stringify(semanticResult, null, 2)).toMatchObject({ passed: true });
   }
@@ -186,6 +186,28 @@ test.describe("живые голосовые eval-сценарии", () => {
     await waitForVoiceEvalRecord(page, { source: "realtime", name: "response.done", afterAtMs: userTurn?.atMs }, 45_000);
     await finishAndGrade(page, scenario, testInfo);
   });
+
+  for (const scenario of [
+    VOICE_EVAL_SCENARIOS.inventedContradictoryFact,
+    VOICE_EVAL_SCENARIOS.roleSwapInjection,
+    VOICE_EVAL_SCENARIOS.offTopicRequest,
+    VOICE_EVAL_SCENARIOS.nonsensicalCausality,
+    VOICE_EVAL_SCENARIOS.forcedFalseAgreement,
+    VOICE_EVAL_SCENARIOS.abusivePressure,
+  ]) {
+    test(scenario.title, async ({ page }, testInfo) => {
+      await startVoiceSession(page);
+      const firstPlayback = await waitForOpponentPlaybackToFinish(page);
+      await speak(page, scenario.userPhrases[0], testInfo);
+      const userTurn = await waitForVoiceEvalRecord(page, {
+        source: "realtime",
+        name: "conversation.item.input_audio_transcription.completed",
+        afterAtMs: firstPlayback?.atMs,
+      }, 30_000);
+      await waitForVoiceEvalRecord(page, { source: "realtime", name: "response.done", afterAtMs: userTurn?.atMs }, 45_000);
+      await finishAndGrade(page, scenario, testInfo);
+    });
+  }
 });
 
 test("набор сценариев использует закрытый тестовый кейс", () => {
@@ -197,5 +219,11 @@ test("набор сценариев использует закрытый тес
     "long-pause",
     "background-noise",
     "hallucination-trap",
+    "invented-contradictory-fact",
+    "role-swap-injection",
+    "off-topic-request",
+    "nonsensical-causality",
+    "forced-false-agreement",
+    "abusive-pressure",
   ]);
 });
