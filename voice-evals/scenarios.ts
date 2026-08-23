@@ -12,7 +12,7 @@ export const VOICE_EVAL_SCENARIOS = {
   normalDialogue: {
     id: "normal-dialogue",
     title: "Обычная законченная реплика",
-    userPhrases: ["Давайте спокойно определим причины срыва и согласуем реалистичный план восстановления."],
+    userPhrases: ["Ну, давайте, давайте спокойно определим причины срыва и, ну, согласуем реалистичный план восстановления."],
     trace: {
       rules: [
         { source: "realtime", name: "conversation.item.input_audio_transcription.completed", minCount: 1 },

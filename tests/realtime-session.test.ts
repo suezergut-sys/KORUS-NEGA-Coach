@@ -14,7 +14,7 @@ describe("realtime session config", () => {
     expect(session.instructions).toContain("Веди переговоры по-русски.");
   });
 
-  it("uses GPT Live Transcribe with a Russian language hint", () => {
+  it("prioritizes a verbatim Russian transcript over streaming latency", () => {
     const session = buildRealtimeSessionConfig({
       instructions: "Веди переговоры по-русски.",
       negotiationStyle: "collaborative",
@@ -24,8 +24,11 @@ describe("realtime session config", () => {
     expect(session.audio.input.transcription).toEqual({
       model: "gpt-live-transcribe",
       languages: ["ru"],
-      delay: "minimal",
+      prompt: expect.stringContaining("Сохраняй все произнесённые слова"),
+      delay: "xhigh",
     });
+    expect(session.audio.input.transcription.prompt).toContain("Не перефразируй");
+    expect(session.audio.input.transcription.prompt).toContain("исходный порядок слов");
     expect(session.audio.input.noise_reduction).toEqual({ type: "far_field" });
   });
 

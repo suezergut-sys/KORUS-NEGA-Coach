@@ -1,4 +1,5 @@
 import { withRussianLanguageContract } from "@/lib/realtime-language";
+import { buildVerbatimTranscriptionPrompt } from "@/lib/transcription";
 
 type RealtimeSessionOptions = {
   instructions: string;
@@ -25,7 +26,8 @@ export function buildRealtimeSessionConfig({
         transcription: {
           model: "gpt-live-transcribe",
           languages: ["ru"],
-          delay: "minimal",
+          prompt: buildVerbatimTranscriptionPrompt("управленческий переговорный поединок на русском языке"),
+          delay: "xhigh",
         },
         turn_detection: {
           type: "semantic_vad",
