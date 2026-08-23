@@ -127,6 +127,7 @@ export default function AdminCaseEditor({ initialCase }: { initialCase: Editable
             <label><span>Почему кейс сложный</span><textarea value={item.difficultyReason} onChange={(event) => set("difficultyReason", event.target.value)} /></label>
             <label><span>Ставки — по одной на строке</span><textarea value={lines(item.stakes)} onChange={(event) => set("stakes", split(event.target.value))} /></label>
             <label><span>Критерии оценки — по одному на строке</span><textarea value={lines(item.evaluationFocus)} onChange={(event) => set("evaluationFocus", split(event.target.value))} /></label>
+            <label><span>Сценарные условия — по одному на строке</span><textarea value={lines(item.scenarioConditions || [])} onChange={(event) => set("scenarioConditions", split(event.target.value))} /></label>
             <label><span>Условия решения — по одному на строке</span><textarea value={lines(item.decisionTerms || [])} onChange={(event) => set("decisionTerms", split(event.target.value))} /></label>
             <label><span>Границы полномочий — по одной на строке</span><textarea value={lines(item.authorityLimits || [])} onChange={(event) => set("authorityLimits", split(event.target.value))} /></label>
             <label><span>Опасные зоны — по одной на строке</span><textarea value={lines(item.riskZones || [])} onChange={(event) => set("riskZones", split(event.target.value))} /></label>

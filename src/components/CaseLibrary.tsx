@@ -81,6 +81,7 @@ export default function CaseLibrary({ cases }: { cases: CaseLibraryItem[] }) {
               <article><span>ЦЕНТРАЛЬНЫЙ КОНФЛИКТ</span><p>{selected.conflict}</p></article>
               <article><span>НАЧАЛЬНАЯ СИТУАЦИЯ</span><p>{selected.startSituation}</p></article>
               {selected.stakes.length > 0 && <article><span>СТАВКИ</span><ul>{selected.stakes.map((stake) => <li key={stake}>{stake}</li>)}</ul></article>}
+              {selected.scenarioConditions?.length ? <article><span>СЦЕНАРНЫЕ УСЛОВИЯ</span><ul>{selected.scenarioConditions.map((condition) => <li key={condition}>{condition}</li>)}</ul></article> : null}
               {selected.decisionTerms?.length ? <article><span>УСЛОВИЯ РЕШЕНИЯ</span><ul>{selected.decisionTerms.map((term) => <li key={term}>{term}</li>)}</ul></article> : null}
             </section>
             <section className="case-library-roles">

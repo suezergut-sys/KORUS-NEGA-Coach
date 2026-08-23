@@ -30,6 +30,7 @@ function validCase() {
     negotiationPairs: [{ roleAIndex: 0, roleBIndex: 1, reason: "У ролей есть прямой конфликт интересов и предмет переговоров." }],
     stakes: ["Репутация"],
     evaluationFocus: ["Работа с интересами"],
+    scenarioConditions: ["Оппонент должен возразить не менее трёх раз"],
     methodologyBasis: [],
   };
 }
@@ -41,6 +42,7 @@ describe("parseAdminCaseInput", () => {
     expect(result.userRole.name).toBe("Ирина Соколова");
     expect(result.createdBy).toContain("user@example.com");
     expect(result.addressForm).toBe("informal");
+    expect(result.scenarioConditions).toEqual(["Оппонент должен возразить не менее трёх раз"]);
   });
 
   it("rejects duplicate role names", () => {

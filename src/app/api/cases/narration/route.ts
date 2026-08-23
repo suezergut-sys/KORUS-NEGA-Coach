@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       ...roles.map((role, index) => describeRole(role, index + 1)),
       `Ставки: ${list(negotiationCase.stakes)}.`,
       `Начальная ситуация. ${negotiationCase.startSituation}`,
+      negotiationCase.scenarioConditions?.length ? `Сценарные условия: ${list(negotiationCase.scenarioConditions)}.` : "",
       negotiationCase.decisionTerms?.length ? `Условия решения: ${list(negotiationCase.decisionTerms)}.` : "",
       negotiationCase.authorityLimits?.length ? `Границы полномочий: ${list(negotiationCase.authorityLimits)}.` : "",
       `Ваша выбранная роль: ${participantRole.name}. Искусственный интеллект играет роль: ${opponentRole.name}.`,

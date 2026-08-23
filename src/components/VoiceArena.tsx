@@ -2202,6 +2202,7 @@ export default function VoiceArena({
               <CaseNegotiationPairs roles={allRoles} pairs={selectedCase.negotiationPairs} />
               {selectedCase.stakes.length > 0 && <CaseBlock icon="◆" title="СТАВКИ"><ul>{selectedCase.stakes.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock>}
               {participantRole.roleBrief && <CaseBlock icon="◎" title="ЗАДАЧА ВАШЕЙ РОЛИ">{participantRole.roleBrief}</CaseBlock>}
+              {selectedCase.scenarioConditions?.length ? <CaseBlock icon="!" title="СЦЕНАРНЫЕ УСЛОВИЯ"><ul>{selectedCase.scenarioConditions.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock> : null}
               {selectedCase.decisionTerms?.length ? <CaseBlock icon="§" title="УСЛОВИЯ РЕШЕНИЯ"><ul>{selectedCase.decisionTerms.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock> : null}
               {selectedCase.authorityLimits?.length ? <CaseBlock icon="◇" title="ГРАНИЦЫ ПОЛНОМОЧИЙ"><ul>{selectedCase.authorityLimits.map((item) => <li key={item}>{item}</li>)}</ul></CaseBlock> : null}
               <CaseBlock icon="▶" title="НАЧАЛЬНАЯ СИТУАЦИЯ">{selectedCase.startSituation}</CaseBlock>
