@@ -121,6 +121,9 @@ describe("контекст выбранного кейса в Realtime", () => {
     expect(instructions).toContain("Молча отслеживай их выполнение по истории разговора");
     expect(instructions).toContain("единый внутренний журнал количественных сценарных условий");
     expect(instructions).toContain("намеренные перебивания");
+    expect(instructions).toContain("у меня сейчас нет этой информации");
+    expect(instructions).toContain("Никогда не упоминай «кейс», «исходные данные»");
+    expect(instructions).not.toContain("Если конкретики нет, описывай только пробел в исходных данных");
     expect(instructions).toContain("Нельзя обещать больше одного оклада");
     expect(instructions).toContain("критерии тренировки, а не твои реплики");
   });
