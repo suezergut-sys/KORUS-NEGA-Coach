@@ -7,6 +7,7 @@ import UserSidebar from "@/components/UserSidebar";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { getUserSessionReport } from "@/lib/user-stats";
 import type { MethodologyId } from "@/lib/methodologies";
+import { getUserFullName } from "@/lib/user-profile";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default async function SessionReportPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const report = await getUserSessionReport(user.userId, id);
   if (!report) notFound();
+  const userFullName = await getUserFullName(user.userId, user.email || "Пользователь");
   return (
     <main className="admin-shell user-area-shell">
       <UserSidebar />
@@ -47,7 +49,21 @@ export default async function SessionReportPage({ params }: { params: Promise<{ 
         {report.analysis ? (
           <section className="analysis-card session-saved-report">
             <div className="saved-first-report-heading"><span className="admin-eyebrow">СОХРАНЁННЫЙ РЕЗУЛЬТАТ</span><h2>Первый отчёт по поединку</h2><p>Этот отчёт зафиксирован при первом успешном анализе и не меняется при выборе другой методологии.</p></div>
-            <NegotiationReport analysis={report.analysis} methodologyId={(report.reportMethodologyId || "tarasov") as MethodologyId} opponentName={report.session.opponent_name} speechAnalytics={report.speechAnalytics} sessionId={report.session.id} reanalysisMethodologyId={(report.session.methodology_id || "tarasov") as MethodologyId} preserveInitialReport />
+            <NegotiationReport
+              analysis={report.analysis}
+              methodologyId={(report.reportMethodologyId || "tarasov") as MethodologyId}
+              opponentName={report.session.opponent_name}
+              speechAnalytics={report.speechAnalytics}
+              sessionId={report.session.id}
+              reanalysisMethodologyId={(report.session.methodology_id || "tarasov") as MethodologyId}
+              preserveInitialReport
+              reportMeta={{
+                occurredAt: report.session.ended_at,
+                caseTitle: report.caseName,
+                userFullName,
+                participantRole: report.session.participant_role_name,
+              }}
+            />
           </section>
         ) : (
           <section className="analysis-card"><div className="analysis-error"><strong>Отчёт ещё не готов</strong><p>Стенограмма сохранена и не потеряется при повторном запуске анализа.</p><AnalysisRetryButton sessionId={report.session.id} /></div></section>

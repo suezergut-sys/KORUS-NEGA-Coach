@@ -1,8 +1,10 @@
 import Link from "next/link";
 import ReportMethodologySwitcher from "@/components/ReportMethodologySwitcher";
+import ReportDownloadButton from "@/components/ReportDownloadButton";
 import type { NegotiationAnalysis } from "@/lib/analysis-types";
 import { getRegisteredMethodology, type MethodologyId } from "@/lib/methodologies";
 import type { SpeechAnalytics } from "@/lib/speech-analytics";
+import type { ReportExportMeta } from "@/lib/report-html";
 
 export default function NegotiationReport({
   analysis,
@@ -13,6 +15,7 @@ export default function NegotiationReport({
   onReanalyzed,
   reanalysisMethodologyId,
   preserveInitialReport,
+  reportMeta,
 }: {
   analysis: NegotiationAnalysis;
   methodologyId: MethodologyId;
@@ -22,6 +25,7 @@ export default function NegotiationReport({
   onReanalyzed?: (analysis: NegotiationAnalysis, methodologyId: MethodologyId) => void;
   reanalysisMethodologyId?: MethodologyId;
   preserveInitialReport?: boolean;
+  reportMeta: ReportExportMeta;
 }) {
   const methodology = getRegisteredMethodology(methodologyId);
   const confidence = Number(analysis.outcome.confidence);
@@ -29,11 +33,12 @@ export default function NegotiationReport({
     ? `${Math.round(Math.min(1, Math.max(0, confidence)) * 100)}%`
     : "НЕТ ДАННЫХ";
   return (
-    <>
+    <div className="negotiation-report" data-negotiation-report>
       <header className="analysis-header">
         <div><span>ИТОГОВЫЙ ОТЧЁТ ПО ПОЕДИНКУ</span><h2>{analysis.summary}</h2></div>
         <div className="analysis-score"><strong>{analysis.overallScore}</strong><small>/ 100</small></div>
       </header>
+      <div className="report-download-action" data-report-export-ignore><ReportDownloadButton reportMeta={reportMeta} /></div>
       <p className="analysis-disclaimer">{analysis.disclaimer}</p>
       <section className={`duel-outcome ${analysis.outcome.winner}`}>
         <div className="outcome-symbol">{analysis.outcome.winner === "user" ? "★" : analysis.outcome.winner === "opponent" ? "◆" : "="}</div>
@@ -128,8 +133,8 @@ export default function NegotiationReport({
 
       <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span>{methodology.visibility === "public" && <Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link>}</footer>
-      {sessionId && methodology.visibility === "public" && <ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} />}
-    </>
+      {sessionId && methodology.visibility === "public" && <div data-report-export-ignore><ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} /></div>}
+    </div>
   );
 }
 

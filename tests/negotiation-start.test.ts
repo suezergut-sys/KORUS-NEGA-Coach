@@ -116,4 +116,13 @@ describe("стартовый контракт переговоров", () => {
     expect(platformPanel).toContain("generateHumanTurnRef.current()");
     expect(route.indexOf("matchesTrainingSessionStart")).toBeLessThan(route.indexOf('rpc("claim_training_realtime"'));
   });
+
+  it("показывает ограничение первой реплики только после нажатия и подписывает отправку диктовки", () => {
+    const arena = readFileSync("src/components/VoiceArena.tsx", "utf8");
+    expect(arena).toContain("setFirstSpeakerNotice(true)");
+    expect(arena).toContain('{firstSpeakerNotice && <small className="case-setting-notice" role="status">');
+    expect(arena).not.toContain('{firstSpeakerLocked && <small className="case-setting-lock">Первую реплику');
+    expect(arena).toContain('textRecording ? "Отправить"');
+    expect(arena).toContain("Нажмите «Отправить», когда закончите.");
+  });
 });
