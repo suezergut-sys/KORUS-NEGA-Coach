@@ -232,6 +232,7 @@ button { color: inherit; }
 .style-options button { min-height: 36px; padding: 7px 9px; border: 1px solid #1c3b5d; border-radius: 8px; color: #8497b0; background: #07162a; font-size: 12px; font-weight: 700; cursor: pointer; }
 .style-options button.selected { border-color: #0785ff; color: #e1f1ff; background: linear-gradient(135deg, #0a2e5a, #071a32); box-shadow: inset 0 0 18px rgba(0, 120, 255, .16); }
 .style-options button:disabled, .timer-options button:disabled { opacity: .45; cursor: not-allowed; }
+.style-options button.locked { opacity: .45; cursor: not-allowed; }
 .timer-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .timer-options button { height: 36px; border: 1px solid #1c3b5d; border-radius: 7px; color: #8497b0; background: #07162a; font-size: 12px; cursor: pointer; }
 .timer-options button.selected { border-color: #0785ff; color: #cfe5ff; background: #0a2546; }
@@ -348,6 +349,9 @@ button { color: inherit; }
 .analysis-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .analysis-header span { color: #48adff; font-size: 12px; letter-spacing: .1em; }
 .analysis-header h2 { max-width: 650px; margin: 7px 0 0; color: #e5effc; font-size: 16px; line-height: 1.4; }
+.report-download-action { display: flex; justify-content: flex-end; margin: 12px 0; }
+.report-download-button { min-height: 38px; padding: 8px 16px; border: 1px solid #1689ed; border-radius: 8px; color: #dff2ff; background: linear-gradient(135deg, #075fab, #073c71); font-size: 12px; font-weight: 800; letter-spacing: .05em; cursor: pointer; }
+.report-download-button:hover { border-color: #55b6ff; box-shadow: 0 0 18px rgba(0, 133, 255, .22); }
 .analysis-score { min-width: 82px; text-align: right; color: #6fc2ff; }
 .analysis-score strong { font-size: 35px; }
 .analysis-score small { color: #7892ad; font-size: 12px; }
@@ -1306,6 +1310,7 @@ button { color: inherit; }
 .case-select-shell > i { position: absolute; right: 12px; color: #7892ad; font-style: normal; pointer-events: none; }
 .case-select-error { margin: -7px 0 10px; color: #ff918a; font-size: 12px; line-height: 1.4; }
 .case-setting-lock { display: block; margin: -13px 0 16px; color: #78a8cf; font-size: 12px; line-height: 1.4; }
+.case-setting-notice { display: block; margin: 8px 0 0; color: #78a8cf; font-size: 12px; line-height: 1.4; }
 
 .case-upload-modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; }
 .case-modal-backdrop { position: absolute; inset: 0; width: 100%; border: 0; background: rgba(0, 7, 17, .82); backdrop-filter: blur(8px); cursor: pointer; }

@@ -127,10 +127,12 @@ export default function VoiceArena({
   isAdministrator = false,
   voiceEvalMode = false,
   initialTrainingQuota,
+  userFullName = "Пользователь",
 }: {
   isAdministrator?: boolean;
   voiceEvalMode?: boolean;
   initialTrainingQuota?: TrainingQuota;
+  userFullName?: string;
 }) {
   const {
     state: lifecycleState,
@@ -144,6 +146,8 @@ export default function VoiceArena({
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("male");
   const [negotiationStyle, setNegotiationStyle] = useState<NegotiationStyle>("collaborative");
   const [requestedFirstSpeaker, setFirstSpeaker] = useState<FirstSpeaker>("opponent");
+  const [firstSpeakerNotice, setFirstSpeakerNotice] = useState(false);
+  const [reportOccurredAt, setReportOccurredAt] = useState(() => new Date().toISOString());
   const [durationMinutes, setDurationMinutes] = useState<DurationMinutes>(5);
   const initialInputMode = initialNegotiationInputMode(voiceEvalMode);
   const [inputMode, setInputMode] = useState<NegotiationInputMode>(initialInputMode);
@@ -523,6 +527,7 @@ export default function VoiceArena({
     if (isLive || isBusy) return;
     stopNarration();
     setSelectedCaseId(caseId);
+    setFirstSpeakerNotice(false);
     resetComic();
     const nextCase = cases.find((item) => item.id === caseId);
     const nextRoles = nextCase ? [nextCase.userRole, nextCase.opponentRole, ...(nextCase.additionalRoles || [])] : [];
@@ -1373,6 +1378,7 @@ export default function VoiceArena({
     lifecycleDispatch({ type: "START" });
     setError("");
     setRealtimeNotice("");
+    setFirstSpeakerNotice(false);
     pausedRef.current = false;
     pushToTalkActiveRef.current = false;
     setPushToTalkActive(false);
@@ -1405,6 +1411,7 @@ export default function VoiceArena({
     setHintUsed(false);
     hintUsedRef.current = false;
     startedAtRef.current = null;
+    setReportOccurredAt(new Date().toISOString());
     trainingSessionIdRef.current = "";
     setupLatencyMsRef.current = 0;
     userSpeechStoppedAtRef.current = 0;
@@ -1669,6 +1676,7 @@ export default function VoiceArena({
     endingRef.current = true;
     lifecycleDispatch({ type: "END" });
     const speechEndedAt = Date.now();
+    setReportOccurredAt(new Date(speechEndedAt).toISOString());
     if (inputModeRef.current === "duplex" && userSpeechStartedAtRef.current) {
       userSpeakingDurationsMsRef.current.push(Math.max(0, speechEndedAt - userSpeechStartedAtRef.current));
       userSpeechStartedAtRef.current = 0;
@@ -1889,9 +1897,21 @@ export default function VoiceArena({
           <div className="setting-label">ВЫБЕРИ ПЕРВУЮ РЕПЛИКУ</div>
           <div className="style-options" role="group" aria-label="Кто начинает переговоры">
             <button className={firstSpeaker === "participant" ? "selected" : ""} onClick={() => setFirstSpeaker("participant")} disabled={firstSpeakerLocked || isLive || isBusy} aria-pressed={firstSpeaker === "participant"}>Начинаю я</button>
-            <button className={firstSpeaker === "opponent" ? "selected" : ""} onClick={() => setFirstSpeaker("opponent")} disabled={firstSpeakerLocked || isLive || isBusy} aria-pressed={firstSpeaker === "opponent"}>Начинает оппонент</button>
+            <button
+              className={`${firstSpeaker === "opponent" ? "selected" : ""}${firstSpeakerLocked ? " locked" : ""}`}
+              onClick={() => {
+                if (firstSpeakerLocked) {
+                  setFirstSpeakerNotice(true);
+                  return;
+                }
+                setFirstSpeaker("opponent");
+              }}
+              disabled={isLive || isBusy}
+              aria-disabled={firstSpeakerLocked || isLive || isBusy}
+              aria-pressed={firstSpeaker === "opponent"}
+            >Начинает оппонент</button>
           </div>
-          {firstSpeakerLocked && <small className="case-setting-lock">Первую реплику всегда произносит руководитель.</small>}
+          {firstSpeakerNotice && <small className="case-setting-notice" role="status">Первую реплику всегда произносит руководитель.</small>}
         </section>
 
         <section className="setting-group">
@@ -2011,9 +2031,9 @@ export default function VoiceArena({
                   onClick={() => void startTextRecording()}
                   disabled={!isLive || isPaused || isEnding || textTurnPending || textTranscribing}
                   aria-pressed={textRecording}
-                >{textRecording ? "Остановить" : textTranscribing ? "Распознаём…" : "Ответить голосом"}</button>
+                >{textRecording ? "Отправить" : textTranscribing ? "Распознаём…" : "Ответить голосом"}</button>
               </div>
-              <small>{textTurnPending ? "Оппонент печатает ответ…" : textRecording ? "Говорите. Нажмите «Остановить», когда закончите." : "Enter — отправить, Shift+Enter — новая строка."}</small>
+              <small>{textTurnPending ? "Оппонент печатает ответ…" : textRecording ? "Говорите. Нажмите «Отправить», когда закончите." : "Enter — отправить, Shift+Enter — новая строка."}</small>
             </form>
           ) : <div className={`audio-deck ${isLive && !isPaused && !isEnding ? "active" : ""}`}>
             <div className="listening-copy"><span className={userSpeaking ? "mini-wave active" : "mini-wave"}>▥</span><small>{isEnding ? "Запускаем анализ…" : isPaused ? `Пауза ${formatTime(pauseRemaining)}` : userSpeaking ? "Вы говорите…" : opponentSpeaking ? "Оппонент отвечает…" : inputMode === "push_to_talk" && isLive && !pushToTalkActive ? "Микрофон выключен" : isLive ? "Слушаю…" : "Ожидание"}</small></div>
@@ -2105,7 +2125,20 @@ export default function VoiceArena({
               </div>
             )}
             {analysisStatus === "ready" && analysis && (
-              <NegotiationReport analysis={analysis} methodologyId={analysisMethodologyId} opponentName={opponent.name} speechAnalytics={speechAnalytics} sessionId={analysisSessionId} onReanalyzed={applyReanalysis} />
+              <NegotiationReport
+                analysis={analysis}
+                methodologyId={analysisMethodologyId}
+                opponentName={opponent.name}
+                speechAnalytics={speechAnalytics}
+                sessionId={analysisSessionId}
+                onReanalyzed={applyReanalysis}
+                reportMeta={{
+                  occurredAt: reportOccurredAt,
+                  caseTitle: selectedCase.title,
+                  userFullName,
+                  participantRole: participantRole.name,
+                }}
+              />
             )}
           </section>
         )}
