@@ -31,6 +31,12 @@ if (negotiationCase.required_methodology_id !== "dismissal_1c") {
 if (!negotiationCase.scenario_conditions?.some((condition) => condition.includes("не менее трёх разных содержательных возражений"))) {
   throw new Error("В кейсе не закреплено сценарное условие о трёх возражениях сотрудника.");
 }
+if (!negotiationCase.scenario_conditions?.some((condition) => condition.includes("двух-трёх окладов"))) {
+  throw new Error("В кейсе не закреплено ожидание сотрудником двух-трёх окладов.");
+}
+if (!negotiationCase.scenario_conditions?.some((condition) => condition.includes("потеряет отсрочку от мобилизации"))) {
+  throw new Error("В кейсе не закреплён риск потери отсрочки от мобилизации.");
+}
 
 const { count, error: atomsError } = await db
   .from("method_atoms")

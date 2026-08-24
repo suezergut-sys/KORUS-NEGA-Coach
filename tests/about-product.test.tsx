@@ -48,6 +48,9 @@ describe("about product page", () => {
     expect(markup).toContain("Дословная голосовая расшифровка");
     expect(markup).toContain("Сценарные условия кейса «1С Увольнение»");
     expect(markup).toContain("минимум три разных содержательных возражения");
+    expect(markup).toContain("ожидает два-три оклада");
+    expect(markup).toContain("потери отсрочки от мобилизации");
+    expect(markup).toContain("постепенно меняющийся эмоциональный настрой");
     expect(markup).toContain("Единый контракт и описание кейса");
     expect(markup).toContain("Неизвестные факты без выхода из роли");
   });
