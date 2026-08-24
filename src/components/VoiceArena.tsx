@@ -62,7 +62,7 @@ import {
 } from "@/lib/opponent-emotion";
 import { buildFirstOpponentTurnInstructions } from "@/lib/realtime-language";
 import { finalTranscriptText } from "@/lib/transcription";
-import { firstSpeakerForCase, realtimeReadyMessage, type FirstSpeaker } from "@/lib/negotiation-start";
+import { firstSpeakerForCase, realtimeReadyMessage, textReadyMessage, type FirstSpeaker } from "@/lib/negotiation-start";
 import {
   acquireVoiceEvalInputStream,
   realtimeEventVoiceEvalDetails,
@@ -1482,7 +1482,7 @@ export default function VoiceArena({
         const readyLines: Line[] = [{
           id: "ready",
           author: "Система",
-          text: firstSpeaker === "participant" ? "Можете ввести или продиктовать первую реплику." : `${opponent.name} начинает переговоры в текстовом режиме.`,
+          text: textReadyMessage(firstSpeaker, opponent.name, selectedCase.slug),
           time: clockTime(),
         }];
         if (startPayload.reply) readyLines.push({ id: crypto.randomUUID(), author: "Оппонент", text: startPayload.reply, time: clockTime() });
@@ -1601,7 +1601,7 @@ export default function VoiceArena({
           participantRoleIndex: selectedRoleIndex,
           opponentRoleIndex: effectiveOpponentRoleIndex,
         });
-        const readyLines: Line[] = [{ id: "ready", author: "Система", text: realtimeReadyMessage(firstSpeaker, opponent.name), time: clockTime() }];
+        const readyLines: Line[] = [{ id: "ready", author: "Система", text: realtimeReadyMessage(firstSpeaker, opponent.name, selectedCase.slug), time: clockTime() }];
         linesRef.current = readyLines;
         setLines(readyLines);
         if (firstSpeaker === "opponent") {

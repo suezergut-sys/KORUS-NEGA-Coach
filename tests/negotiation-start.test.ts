@@ -6,6 +6,7 @@ import {
   matchesTrainingSessionStart,
   normalizeFirstSpeaker,
   realtimeReadyMessage,
+  textReadyMessage,
   type FirstSpeaker,
   type NegotiationStyle,
 } from "@/lib/negotiation-start";
@@ -55,6 +56,17 @@ describe("стартовый контракт переговоров", () => {
     expect(normalizeFirstSpeaker("подмена")).toBe("opponent");
     expect(realtimeReadyMessage("participant", "Борис Воронцов")).toBe("Можете произносить первую реплику.");
     expect(realtimeReadyMessage("opponent", "Борис Воронцов")).toBe("Связь установлена. Борис Воронцов начинает переговоры.");
+    expect(textReadyMessage("participant", "Борис Воронцов")).toBe("Можете ввести или продиктовать первую реплику.");
+    expect(textReadyMessage("opponent", "Борис Воронцов")).toBe("Борис Воронцов начинает переговоры в текстовом режиме.");
+  });
+
+  it("явно запрашивает первую фразу руководителя только при старте кейса 1С", () => {
+    expect(realtimeReadyMessage("participant", "Алексей Морозов", "1c-dismissal"))
+      .toBe("Кейс «1С Увольнение» начался. От вас ждут первую фразу руководителя. Можете говорить.");
+    expect(textReadyMessage("participant", "Алексей Морозов", "1c-dismissal"))
+      .toBe("Кейс «1С Увольнение» начался. От вас ждут первую фразу руководителя — введите её или продиктуйте.");
+    expect(realtimeReadyMessage("opponent", "Алексей Морозов", "1c-dismissal"))
+      .toBe("Связь установлена. Алексей Морозов начинает переговоры.");
   });
 
   it("закрепляет первую реплику только за кейсом с обязательным инициатором", () => {

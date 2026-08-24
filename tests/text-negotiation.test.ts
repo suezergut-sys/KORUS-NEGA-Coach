@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { textNegotiationInput, validateTextNegotiationAudio } from "@/lib/text-negotiation";
+import { textNegotiationInput, textNegotiationModeInstructions, validateTextNegotiationAudio } from "@/lib/text-negotiation";
 
 describe("текстовый режим переговоров", () => {
   it("выделяет стенограмме увеличенную область и оставляет компактный ввод", () => {
@@ -24,6 +24,20 @@ describe("текстовый режим переговоров", () => {
 
   it("uses an explicit application request for the first opponent turn", () => {
     expect(textNegotiationInput([], true)).toContain("первую реплику AI-оппонента");
+  });
+
+  it("добавляет видимую и причинную эмоциональную динамику только в текстовый кейс 1С", () => {
+    const dismissal = textNegotiationModeInstructions("1c-dismissal");
+    const anotherCase = textNegotiationModeInstructions("release-risk");
+
+    expect(dismissal).toContain("начинай КАЖДУЮ реплику сотрудника");
+    expect(dismissal).toContain("эмоционального настроя в квадратных скобках");
+    expect(dismissal).toContain("если руководитель отвечает по существу");
+    expect(dismissal).toContain("ясно аргументирует решение");
+    expect(dismissal).toContain("напряжение и злость усиливаются");
+    expect(dismissal).toContain("Одна вежливость без содержательного ответа не улучшает настроение");
+    expect(anotherCase).toBe("Это текстовый режим: верни только текст прямой реплики персонажа без озвучки и Markdown. Не добавляй сценические ремарки.");
+    expect(anotherCase).not.toContain("квадратных скобках");
   });
 
   it("accepts audio and rejects non-audio files", () => {

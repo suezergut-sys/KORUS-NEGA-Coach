@@ -13,10 +13,22 @@ export function firstSpeakerForCase(item: Pick<CanonicalCase, "requiredFirstSpea
   return item.requiredFirstSpeaker || normalizeFirstSpeaker(requested);
 }
 
-export function realtimeReadyMessage(firstSpeaker: FirstSpeaker, opponentName: string) {
+export function realtimeReadyMessage(firstSpeaker: FirstSpeaker, opponentName: string, caseSlug = "") {
+  if (firstSpeaker === "participant" && caseSlug === "1c-dismissal") {
+    return "Кейс «1С Увольнение» начался. От вас ждут первую фразу руководителя. Можете говорить.";
+  }
   return firstSpeaker === "participant"
     ? "Можете произносить первую реплику."
     : `Связь установлена. ${opponentName} начинает переговоры.`;
+}
+
+export function textReadyMessage(firstSpeaker: FirstSpeaker, opponentName: string, caseSlug = "") {
+  if (firstSpeaker === "participant" && caseSlug === "1c-dismissal") {
+    return "Кейс «1С Увольнение» начался. От вас ждут первую фразу руководителя — введите её или продиктуйте.";
+  }
+  return firstSpeaker === "participant"
+    ? "Можете ввести или продиктовать первую реплику."
+    : `${opponentName} начинает переговоры в текстовом режиме.`;
 }
 
 export function matchesTrainingSessionStart(input: {
