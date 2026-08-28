@@ -40,9 +40,9 @@ export default async function AdminLogsPage({ searchParams }: { searchParams: Pr
         {!events.length && <div className="admin-empty">Действий на этой странице нет.</div>}
       </section>
       <nav className="admin-pagination" aria-label="Страницы логов">
-        {page > 1 ? <Link href={`/admin/logs?page=${page - 1}`}>← Предыдущая</Link> : <span />}
+        {page > 1 ? <Link href={`/admin/logs?page=${page - 1}`} prefetch={false}>← Предыдущая</Link> : <span />}
         <strong>Страница {page} из {totalPages}</strong>
-        {page < totalPages ? <Link href={`/admin/logs?page=${page + 1}`}>Следующая →</Link> : <span />}
+        {page < totalPages ? <Link href={`/admin/logs?page=${page + 1}`} prefetch={false}>Следующая →</Link> : <span />}
       </nav>
     </>
   );

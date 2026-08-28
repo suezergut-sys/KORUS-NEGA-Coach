@@ -39,22 +39,24 @@ function RailLink({
   active,
   icon,
   className = "",
+  prefetch = true,
 }: {
   href: string;
   label: string;
   active: boolean;
   icon: AppSectionIconName;
   className?: string;
+  prefetch?: boolean;
 }) {
   return (
-    <Link className={`rail-button ${active ? "active" : ""} ${className}`.trim()} href={href} aria-label={label} title={label}>
+    <Link className={`rail-button ${active ? "active" : ""} ${className}`.trim()} href={href} aria-label={label} title={label} prefetch={prefetch}>
       <AppSectionIcon name={icon} />
       <span className="rail-label">{label}</span>
     </Link>
   );
 }
 
-export default function AppNavRail({ isAdministrator = false }: { isAdministrator?: boolean }) {
+export default function AppNavRail({ isAdministrator = false, prefetch = true }: { isAdministrator?: boolean; prefetch?: boolean }) {
   const pathname = usePathname() || "";
   const storedExpanded = useSyncExternalStore(subscribeToNavRail, getNavRailSnapshot, () => false);
   const isDesktop = useSyncExternalStore(subscribeToDesktopViewport, getDesktopViewportSnapshot, () => true);
@@ -85,13 +87,13 @@ export default function AppNavRail({ isAdministrator = false }: { isAdministrato
           </svg>
         </span>
       </button>
-      <RailLink href="/" label="Переговоры" active={pathname === "/"} icon="negotiations" />
-      <RailLink href="/case-library" label="База кейсов" active={pathname.startsWith("/case-library")} icon="cases" />
-      <RailLink href="/account" label="Личный кабинет" active={pathname === "/account"} icon="account" />
-      <RailLink href="/rating" label="Рейтинг" active={pathname === "/rating"} icon="rating" />
-      <RailLink href="/analyze" label="Анализ кейса" active={pathname.startsWith("/analyze")} icon="analyze" className="case-analyze-rail" />
-      <RailLink href="/feedback" label="Обратная связь" active={pathname.startsWith("/feedback")} icon="feedback" />
-      <RailLink href="/about" label="О программе" active={pathname.startsWith("/about")} icon="about" />
+      <RailLink href="/" label="Переговоры" active={pathname === "/"} icon="negotiations" prefetch={prefetch} />
+      <RailLink href="/case-library" label="База кейсов" active={pathname.startsWith("/case-library")} icon="cases" prefetch={prefetch} />
+      <RailLink href="/account" label="Личный кабинет" active={pathname === "/account"} icon="account" prefetch={prefetch} />
+      <RailLink href="/rating" label="Рейтинг" active={pathname === "/rating"} icon="rating" prefetch={prefetch} />
+      <RailLink href="/analyze" label="Анализ кейса" active={pathname.startsWith("/analyze")} icon="analyze" className="case-analyze-rail" prefetch={prefetch} />
+      <RailLink href="/feedback" label="Обратная связь" active={pathname.startsWith("/feedback")} icon="feedback" prefetch={prefetch} />
+      <RailLink href="/about" label="О программе" active={pathname.startsWith("/about")} icon="about" prefetch={prefetch} />
       <form className="rail-logout-form" action="/api/site/logout" method="post">
         <button className="rail-button" type="submit" aria-label="Выйти" title="Выйти">
           <AppSectionIcon name="logout" />
@@ -99,7 +101,7 @@ export default function AppNavRail({ isAdministrator = false }: { isAdministrato
         </button>
       </form>
       {isAdministrator && <div className="rail-admin-spacer" aria-hidden="true" />}
-      {isAdministrator && <RailLink href="/admin" label="Админ-панель" active={pathname.startsWith("/admin")} icon="admin" className="admin-rail-link" />}
+      {isAdministrator && <RailLink href="/admin" label="Админ-панель" active={pathname.startsWith("/admin")} icon="admin" className="admin-rail-link" prefetch={prefetch} />}
     </aside>
   );
 }

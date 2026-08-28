@@ -47,7 +47,7 @@ export default async function AdminCasesPage() {
     <>
       <header className="admin-page-header">
         <div><span className="admin-eyebrow">БИБЛИОТЕКА ТРЕНАЖЁРА</span><h1>Управление базой кейсов</h1><p>Публикация, готовность комиксов для всех ролей и статистика использования.</p></div>
-        <Link className="admin-primary-link" href="/cases">＋ СОЗДАТЬ КЕЙС</Link>
+        <Link className="admin-primary-link" href="/cases" prefetch={false}>＋ СОЗДАТЬ КЕЙС</Link>
       </header>
       <section className="admin-case-summary">
         <article><span>Всего кейсов</span><strong>{items.length}</strong></article>
