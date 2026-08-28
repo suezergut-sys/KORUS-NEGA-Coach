@@ -19,7 +19,7 @@ export default async function AdminDashboardPage() {
     <>
       <header className="admin-page-header">
         <div><span className="admin-eyebrow">НАСТРОЙКИ ПРИЛОЖЕНИЯ</span><h1>Админ-панель KORUS NEGA AI 2.0</h1><p>Состояние методической базы и инструментов тренажёра.</p></div>
-        <Link className="admin-primary-link" href="/admin/methodology">ПРОВЕРИТЬ МЕТОДОЛОГИЮ →</Link>
+        <Link className="admin-primary-link" href="/admin/methodology" prefetch={false}>ПРОВЕРИТЬ МЕТОДОЛОГИЮ →</Link>
       </header>
       <section className="admin-metrics">
         <article><span>Фрагменты методологий</span><strong>{chunks.count || 0}</strong><small>с embeddings</small></article>
@@ -30,15 +30,15 @@ export default async function AdminDashboardPage() {
       <section className="admin-dashboard-grid">
         <article className="admin-panel-card">
           <span className="admin-card-icon">▤</span><div><h2>База кейсов</h2><p>Загруженные и сгенерированные кейсы, готовность комиксов по ролям, статистика отыгрышей и полное редактирование.</p><small>{cases.count || 0} кейсов в реестре</small></div>
-          <Link href="/admin/cases">Открыть базу кейсов</Link>
+          <Link href="/admin/cases" prefetch={false}>Открыть базу кейсов</Link>
         </article>
         <article className="admin-panel-card">
           <span className="admin-card-icon">▤</span><div><h2>Верификация методологии</h2><p>Выберите методологию, просмотрите цитату в контексте источника, исправьте интерпретацию и примите решение по каждому атому.</p><div className="admin-progress"><i style={{ width: `${statuses.length ? ((verified + rejected) / statuses.length) * 100 : 0}%` }} /></div><small>{verified + rejected} из {statuses.length} обработано</small></div>
-          <Link href="/admin/methodology">Открыть проверку</Link>
+          <Link href="/admin/methodology" prefetch={false}>Открыть проверку</Link>
         </article>
         <article className="admin-panel-card">
           <span className="admin-card-icon">◉</span><div><h2>Тестирование платформы</h2><p>Автономный голосовой диалог двух AI-ролей с живой стенограммой, прослушиванием оппонента и отчётом о найденных аномалиях.</p></div>
-          <Link href="/admin/platform-testing">Запустить тест</Link>
+          <Link href="/admin/platform-testing" prefetch={false}>Запустить тест</Link>
         </article>
         <article className="admin-panel-card muted">
           <span className="admin-card-icon">◎</span><div><h2>Версии методологий</h2>{(source.data || []).map((item) => <p key={item.code}>{item.methodology_version} <small>· {item.verification_status === "verified" ? "условно верифицирована" : "предварительная"}</small></p>)}</div>

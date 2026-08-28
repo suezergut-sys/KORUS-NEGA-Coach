@@ -60,7 +60,7 @@ export default function AdminCaseList({ initialCases }: { initialCases: AdminCas
                   <div className="admin-role-statuses">{item.roleStatuses.map((role, index) => <span className={role.ready ? "ready" : "waiting"} key={`${role.name}-${index}`} title={role.ready ? "Комикс готов" : "Комикс ещё не готов"}>{role.ready ? "✓" : "○"} {role.name}</span>)}</div>
                 </td>
                 <td><strong className="admin-play-count">{item.plays}</strong></td>
-                <td><div className="admin-case-actions"><Link href={`/admin/cases/${item.id}`}>Редактировать</Link><button disabled={busyId === item.id} onClick={() => remove(item)}>{busyId === item.id ? "Удаляем…" : "Удалить"}</button></div></td>
+                <td><div className="admin-case-actions"><Link href={`/admin/cases/${item.id}`} prefetch={false}>Редактировать</Link><button disabled={busyId === item.id} onClick={() => remove(item)}>{busyId === item.id ? "Удаляем…" : "Удалить"}</button></div></td>
               </tr>
             ))}
           </tbody>

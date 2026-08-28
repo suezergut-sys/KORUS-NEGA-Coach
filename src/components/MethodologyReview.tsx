@@ -214,7 +214,7 @@ export default function MethodologyReview({
         </aside>
 
         <article className="atom-editor">
-          <div className="atom-editor-meta"><span>ATOM {selected.id.slice(0, 8)}</span><span>Фрагмент #{selected.chunkIndex}</span><Link href="/admin">← В настройки</Link></div>
+          <div className="atom-editor-meta"><span>ATOM {selected.id.slice(0, 8)}</span><span>Фрагмент #{selected.chunkIndex}</span><Link href="/admin" prefetch={false}>← В настройки</Link></div>
           <label>Тип<select value={draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value as AtomKind })}>{Object.entries(METHODOLOGY_ATOM_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Название<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>Формулировка правила<textarea rows={4} value={draft.statement} onChange={(event) => setDraft({ ...draft, statement: event.target.value })} /></label>

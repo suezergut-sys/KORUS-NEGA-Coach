@@ -102,7 +102,7 @@ export default function AdminCaseEditor({ initialCase }: { initialCase: Editable
     <>
       <header className="admin-page-header">
         <div><span className="admin-eyebrow">РЕДАКТОР КЕЙСА</span><h1>{item.title}</h1><p>Все канонические параметры, роли, методическая основа и состояние публикации.</p></div>
-        <Link className="admin-primary-link" href="/admin/cases">← К СПИСКУ КЕЙСОВ</Link>
+        <Link className="admin-primary-link" href="/admin/cases" prefetch={false}>← К СПИСКУ КЕЙСОВ</Link>
       </header>
       {error && <div className="error-banner"><strong>Не удалось сохранить</strong><span>{error}</span></div>}
       {message && <div className="admin-success-banner">✓ {message}</div>}
