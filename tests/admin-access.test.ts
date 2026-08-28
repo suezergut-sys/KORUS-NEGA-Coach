@@ -6,13 +6,16 @@ describe("platform administrator access", () => {
   it("uses the explicit corporate account allowlist", () => {
     expect(PLATFORM_ADMINISTRATORS).toEqual([
       { firstName: "Максим", lastName: "Сумин", email: "msumin@korusconsulting.ru" },
+      { firstName: "Алина", lastName: "Родченкова", email: "arodchenkova@korusconsulting.ru" },
     ]);
     expect(isPlatformAdministrator(" MSumin@KorusConsulting.ru ")).toBe(true);
+    expect(isPlatformAdministrator(" ARodchenkova@KorusConsulting.ru ")).toBe(true);
     expect(isPlatformAdministrator("user@korusconsulting.ru")).toBe(false);
   });
 
   it("provides role labels for the administrator user table", () => {
     expect(platformRoleLabel("msumin@korusconsulting.ru")).toBe("Администратор");
+    expect(platformRoleLabel("arodchenkova@korusconsulting.ru")).toBe("Администратор");
     expect(platformRoleLabel("user@korusconsulting.ru")).toBe("Пользователь");
 
     const page = readFileSync("src/app/admin/(protected)/users/page.tsx", "utf8");
