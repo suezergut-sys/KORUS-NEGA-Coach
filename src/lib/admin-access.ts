@@ -4,6 +4,11 @@ export const PLATFORM_ADMINISTRATORS = [
     lastName: "Сумин",
     email: "msumin@korusconsulting.ru",
   },
+  {
+    firstName: "Алина",
+    lastName: "Родченкова",
+    email: "arodchenkova@korusconsulting.ru",
+  },
 ] as const;
 
 const ADMIN_EMAILS = new Set<string>(PLATFORM_ADMINISTRATORS.map((administrator) => administrator.email));
