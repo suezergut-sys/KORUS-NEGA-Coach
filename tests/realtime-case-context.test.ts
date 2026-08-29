@@ -120,6 +120,8 @@ describe("контекст выбранного кейса в Realtime", () => {
     expect(instructions).toContain("не менее трёх разных содержательных возражений");
     expect(instructions).toContain("Молча отслеживай их выполнение по истории разговора");
     expect(instructions).toContain("единый внутренний журнал количественных сценарных условий");
+    expect(instructions).toContain("не выполняй и не предвосхищай его до появления этого триггера");
+    expect(instructions).toContain("не означает, что участник уже озвучил его в разговоре");
     expect(instructions).toContain("намеренные перебивания");
     expect(instructions).toContain("у меня сейчас нет этой информации");
     expect(instructions).toContain("Никогда не упоминай «кейс», «исходные данные»");
