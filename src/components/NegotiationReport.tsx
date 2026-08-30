@@ -1,7 +1,7 @@
 import Link from "next/link";
 import ReportMethodologySwitcher from "@/components/ReportMethodologySwitcher";
 import ReportDownloadButton from "@/components/ReportDownloadButton";
-import type { NegotiationAnalysis } from "@/lib/analysis-types";
+import type { NegotiationAnalysis, TurningPoint } from "@/lib/analysis-types";
 import { getRegisteredMethodology, type MethodologyId } from "@/lib/methodologies";
 import type { SpeechAnalytics } from "@/lib/speech-analytics";
 import type { ReportExportMeta } from "@/lib/report-html";
@@ -73,12 +73,7 @@ export default function NegotiationReport({
         <AnalysisList title="РИСКИ" items={analysis.risks} tone="negative" />
       </div>
 
-      {analysis.turningPoints.length > 0 && (
-        <section className="analysis-section turning-points">
-          <h3>ПОВОРОТНЫЕ МОМЕНТЫ</h3>
-          {analysis.turningPoints.map((item, index) => <article key={index}><strong>{item.moment}</strong><p>{item.assessment}</p></article>)}
-        </section>
-      )}
+      <TurningPointsSection items={analysis.turningPoints} />
 
       {analysis.stratagems.length > 0 && (
         <section className="analysis-section stratagem-review">
@@ -135,6 +130,27 @@ export default function NegotiationReport({
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span>{methodology.visibility === "public" && <Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link>}</footer>
       {sessionId && methodology.visibility === "public" && <div data-report-export-ignore><ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} /></div>}
     </div>
+  );
+}
+
+export function TurningPointsSection({ items }: { items: TurningPoint[] }) {
+  if (!items.length) return null;
+  return (
+    <section className="analysis-section turning-points">
+      <h3>ПОВОРОТНЫЕ МОМЕНТЫ</h3>
+      {items.map((item, index) => (
+        <article key={index}>
+          <strong>{item.moment}</strong>
+          <p>{item.assessment}</p>
+          {item.impact === "worsened" && item.betterMove?.trim() && (
+            <aside className="turning-point-coaching">
+              <b>Как можно было лучше</b>
+              <p>{item.betterMove}</p>
+            </aside>
+          )}
+        </article>
+      ))}
+    </section>
   );
 }
 
