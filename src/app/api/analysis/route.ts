@@ -233,6 +233,7 @@ export async function POST(request: Request) {
 РУБРИКА:
 ${rubric}
 Дай персональную обратную связь человеку. В techniqueReview нужны прямые цитаты человека и методологии.
+Для каждого turningPoints оцени impact на позицию человека: improved, worsened или mixed. Если impact=worsened, в betterMove обязательно предложи конкретный более сильный приём и пример естественной реплики человека, уместной именно в этот момент. Для остальных моментов кратко укажи в betterMove, что помогло сохранить или улучшить позицию; интерфейс покажет подсказку только для worsened.
 methodologyAtomId копируй из [АТОМ id]. Если данных недостаточно, выбери draw и снизь outcome.confidence.
 Статус базы: ${methodologyStatus}. Версия: ${methodologyVersion}. Пиши кратко, конкретно и по-русски.
       `.trim(),

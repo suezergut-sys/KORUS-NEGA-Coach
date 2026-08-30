@@ -513,6 +513,9 @@ button { color: inherit; }
 .analysis-upload-error { margin-top: 15px; padding: 12px; border: 1px solid #923d42; border-radius: 8px; color: #ffb0ad; background: rgba(94, 23, 30, .35); font-size: 12px; text-align: center; }
 .file-analysis-report { margin: 22px 0 30px; scroll-margin-top: 20px; }
 .turning-points { margin-bottom: 14px; }
+.turning-point-coaching { margin-top: 12px; padding: 12px 14px; border-left: 3px solid #1571c9; border-radius: 0 8px 8px 0; background: #eef7ff; }
+.turning-point-coaching b { color: #146db9; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+.turning-point-coaching p { margin: 6px 0 0; }
 .participant-report-grid { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 14px; }
 .participant-report { min-width: 0; padding: 16px; border: 1px solid #1b4f78; border-radius: 11px; background: rgba(4, 20, 38, .7); }
 .participant-report > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding-bottom: 12px; border-bottom: 1px solid #153a59; }

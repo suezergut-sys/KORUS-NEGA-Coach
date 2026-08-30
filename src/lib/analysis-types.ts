@@ -6,6 +6,13 @@ export type AnalysisEvidence = {
   confidence: number;
 };
 
+export type TurningPoint = {
+  moment: string;
+  assessment: string;
+  impact?: "improved" | "worsened" | "mixed";
+  betterMove?: string;
+};
+
 export type NegotiationAnalysis = {
   methodologyStatus: "candidate" | "verified";
   methodologyVersion: string;
@@ -27,7 +34,7 @@ export type NegotiationAnalysis = {
   }>;
   strengths: string[];
   risks: string[];
-  turningPoints: Array<{ moment: string; assessment: string }>;
+  turningPoints: TurningPoint[];
   stratagems: Array<{
     name: string;
     status: "observed" | "possible" | "missed";
@@ -115,8 +122,13 @@ export const negotiationAnalysisSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["moment", "assessment"],
-        properties: { moment: { type: "string" }, assessment: { type: "string" } },
+        required: ["moment", "assessment", "impact", "betterMove"],
+        properties: {
+          moment: { type: "string" },
+          assessment: { type: "string" },
+          impact: { type: "string", enum: ["improved", "worsened", "mixed"] },
+          betterMove: { type: "string", minLength: 1 },
+        },
       },
     },
     stratagems: {

@@ -85,6 +85,9 @@ export function buildNegotiationReportHtml({
     li { margin: 6px 0; }
     .analysis-grid, .speech-analytics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
     .speech-analytics-grid article, .stratagem-review article, .development-plan article, .turning-points article, .technique-review article, .evidence-review article, .score-breakdown article { margin: 12px 0; padding: 14px; background: #f7f9fc; border-radius: 8px; break-inside: avoid; }
+    .turning-point-coaching { margin-top: 12px; padding: 12px 14px; border-left: 3px solid #1571c9; border-radius: 0 8px 8px 0; background: #eef7ff; }
+    .turning-point-coaching b { color: #146db9; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+    .turning-point-coaching p { margin: 6px 0 0; }
     blockquote { flex: 1; margin: 8px 0; padding: 12px; border-left: 3px solid #61a5e6; background: #fff; }
     blockquote small { display: block; margin-bottom: 6px; color: #56708d; font-size: 10px; }
     .score-breakdown i { display: block; height: 6px; background: #dbe7f2; border-radius: 4px; overflow: hidden; }
