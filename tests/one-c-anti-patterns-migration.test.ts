@@ -7,8 +7,8 @@ const migration = readFileSync(resolve(process.cwd(), "supabase/migrations/20260
 describe("антиприёмы методологии 1С", () => {
   it("расширяет ограничение типа атома", () => {
   expect(migration).toContain("'anti_pattern'");
-  expect(migration).toContain("$content$))\ninsert into public.document_chunks");
-  expect(migration).toContain("подумал»'))\nas atom(id, title, statement, signals, source_quote)");
+    expect(migration).toMatch(/\$content\$\)\)\r?\ninsert into public\.document_chunks/);
+    expect(migration).toMatch(/подумал»'\)\)\r?\nas atom\(id, title, statement, signals, source_quote\)/);
     expect(migration).toContain("add constraint method_atoms_kind_check");
   });
 
