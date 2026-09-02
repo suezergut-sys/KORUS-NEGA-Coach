@@ -13,6 +13,14 @@ export type TurningPoint = {
   betterMove?: string;
 };
 
+export type LaborLawRisk = {
+  referenceId: string;
+  turnQuote: string;
+  dangerousPhrase: string;
+  risk: string;
+  articles: string;
+};
+
 export type NegotiationAnalysis = {
   methodologyStatus: "candidate" | "verified";
   methodologyVersion: string;
@@ -34,6 +42,7 @@ export type NegotiationAnalysis = {
   }>;
   strengths: string[];
   risks: string[];
+  laborLawRisks?: LaborLawRisk[];
   turningPoints: TurningPoint[];
   stratagems: Array<{
     name: string;
@@ -72,6 +81,7 @@ export const negotiationAnalysisSchema = {
     "scoreBreakdown",
     "strengths",
     "risks",
+    "laborLawRisks",
     "turningPoints",
     "stratagems",
     "alternatives",
@@ -116,6 +126,22 @@ export const negotiationAnalysisSchema = {
     },
     strengths: { type: "array", items: { type: "string" }, maxItems: 5 },
     risks: { type: "array", items: { type: "string" }, maxItems: 5 },
+    laborLawRisks: {
+      type: "array",
+      maxItems: 10,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["referenceId", "turnQuote", "dangerousPhrase", "risk", "articles"],
+        properties: {
+          referenceId: { type: "string" },
+          turnQuote: { type: "string" },
+          dangerousPhrase: { type: "string" },
+          risk: { type: "string" },
+          articles: { type: "string" },
+        },
+      },
+    },
     turningPoints: {
       type: "array",
       maxItems: 5,

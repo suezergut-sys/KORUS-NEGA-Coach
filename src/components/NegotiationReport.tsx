@@ -1,7 +1,7 @@
 import Link from "next/link";
 import ReportMethodologySwitcher from "@/components/ReportMethodologySwitcher";
 import ReportDownloadButton from "@/components/ReportDownloadButton";
-import type { NegotiationAnalysis, TurningPoint } from "@/lib/analysis-types";
+import type { LaborLawRisk, NegotiationAnalysis, TurningPoint } from "@/lib/analysis-types";
 import { getRegisteredMethodology, type MethodologyId } from "@/lib/methodologies";
 import type { SpeechAnalytics } from "@/lib/speech-analytics";
 import type { ReportExportMeta } from "@/lib/report-html";
@@ -127,9 +127,27 @@ export default function NegotiationReport({
       )}
 
       <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
+      <LaborLawRisksSection items={analysis.laborLawRisks || []} />
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span>{methodology.visibility === "public" && <Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link>}</footer>
       {sessionId && methodology.visibility === "public" && <div data-report-export-ignore><ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} /></div>}
     </div>
+  );
+}
+
+export function LaborLawRisksSection({ items }: { items: LaborLawRisk[] }) {
+  if (!items.length) return null;
+  return (
+    <section className="analysis-section labor-law-risks">
+      <h3>РИСКИ С ТОЧКИ ЗРЕНИЯ ТК РФ</h3>
+      <p className="labor-law-note">Информационная подсказка по формулировкам руководителя, не юридическое заключение.</p>
+      {items.map((item) => (
+        <article key={item.referenceId}>
+          <blockquote><small>ФРАЗА РУКОВОДИТЕЛЯ</small>«{item.turnQuote}»</blockquote>
+          <p>{item.risk}</p>
+          <footer><span>Похожий красный флаг: «{item.dangerousPhrase}»</span><strong>{item.articles}</strong></footer>
+        </article>
+      ))}
+    </section>
   );
 }
 

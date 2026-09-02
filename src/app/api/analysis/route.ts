@@ -8,6 +8,7 @@ import { formatAnalysisTranscript, hasEnoughUserTurnsForAnalysis, INSUFFICIENT_A
 import { isRetryableModelError, parseStructuredOutput } from "@/lib/structured-output";
 import { getRegisteredMethodology, isMethodologyId, isRegisteredMethodologyId, type MethodologyId } from "@/lib/methodologies";
 import { getMethodologySource, retrieveMethodologyChunks } from "@/lib/methodology-server";
+import { laborLawRiskInstructions, sanitizeLaborLawRisks } from "@/lib/labor-law-risks";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -234,6 +235,7 @@ export async function POST(request: Request) {
 ${rubric}
 Дай персональную обратную связь человеку. В techniqueReview нужны прямые цитаты человека и методологии.
 Для каждого turningPoints оцени impact на позицию человека: improved, worsened или mixed. Если impact=worsened, в betterMove обязательно предложи конкретный более сильный приём и пример естественной реплики человека, уместной именно в этот момент. Для остальных моментов кратко укажи в betterMove, что помогло сохранить или улучшить позицию; интерфейс покажет подсказку только для worsened.
+${laborLawRiskInstructions(session.case_code)}
 methodologyAtomId копируй из [АТОМ id]. Если данных недостаточно, выбери draw и снизь outcome.confidence.
 Статус базы: ${methodologyStatus}. Версия: ${methodologyVersion}. Пиши кратко, конкретно и по-русски.
       `.trim(),
@@ -287,6 +289,11 @@ ${sources}
     analysis.disclaimer = methodologyStatus === "verified"
       ? `Оценка основана на верифицированной версии методологии «${methodology.shortName}».`
       : `Предварительный анализ по методологии «${methodology.shortName}»: методические атомы ещё должны быть проверены экспертом.`;
+    analysis.laborLawRisks = sanitizeLaborLawRisks(
+      session.case_code,
+      analysis.laborLawRisks,
+      turns.filter((turn) => turn.author === "Вы").map((turn) => turn.text),
+    );
 
     const sourceCorpus = [...chunks.map((chunk) => normalizeQuote(chunk.content)), ...atoms.map((atom) => normalizeQuote(atom.source_quote))].join("\n");
     const turnCorpus = turns.map((turn) => normalizeQuote(turn.text)).join("\n");
