@@ -21,6 +21,13 @@ export type LaborLawRisk = {
   articles: string;
 };
 
+export type DetectedAntiPattern = {
+  methodologyAtomId: string;
+  name: string;
+  turnQuote: string;
+  explanation: string;
+};
+
 export type NegotiationAnalysis = {
   methodologyStatus: "candidate" | "verified";
   methodologyVersion: string;
@@ -43,6 +50,7 @@ export type NegotiationAnalysis = {
   strengths: string[];
   risks: string[];
   laborLawRisks?: LaborLawRisk[];
+  antiPatterns?: DetectedAntiPattern[];
   turningPoints: TurningPoint[];
   stratagems: Array<{
     name: string;
@@ -82,6 +90,7 @@ export const negotiationAnalysisSchema = {
     "strengths",
     "risks",
     "laborLawRisks",
+    "antiPatterns",
     "turningPoints",
     "stratagems",
     "alternatives",
@@ -139,6 +148,21 @@ export const negotiationAnalysisSchema = {
           dangerousPhrase: { type: "string" },
           risk: { type: "string" },
           articles: { type: "string" },
+        },
+      },
+    },
+    antiPatterns: {
+      type: "array",
+      maxItems: 13,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["methodologyAtomId", "name", "turnQuote", "explanation"],
+        properties: {
+          methodologyAtomId: { type: "string" },
+          name: { type: "string" },
+          turnQuote: { type: "string" },
+          explanation: { type: "string" },
         },
       },
     },
@@ -232,9 +256,16 @@ export function createNegotiationAnalysisSchema(atomIds: string[]) {
       techniqueReview: {
         items: { properties: { methodologyAtomId: Record<string, unknown> } };
       };
+      antiPatterns: {
+        items: { properties: { methodologyAtomId: Record<string, unknown> } };
+      };
     };
   };
   schema.properties.techniqueReview.items.properties.methodologyAtomId = {
+    type: "string",
+    enum: atomIds.length ? atomIds : [""],
+  };
+  schema.properties.antiPatterns.items.properties.methodologyAtomId = {
     type: "string",
     enum: atomIds.length ? atomIds : [""],
   };

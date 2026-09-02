@@ -1,7 +1,7 @@
 import Link from "next/link";
 import ReportMethodologySwitcher from "@/components/ReportMethodologySwitcher";
 import ReportDownloadButton from "@/components/ReportDownloadButton";
-import type { LaborLawRisk, NegotiationAnalysis, TurningPoint } from "@/lib/analysis-types";
+import type { DetectedAntiPattern, LaborLawRisk, NegotiationAnalysis, TurningPoint } from "@/lib/analysis-types";
 import { getRegisteredMethodology, type MethodologyId } from "@/lib/methodologies";
 import type { SpeechAnalytics } from "@/lib/speech-analytics";
 import type { ReportExportMeta } from "@/lib/report-html";
@@ -75,6 +75,8 @@ export default function NegotiationReport({
 
       <TurningPointsSection items={analysis.turningPoints} />
 
+      <AntiPatternsSection items={analysis.antiPatterns || []} />
+
       {analysis.stratagems.length > 0 && (
         <section className="analysis-section stratagem-review">
           <h3>СТРАТАГЕМЫ И ПРИЁМЫ</h3>
@@ -131,6 +133,23 @@ export default function NegotiationReport({
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span>{methodology.visibility === "public" && <Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link>}</footer>
       {sessionId && methodology.visibility === "public" && <div data-report-export-ignore><ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} /></div>}
     </div>
+  );
+}
+
+export function AntiPatternsSection({ items }: { items: DetectedAntiPattern[] }) {
+  if (!items.length) return null;
+  return (
+    <section className="analysis-section anti-pattern-review">
+      <h3>АНТИПРИЁМЫ РУКОВОДИТЕЛЯ</h3>
+      <p className="anti-pattern-note">Каждый подтверждённый антиприём снижает критерий «Управление позицией и ходом разговора» на 4 балла.</p>
+      {items.map((item) => (
+        <article key={item.methodologyAtomId}>
+          <strong>{item.name}</strong>
+          <blockquote><small>ВАША РЕПЛИКА</small>«{item.turnQuote}»</blockquote>
+          <p>{item.explanation}</p>
+        </article>
+      ))}
+    </section>
   );
 }
 

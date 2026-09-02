@@ -1,4 +1,4 @@
-import { applyServerRubric, NEGOTIATION_RUBRIC } from "@/lib/analysis-rubric";
+import { applyAntiPatternPenalty, applyServerRubric, NEGOTIATION_RUBRIC } from "@/lib/analysis-rubric";
 import { ANALYSIS_MODEL, EMBEDDING_MODEL, getOpenAI } from "@/lib/openai-server";
 import { createNegotiationAnalysisSchema, type NegotiationAnalysis } from "@/lib/analysis-types";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
@@ -9,6 +9,7 @@ import { isRetryableModelError, parseStructuredOutput } from "@/lib/structured-o
 import { getRegisteredMethodology, isMethodologyId, isRegisteredMethodologyId, type MethodologyId } from "@/lib/methodologies";
 import { getMethodologySource, retrieveMethodologyChunks } from "@/lib/methodology-server";
 import { laborLawRiskInstructions, sanitizeLaborLawRisks } from "@/lib/labor-law-risks";
+import { antiPatternAnalysisInstructions, sanitizeDetectedAntiPatterns } from "@/lib/anti-patterns";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -208,7 +209,9 @@ export async function POST(request: Request) {
     const atomSelect = "id, chunk_id, kind, title, statement, source_quote, verification_status, methodology_version";
     const atomsResult = methodologyStatus === "verified"
       ? await db.from("method_atoms").select(atomSelect).eq("source_id", methodSource.id).eq("verification_status", "verified").limit(60)
-      : await db.from("method_atoms").select(atomSelect).eq("source_id", methodSource.id).in("chunk_id", chunkIds).neq("verification_status", "rejected").limit(30);
+      : methodologyId === "dismissal_1c"
+        ? await db.from("method_atoms").select(atomSelect).eq("source_id", methodSource.id).neq("verification_status", "rejected").limit(60)
+        : await db.from("method_atoms").select(atomSelect).eq("source_id", methodSource.id).in("chunk_id", chunkIds).neq("verification_status", "rejected").limit(30);
     if (atomsResult.error) throw new Error(`Методические атомы: ${atomsResult.error.message}`);
     const atoms = atomsResult.data || [];
     const atomChunkIds = [...new Set(atoms.map((atom) => atom.chunk_id).filter(Boolean))];
@@ -236,6 +239,7 @@ ${rubric}
 Дай персональную обратную связь человеку. В techniqueReview нужны прямые цитаты человека и методологии.
 Для каждого turningPoints оцени impact на позицию человека: improved, worsened или mixed. Если impact=worsened, в betterMove обязательно предложи конкретный более сильный приём и пример естественной реплики человека, уместной именно в этот момент. Для остальных моментов кратко укажи в betterMove, что помогло сохранить или улучшить позицию; интерфейс покажет подсказку только для worsened.
 ${laborLawRiskInstructions(session.case_code)}
+${antiPatternAnalysisInstructions(atoms.some((atom) => atom.kind === "anti_pattern"))}
 methodologyAtomId копируй из [АТОМ id]. Если данных недостаточно, выбери draw и снизь outcome.confidence.
 Статус базы: ${methodologyStatus}. Версия: ${methodologyVersion}. Пиши кратко, конкретно и по-русски.
       `.trim(),
@@ -294,6 +298,12 @@ ${sources}
       analysis.laborLawRisks,
       turns.filter((turn) => turn.author === "Вы").map((turn) => turn.text),
     );
+    analysis.antiPatterns = sanitizeDetectedAntiPatterns(
+      analysis.antiPatterns,
+      atoms,
+      turns.filter((turn) => turn.author === "Вы").map((turn) => turn.text),
+    );
+    analysis = applyAntiPatternPenalty(analysis);
 
     const sourceCorpus = [...chunks.map((chunk) => normalizeQuote(chunk.content)), ...atoms.map((atom) => normalizeQuote(atom.source_quote))].join("\n");
     const turnCorpus = turns.map((turn) => normalizeQuote(turn.text)).join("\n");

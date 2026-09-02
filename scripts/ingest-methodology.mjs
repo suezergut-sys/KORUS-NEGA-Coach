@@ -189,7 +189,7 @@ const atomSchema = {
         required: ["chunkIndex", "kind", "title", "statement", "signals", "counterexamples", "sourceQuote"],
         properties: {
           chunkIndex: { type: "integer" },
-          kind: { type: "string", enum: ["principle", "stratagem", "case_rule", "evaluation_criterion", "example"] },
+          kind: { type: "string", enum: ["principle", "stratagem", "anti_pattern", "case_rule", "evaluation_criterion", "example"] },
           title: { type: "string" },
           statement: { type: "string" },
           signals: { type: "array", items: { type: "string" } },
@@ -219,6 +219,7 @@ async function extractCandidateAtoms(sourceId, chunks, chunkIdByIndex) {
 - principle — базовая идея или закономерность, объясняющая, почему подход работает;
 - case_rule — только конкретное условие учебного кейса, задающее границы упражнения; общие правила методологии сюда не относятся;
 - stratagem — тактический приём, то есть конкретный способ действия в переговорах;
+- anti_pattern — манипулятивная или разрушительная тактика, которую участнику не рекомендуется использовать и применение которой должно снижать оценку;
 - example — иллюстрация применения принципа, правила или приёма;
 - evaluation_criterion — измеримый признак, по которому оценивается качество действий участника.
 sourceQuote должна быть короткой дословной цитатой из указанного фрагмента.

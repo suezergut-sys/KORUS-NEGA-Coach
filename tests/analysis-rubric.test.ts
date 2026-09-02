@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyServerRubric, NEGOTIATION_RUBRIC } from "../src/lib/analysis-rubric";
+import { applyAntiPatternPenalty, applyServerRubric, NEGOTIATION_RUBRIC } from "../src/lib/analysis-rubric";
 import type { NegotiationAnalysis } from "../src/lib/analysis-types";
 
 function analysis(): NegotiationAnalysis {
@@ -43,5 +43,18 @@ describe("server-owned negotiation rubric", () => {
     const input = analysis();
     input.scoreBreakdown = input.scoreBreakdown.filter((item) => item.id !== "control");
     expect(() => applyServerRubric(input)).toThrow(/control/);
+  });
+
+  it("deducts four control points for each unique confirmed anti-pattern", () => {
+    const input = applyServerRubric(analysis());
+    input.antiPatterns = [
+      { methodologyAtomId: "a", name: "Давление", turnQuote: "Подпиши сейчас", explanation: "Риск" },
+      { methodologyAtomId: "b", name: "Угроза", turnQuote: "Будет хуже", explanation: "Риск" },
+      { methodologyAtomId: "a", name: "Давление", turnQuote: "Сейчас", explanation: "Риск" },
+    ];
+    const result = applyAntiPatternPenalty(input);
+    expect(result.scoreBreakdown.find((item) => item.id === "control")?.score).toBe(0);
+    expect(result.scoreBreakdown.find((item) => item.id === "control")?.explanation).toContain("штраф −7 из 20");
+    expect(result.overallScore).toBe(42);
   });
 });

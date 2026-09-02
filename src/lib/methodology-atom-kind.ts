@@ -2,6 +2,7 @@ export const METHODOLOGY_ATOM_KINDS = [
   "principle",
   "case_rule",
   "stratagem",
+  "anti_pattern",
   "example",
   "evaluation_criterion",
 ] as const;
@@ -12,6 +13,7 @@ export const METHODOLOGY_ATOM_LABELS: Record<MethodologyAtomKind, string> = {
   principle: "Принцип",
   case_rule: "Правило кейса",
   stratagem: "Тактический приём",
+  anti_pattern: "Антиприём",
   example: "Пример",
   evaluation_criterion: "Критерий оценки",
 };
@@ -28,6 +30,10 @@ export const METHODOLOGY_ATOM_DESCRIPTIONS: ReadonlyArray<{ kind: MethodologyAto
   {
     kind: "stratagem",
     description: "Тактика, позволяющая повлиять на ход переговоров и приблизиться к своей цели. Описывает, как именно можно действовать в конкретной ситуации.",
+  },
+  {
+    kind: "anti_pattern",
+    description: "Манипулятивная или разрушительная тактика, которую не рекомендуется использовать. Если участник применяет её, это считается подтверждённым риском и снижает оценку переговоров.",
   },
   {
     kind: "example",

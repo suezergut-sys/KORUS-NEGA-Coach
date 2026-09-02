@@ -44,7 +44,7 @@ const { count, error: atomsError } = await db
   .eq("source_id", source.id)
   .neq("verification_status", "rejected");
 if (atomsError) throw atomsError;
-if ((count || 0) < 8) throw new Error("Методическая база SRC-004 заполнена не полностью.");
+if ((count || 0) < 21) throw new Error("Методическая база SRC-004 заполнена не полностью.");
 
 if (!apply) {
   console.log(JSON.stringify({ applied: false, department, source, case: negotiationCase, atomCount: count }, null, 2));

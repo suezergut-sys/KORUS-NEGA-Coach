@@ -40,3 +40,21 @@ export function applyServerRubric(analysis: NegotiationAnalysis): NegotiationAna
     scoreBreakdown,
   };
 }
+
+export const ANTI_PATTERN_PENALTY = 4;
+
+export function applyAntiPatternPenalty(analysis: NegotiationAnalysis): NegotiationAnalysis {
+  const count = new Set((analysis.antiPatterns || []).map((item) => item.methodologyAtomId)).size;
+  if (!count) return analysis;
+  const requestedPenalty = count * ANTI_PATTERN_PENALTY;
+  const scoreBreakdown = analysis.scoreBreakdown.map((item) => {
+    if (item.id !== "control") return item;
+    const penalty = Math.min(item.score, requestedPenalty);
+    return {
+      ...item,
+      score: item.score - penalty,
+      explanation: `${item.explanation} Подтверждённые антиприёмы: ${count}; штраф −${penalty} из 20.`.trim(),
+    };
+  });
+  return { ...analysis, scoreBreakdown, overallScore: scoreBreakdown.reduce((sum, item) => sum + item.score, 0) };
+}
