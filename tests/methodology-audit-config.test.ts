@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { METHODOLOGY_AUDIT, METHODOLOGY_KIND_DEFINITIONS } from "../scripts/methodology-audit-config.mjs";
 
 describe("methodology atom classification audit", () => {
-  it("covers exactly the five documented atom kinds", () => {
+  it("covers exactly the six documented atom kinds", () => {
     expect(Object.keys(METHODOLOGY_KIND_DEFINITIONS)).toEqual([
-      "principle", "case_rule", "stratagem", "example", "evaluation_criterion",
+      "principle", "case_rule", "stratagem", "anti_pattern", "example", "evaluation_criterion",
     ]);
   });
 

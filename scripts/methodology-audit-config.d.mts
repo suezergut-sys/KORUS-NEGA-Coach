@@ -1,4 +1,4 @@
-export type AuditedMethodologyKind = "principle" | "case_rule" | "stratagem" | "example" | "evaluation_criterion";
+export type AuditedMethodologyKind = "principle" | "case_rule" | "stratagem" | "anti_pattern" | "example" | "evaluation_criterion";
 
 export type MethodologyAuditConfig = {
   releaseVersion: string;

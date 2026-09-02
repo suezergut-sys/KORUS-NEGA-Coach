@@ -523,6 +523,11 @@ button { color: inherit; }
 .labor-law-risks blockquote small { display: block; margin-bottom: 4px; color: #d9857f; font-size: 12px; letter-spacing: .06em; }
 .labor-law-risks article footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; color: #bd8e8b; font-size: 12px; }
 .labor-law-risks article footer strong { flex: 0 0 auto; color: #ffaaa3; }
+.anti-pattern-review { border-color: #7f4c25; background: rgba(68, 37, 13, .32); }
+.anti-pattern-review > h3 { color: #f0aa68; }
+.anti-pattern-note { margin: 0 0 8px; color: #cbb092; font-size: 12px; line-height: 1.45; }
+.anti-pattern-review blockquote { margin: 8px 0 0; color: #efdcc8; font-size: 13px; line-height: 1.5; }
+.anti-pattern-review blockquote small { display: block; margin-bottom: 4px; color: #d7985e; font-size: 12px; letter-spacing: .06em; }
 .participant-report-grid { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 14px; }
 .participant-report { min-width: 0; padding: 16px; border: 1px solid #1b4f78; border-radius: 11px; background: rgba(4, 20, 38, .7); }
 .participant-report > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding-bottom: 12px; border-bottom: 1px solid #153a59; }
