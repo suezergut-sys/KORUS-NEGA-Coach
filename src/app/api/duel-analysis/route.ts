@@ -7,8 +7,9 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
 import { parseStructuredOutput } from "@/lib/structured-output";
 import { getMethodology } from "@/lib/methodologies";
-import { getMethodologySource, retrieveMethodologyChunks } from "@/lib/methodology-server";
-import { buildDuelEmbeddingInput } from "@/lib/duel-analysis-input";
+import { getMethodologySource, retrieveMethodologyChunksForQueries } from "@/lib/methodology-server";
+import { buildDuelEmbeddingInputs } from "@/lib/duel-analysis-input";
+import { createEmbeddingVectors } from "@/lib/embedding-server";
 import { recordUserActivity } from "@/lib/user-activity-monitoring";
 
 export const runtime = "nodejs";
@@ -51,12 +52,9 @@ export async function POST(request: Request) {
     const openai = getOpenAI();
     const supabase = getSupabaseAdmin();
     const methodSource = await getMethodologySource(supabase, methodology);
-    const embedding = await openai.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: buildDuelEmbeddingInput(uploadedCase.text, uploadedTranscript.text),
-      encoding_format: "float",
-    });
-    const chunks = await retrieveMethodologyChunks(supabase, methodSource.id, embedding.data[0].embedding, 10) as RetrievedChunk[];
+    const embeddingInputs = buildDuelEmbeddingInputs(uploadedCase.text, uploadedTranscript.text);
+    const embeddingVectors = await createEmbeddingVectors(openai, EMBEDDING_MODEL, embeddingInputs);
+    const chunks = await retrieveMethodologyChunksForQueries(supabase, methodSource.id, embeddingVectors, 10) as RetrievedChunk[];
     if (!chunks.length) return Response.json({ error: `Методическая база «${methodology.shortName}» пока пуста.` }, { status: 503 });
 
     const methodologyStatus = methodSource?.verification_status === "verified" ? "verified" : "candidate";

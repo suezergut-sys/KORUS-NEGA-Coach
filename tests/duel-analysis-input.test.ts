@@ -1,40 +1,42 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDuelEmbeddingInput,
+  buildDuelEmbeddingInputs,
   DUEL_EMBEDDING_INPUT_MAX_BYTES,
-  excerptUtf8,
 } from "../src/lib/duel-analysis-input";
+import { splitEmbeddingText } from "../src/lib/embedding-input";
 
 const bytes = (value: string) => new TextEncoder().encode(value).byteLength;
 
-describe("duel analysis embedding input", () => {
-  it("keeps short case and transcript unchanged", () => {
-    expect(buildDuelEmbeddingInput("Условия кейса", "[00:01] Спикер A: Добрый день")).toBe(
-      "КЕЙС:\nУсловия кейса\n\nРАСШИФРОВКА:\n[00:01] Спикер A: Добрый день",
-    );
+describe("duel analysis embedding inputs", () => {
+  it("keeps short case and transcript in separate searchable inputs", () => {
+    expect(buildDuelEmbeddingInputs("Условия кейса", "[00:01] Спикер A: Добрый день")).toEqual([
+      "КЕЙС:\nУсловия кейса",
+      "РАСШИФРОВКА:\n[00:01] Спикер A: Добрый день",
+    ]);
   });
 
-  it("bounds long Russian input below the embedding model token ceiling", () => {
-    const result = buildDuelEmbeddingInput("условия ".repeat(2_000), "реплика участника ".repeat(4_000));
+  it("bounds every long Russian input without dropping the beginning, middle or end", () => {
+    const caseText = "условия кейса\n".repeat(2_000);
+    const transcriptText = "реплика участника\n".repeat(4_000);
+    const result = buildDuelEmbeddingInputs(caseText, transcriptText);
 
-    expect(bytes(result)).toBeLessThanOrEqual(DUEL_EMBEDDING_INPUT_MAX_BYTES);
-    expect(result).toContain("[фрагмент сокращён]");
-    expect(result).toContain("КЕЙС:\nусловия");
-    expect(result).toContain("РАСШИФРОВКА:\nреплика участника");
-    expect(result.endsWith("участника ")).toBe(true);
+    expect(result.length).toBeGreaterThan(2);
+    expect(result.every((item) => bytes(item) <= DUEL_EMBEDDING_INPUT_MAX_BYTES)).toBe(true);
+    expect(result.some((item) => item.includes("КЕЙС — часть 1/"))).toBe(true);
+    expect(result.some((item) => item.includes("РАСШИФРОВКА — часть 2/"))).toBe(true);
+    expect(result.at(-1)?.endsWith("реплика участника\n")).toBe(true);
+    expect(result
+      .filter((item) => item.startsWith("РАСШИФРОВКА"))
+      .map((item) => item.slice(item.indexOf("\n") + 1))
+      .join("")).toBe(transcriptText);
   });
 
-  it("does not split Unicode code points when taking an excerpt", () => {
-    const result = excerptUtf8("🙂".repeat(100), 100);
+  it("preserves all text and does not split Unicode code points", () => {
+    const source = `${"🙂".repeat(3_000)}\n${"переговоры ".repeat(2_000)}`;
+    const result = splitEmbeddingText(source, 1_000);
 
-    expect(bytes(result)).toBeLessThanOrEqual(100);
-    expect(result).not.toContain("�");
-  });
-
-  it("respects byte limits smaller than the omission marker", () => {
-    const result = excerptUtf8("абвгд", 5);
-
-    expect(bytes(result)).toBeLessThanOrEqual(5);
-    expect(result).toBe("аб");
+    expect(result.every((item) => bytes(item) <= 1_000)).toBe(true);
+    expect(result.join("")).toBe(source);
+    expect(result.join("")).not.toContain("�");
   });
 });
