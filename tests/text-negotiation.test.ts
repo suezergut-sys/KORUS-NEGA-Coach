@@ -32,6 +32,12 @@ describe("текстовый режим переговоров", () => {
 
     expect(dismissal).toContain("начинай КАЖДУЮ реплику сотрудника");
     expect(dismissal).toContain("эмоционального настроя в квадратных скобках");
+    expect(dismissal).toContain("не знает, что разговор посвящён увольнению");
+    expect(dismissal).toContain("На приветствие, вопрос «как дела?»");
+    expect(dismissal).toContain("с нейтральной эмоциональной меткой");
+    expect(dismissal).toContain("дела нормально");
+    expect(dismissal).toContain("не упоминай обстоятельства кейса и не начинай возражения");
+    expect(dismissal).toContain("После того как руководитель явно назвал увольнение");
     expect(dismissal).toContain("если руководитель отвечает по существу");
     expect(dismissal).toContain("ясно аргументирует решение");
     expect(dismissal).toContain("напряжение и злость усиливаются");
