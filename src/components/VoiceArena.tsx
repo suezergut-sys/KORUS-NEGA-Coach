@@ -84,11 +84,12 @@ import {
   TRAINING_LIMIT_CONTACT_URL,
   type TrainingQuota,
 } from "@/lib/training-quota";
+import { detectReachedAgreement } from "@/lib/agreement-detection";
 
 type VoiceMode = "female" | "male";
 type NegotiationStyle = "collaborative" | "hard";
 type DurationMinutes = 3 | 5 | 10 | 15;
-type EndReason = "user" | "timer";
+type EndReason = "user" | "timer" | "agreement";
 type HintStatus = "idle" | "loading" | "ready" | "error";
 
 const OPPONENTS = {
@@ -187,6 +188,7 @@ export default function VoiceArena({
     remaining: voiceEvalMode || isAdministrator ? null : 3,
   });
   const [trainingLimitOpen, setTrainingLimitOpen] = useState(false);
+  const [agreementPromptKey, setAgreementPromptKey] = useState("");
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -216,6 +218,7 @@ export default function VoiceArena({
   const inputModeRef = useRef<NegotiationInputMode>(initialInputMode);
   const pushToTalkActiveRef = useRef(false);
   const endingRef = useRef(false);
+  const dismissedAgreementKeyRef = useRef("");
   const hintUsedRef = useRef(false);
   const endSessionRef = useRef<(reason?: EndReason) => Promise<void>>(async () => undefined);
   const opponentTurnCountRef = useRef(0);
@@ -459,6 +462,29 @@ export default function VoiceArena({
     resume: resumeTimer,
     freeze: freezeTimer,
   } = timer;
+
+  useEffect(() => {
+    if (!isLive || isPaused || isEnding || agreementPromptKey || userSpeaking || opponentSpeaking || textTurnPending) return;
+    const timeout = window.setTimeout(() => {
+      if (responseInProgressRef.current || textTurnPendingRef.current || userSpeakingRef.current || opponentSpeakingRef.current) return;
+      const agreement = detectReachedAgreement(linesRef.current);
+      if (!agreement || agreement.key === dismissedAgreementKeyRef.current) return;
+      applyMediaPaused(true);
+      setAgreementPromptKey(agreement.key);
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [agreementPromptKey, applyMediaPaused, isEnding, isLive, isPaused, lines, linesRef, opponentSpeaking, textTurnPending, userSpeaking]);
+
+  function continueAfterAgreementPrompt() {
+    dismissedAgreementKeyRef.current = agreementPromptKey;
+    setAgreementPromptKey("");
+    applyMediaPaused(false);
+  }
+
+  function finishAfterAgreementPrompt() {
+    setAgreementPromptKey("");
+    void endSessionRef.current("agreement");
+  }
 
   const setPushToTalkCapture = useCallback((active: boolean) => {
     pushToTalkActiveRef.current = active;
@@ -1379,6 +1405,8 @@ export default function VoiceArena({
     setError("");
     setRealtimeNotice("");
     setFirstSpeakerNotice(false);
+    setAgreementPromptKey("");
+    dismissedAgreementKeyRef.current = "";
     pausedRef.current = false;
     pushToTalkActiveRef.current = false;
     setPushToTalkActive(false);
@@ -1674,6 +1702,7 @@ export default function VoiceArena({
   async function endSession(reason: EndReason = "user") {
     if (!isLive || endingRef.current) return;
     endingRef.current = true;
+    setAgreementPromptKey("");
     lifecycleDispatch({ type: "END" });
     const speechEndedAt = Date.now();
     setReportOccurredAt(new Date(speechEndedAt).toISOString());
@@ -1683,9 +1712,14 @@ export default function VoiceArena({
     }
     flushOpponentPlayback(speechEndedAt);
     const completedDurationSeconds = Math.min(totalDurationSeconds, freezeTimer());
+    const completionMessage = reason === "timer"
+      ? TIME_EXPIRED_MESSAGE
+      : reason === "agreement"
+        ? "Переговоры завершены после достижения договорённости."
+        : "Переговоры завершены пользователем.";
     const completedLines = [
       ...linesRef.current,
-      { id: crypto.randomUUID(), author: "Система" as const, text: reason === "timer" ? TIME_EXPIRED_MESSAGE : "Переговоры завершены пользователем.", time: clockTime() },
+      { id: crypto.randomUUID(), author: "Система" as const, text: completionMessage, time: clockTime() },
     ];
     linesRef.current = completedLines;
     setLines(completedLines);
@@ -2073,6 +2107,20 @@ export default function VoiceArena({
               <span>ДНЕВНОЙ ЛИМИТ</span>
               <h2 id="training-limit-title">Тренировки на сегодня закончились</h2>
               <p>Количество ежедневных тренировок исчерпано. Обратитесь к создателю платформы <a href={TRAINING_LIMIT_CONTACT_URL} target="_blank" rel="noreferrer">Максиму Сумину</a> для перехода на Премиум.</p>
+            </section>
+          </div>
+        )}
+
+        {agreementPromptKey && (
+          <div className="agreement-prompt-overlay" role="presentation">
+            <section className="agreement-prompt-dialog" role="dialog" aria-modal="true" aria-labelledby="agreement-prompt-title" aria-describedby="agreement-prompt-description">
+              <span>ДОГОВОРЁННОСТЬ</span>
+              <h2 id="agreement-prompt-title">Похоже, договорённость достигнута</h2>
+              <p id="agreement-prompt-description">Завершить переговоры и запустить анализ?</p>
+              <footer>
+                <button type="button" className="modal-secondary" onClick={continueAfterAgreementPrompt}>НЕТ, ПРОДОЛЖИТЬ</button>
+                <button type="button" className="modal-primary" onClick={finishAfterAgreementPrompt}>ДА, ЗАВЕРШИТЬ</button>
+              </footer>
             </section>
           </div>
         )}

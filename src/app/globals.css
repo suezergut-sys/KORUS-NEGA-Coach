@@ -1019,6 +1019,14 @@ button { color: inherit; }
 .training-limit-dialog h2 { margin: 10px 44px 12px 0; font-size: 27px; }
 .training-limit-dialog p { margin: 0; color: #b8c9d8; line-height: 1.65; }
 .training-limit-dialog a { color: #64baff; font-weight: 800; }
+.agreement-prompt-overlay { position: fixed; inset: 0; z-index: 1250; display: grid; place-items: center; padding: 20px; background: rgba(3, 7, 15, .84); backdrop-filter: blur(10px); }
+.agreement-prompt-dialog { width: min(540px, 100%); padding: 34px; border: 1px solid #168fff; border-radius: 18px; color: #f8fbff; background: radial-gradient(circle at 100% 0, rgba(22, 143, 255, .25), transparent 42%), #09182a; box-shadow: 0 28px 80px rgba(0, 0, 0, .65), 0 0 45px rgba(22, 143, 255, .12); }
+.agreement-prompt-dialog > span { color: #64baff; font-size: 12px; font-weight: 900; letter-spacing: .14em; }
+.agreement-prompt-dialog h2 { margin: 10px 0 12px; font-size: clamp(24px, 5vw, 30px); line-height: 1.15; }
+.agreement-prompt-dialog p { margin: 0; color: #b8c9d8; line-height: 1.65; }
+.agreement-prompt-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.agreement-prompt-dialog footer button { min-height: 44px; padding: 0 16px; border-radius: 8px; font-size: 12px; font-weight: 850; cursor: pointer; }
+@media (max-width: 560px) { .agreement-prompt-dialog { padding: 26px 20px 20px; } .agreement-prompt-dialog footer { display: grid; grid-template-columns: 1fr; } }
 .training-limit-close { width: 36px; height: 36px; position: absolute; top: 16px; right: 16px; border: 1px solid rgba(255, 121, 117, .45); border-radius: 9px; color: #ffaaa7; background: rgba(89, 20, 27, .45); font-size: 24px; cursor: pointer; }
 .admin-activity-list { overflow: hidden; border: 1px solid #174367; border-radius: 12px; background: #041225; }
 .admin-activity-list article { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 18px; padding: 14px 17px; border-bottom: 1px solid #112f49; }
