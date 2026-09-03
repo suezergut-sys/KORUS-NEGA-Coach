@@ -7,9 +7,11 @@ import { getCurrentUserSession } from "@/lib/user-auth";
 import { formatAnalysisTranscript, hasEnoughUserTurnsForAnalysis, INSUFFICIENT_ANALYSIS_MESSAGE, type TranscriptTurn } from "@/lib/transcript";
 import { isRetryableModelError, parseStructuredOutput } from "@/lib/structured-output";
 import { getRegisteredMethodology, isMethodologyId, isRegisteredMethodologyId, type MethodologyId } from "@/lib/methodologies";
-import { getMethodologySource, retrieveMethodologyChunks } from "@/lib/methodology-server";
+import { getMethodologySource, retrieveMethodologyChunksForQueries } from "@/lib/methodology-server";
 import { laborLawRiskInstructions, sanitizeLaborLawRisks } from "@/lib/labor-law-risks";
 import { antiPatternAnalysisInstructions, sanitizeDetectedAntiPatterns } from "@/lib/anti-patterns";
+import { createEmbeddingVectors } from "@/lib/embedding-server";
+import { buildTrainingEmbeddingInputs } from "@/lib/analysis-embedding-input";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -190,14 +192,11 @@ export async function POST(request: Request) {
     const openai = getOpenAI();
     const methodSource = await getMethodologySource(db, methodology);
     stage = "embedding";
-    const embeddingResponse = await openai.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: `${caseContext}\n${caseGoal}\n${caseConstraints.join("\n")}\n\n${transcript}`.slice(0, 28000),
-      encoding_format: "float",
-    });
+    const embeddingInputs = buildTrainingEmbeddingInputs({ caseContext, caseGoal, caseConstraints, transcript });
+    const embeddingVectors = await createEmbeddingVectors(openai, EMBEDDING_MODEL, embeddingInputs);
 
     stage = "methodology_retrieval";
-    const chunks = await retrieveMethodologyChunks(db, methodSource.id, embeddingResponse.data[0].embedding, 8) as RetrievedChunk[];
+    const chunks = await retrieveMethodologyChunksForQueries(db, methodSource.id, embeddingVectors, 8) as RetrievedChunk[];
     if (!chunks.length) {
       await db.from("training_sessions").update({ status: "analysis_failed", analysis_error: `Методическая база «${methodology.shortName}» пока пуста.` }).eq("id", sessionId);
       return Response.json({ error: `Методическая база «${methodology.shortName}» пока пуста.` }, { status: 503 });
