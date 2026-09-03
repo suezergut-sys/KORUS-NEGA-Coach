@@ -64,7 +64,7 @@ describe("about product page", () => {
     expect(markup).toContain("участник всегда играет переговорщика компании");
     expect(markup).toContain("КОРУС и обращение на «ты» в кейсе ELM");
     expect(markup).toContain("разворачивается в «КОРУС Консалтинг»");
-    expect(markup).toContain("отдельно показывает риски по ТК РФ");
+    expect(markup).toContain("сразу после результата выделяет методические несоответствия и риски по ТК РФ");
     expect(markup).toContain("Риски по ТК РФ в отчёте кейса 1С");
     expect(markup).toContain("запрещённые манипулятивные антиприёмы руководителя");
     expect(markup).toContain("Антиприёмы в методологии увольнения 1С");
