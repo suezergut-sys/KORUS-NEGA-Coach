@@ -361,6 +361,12 @@ button { color: inherit; }
 .analysis-list h3, .analysis-section h3 { margin: 0 0 9px; color: #6abaff; font-size: 12px; letter-spacing: .08em; }
 .analysis-list.positive h3 { color: #58d4a6; }
 .analysis-list.negative h3 { color: #ff9087; }
+.one-c-priority-risks { margin: 16px 0; padding: 16px; border: 1px solid #b7544d; border-radius: 11px; background: linear-gradient(145deg, rgba(91, 27, 31, .34), rgba(38, 18, 25, .42)); box-shadow: inset 0 0 30px rgba(213, 75, 65, .08); }
+.one-c-priority-risks > span { color: #ff9d91; font-size: 12px; font-weight: 900; letter-spacing: .12em; }
+.one-c-priority-risks > h3 { margin: 7px 0 5px; color: #ffd2cc; font-size: 15px; }
+.one-c-priority-note { margin: 0 0 12px; color: #d6aaa5; font-size: 12px; line-height: 1.5; }
+.one-c-priority-risks .analysis-list, .one-c-priority-risks .analysis-section { background: rgba(25, 10, 16, .42); border-color: #743b40; }
+.one-c-priority-risks .labor-law-risks { margin-bottom: 0; }
 .analysis-list ul, .analysis-section ol { margin: 0; padding-left: 17px; color: #b9c8da; font-size: 12px; line-height: 1.55; }
 .analysis-section { margin-top: 12px; }
 .analysis-section article { position: relative; padding: 10px 0; border-top: 1px solid #14314e; }

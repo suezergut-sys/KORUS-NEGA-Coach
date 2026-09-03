@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LaborLawRisksSection } from "../src/components/NegotiationReport";
 import { negotiationAnalysisSchema } from "../src/lib/analysis-types";
-import { laborLawRiskInstructions, sanitizeLaborLawRisks } from "../src/lib/labor-law-risks";
+import { laborLawRiskInstructions, oneCAnalysisPriorityInstructions, sanitizeLaborLawRisks } from "../src/lib/labor-law-risks";
 
 const modelRisk = {
   referenceId: "worse-dismissal",
@@ -24,6 +24,13 @@ describe("риски по ТК РФ в кейсе 1С", () => {
     expect(laborLawRiskInstructions("another-case")).toBe("Поле laborLawRisks верни пустым массивом.");
   });
 
+  it("отдельно приоритизирует методические ошибки и не смешивает их с рисками по ТК РФ", () => {
+    const instructions = oneCAnalysisPriorityInstructions("1c-dismissal");
+    expect(instructions).toContain("обязательно включи это в risks как методическую ошибку");
+    expect(instructions).toContain("не является автоматически риском по ТК РФ");
+    expect(oneCAnalysisPriorityInstructions("another-case")).toBe("");
+  });
+
   it("оставляет только дословную реплику руководителя и восстанавливает справочные данные", () => {
     expect(sanitizeLaborLawRisks("1c-dismissal", [modelRisk], [modelRisk.turnQuote])).toEqual([{
       referenceId: "worse-dismissal",
@@ -36,7 +43,7 @@ describe("риски по ТК РФ в кейсе 1С", () => {
     expect(sanitizeLaborLawRisks("another-case", [modelRisk], [modelRisk.turnQuote])).toEqual([]);
   });
 
-  it("не формирует пустой раздел и показывает найденный риск в конце отчёта", () => {
+  it("не формирует пустой раздел и показывает найденный риск", () => {
     expect(renderToStaticMarkup(<LaborLawRisksSection items={[]} />)).toBe("");
     const [risk] = sanitizeLaborLawRisks("1c-dismissal", [modelRisk], [modelRisk.turnQuote]);
     const markup = renderToStaticMarkup(<LaborLawRisksSection items={[risk]} />);

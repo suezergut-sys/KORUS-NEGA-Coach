@@ -37,6 +37,9 @@ if (!negotiationCase.scenario_conditions?.some((condition) => condition.includes
 if (!negotiationCase.scenario_conditions?.some((condition) => condition.includes("потеряет отсрочку от мобилизации"))) {
   throw new Error("В кейсе не закреплён риск потери отсрочки от мобилизации.");
 }
+if (!negotiationCase.scenario_conditions?.some((condition) => condition.includes("Договорённости в рамках первого разговора остаются устными"))) {
+  throw new Error("В кейсе не закреплено условие об устных договорённостях первого разговора.");
+}
 
 const { count, error: atomsError } = await db
   .from("method_atoms")
@@ -44,7 +47,7 @@ const { count, error: atomsError } = await db
   .eq("source_id", source.id)
   .neq("verification_status", "rejected");
 if (atomsError) throw atomsError;
-if ((count || 0) < 21) throw new Error("Методическая база SRC-004 заполнена не полностью.");
+if ((count || 0) < 22) throw new Error("Методическая база SRC-004 заполнена не полностью.");
 
 if (!apply) {
   console.log(JSON.stringify({ applied: false, department, source, case: negotiationCase, atomCount: count }, null, 2));

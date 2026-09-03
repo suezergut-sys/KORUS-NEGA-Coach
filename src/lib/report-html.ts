@@ -78,6 +78,9 @@ export function buildNegotiationReportHtml({
     .analysis-score small { font-size: 16px; }
     .analysis-disclaimer { color: #617085; font-size: 13px; }
     section, .analysis-section, .analysis-list { margin: 20px 0; padding: 18px; border: 1px solid #d8e3ee; border-radius: 10px; break-inside: avoid; }
+    .one-c-priority-risks { border: 2px solid #b9473f; background: #fff4f2; }
+    .one-c-priority-risks > span, .one-c-priority-risks > h3 { color: #9b2f29; }
+    .one-c-priority-note { color: #70423f; }
     .duel-outcome { align-items: flex-start; background: #f5faff; }
     .outcome-symbol { color: #1571c9; font-size: 34px; }
     h3 { margin: 6px 0 10px; color: #17233a; }
