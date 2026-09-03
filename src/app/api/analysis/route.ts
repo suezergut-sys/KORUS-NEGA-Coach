@@ -8,7 +8,7 @@ import { formatAnalysisTranscript, hasEnoughUserTurnsForAnalysis, INSUFFICIENT_A
 import { isRetryableModelError, parseStructuredOutput } from "@/lib/structured-output";
 import { getRegisteredMethodology, isMethodologyId, isRegisteredMethodologyId, type MethodologyId } from "@/lib/methodologies";
 import { getMethodologySource, retrieveMethodologyChunksForQueries } from "@/lib/methodology-server";
-import { laborLawRiskInstructions, sanitizeLaborLawRisks } from "@/lib/labor-law-risks";
+import { laborLawRiskInstructions, oneCAnalysisPriorityInstructions, sanitizeLaborLawRisks } from "@/lib/labor-law-risks";
 import { antiPatternAnalysisInstructions, sanitizeDetectedAntiPatterns } from "@/lib/anti-patterns";
 import { createEmbeddingVectors } from "@/lib/embedding-server";
 import { buildTrainingEmbeddingInputs } from "@/lib/analysis-embedding-input";
@@ -237,6 +237,7 @@ export async function POST(request: Request) {
 ${rubric}
 Дай персональную обратную связь человеку. В techniqueReview нужны прямые цитаты человека и методологии.
 Для каждого turningPoints оцени impact на позицию человека: improved, worsened или mixed. Если impact=worsened, в betterMove обязательно предложи конкретный более сильный приём и пример естественной реплики человека, уместной именно в этот момент. Для остальных моментов кратко укажи в betterMove, что помогло сохранить или улучшить позицию; интерфейс покажет подсказку только для worsened.
+${oneCAnalysisPriorityInstructions(session.case_code)}
 ${laborLawRiskInstructions(session.case_code)}
 ${antiPatternAnalysisInstructions(atoms.some((atom) => atom.kind === "anti_pattern"))}
 methodologyAtomId копируй из [АТОМ id]. Если данных недостаточно, выбери draw и снизь outcome.confidence.

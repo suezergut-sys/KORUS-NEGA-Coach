@@ -28,6 +28,7 @@ export default function NegotiationReport({
   reportMeta: ReportExportMeta;
 }) {
   const methodology = getRegisteredMethodology(methodologyId);
+  const isOneCReport = methodologyId === "dismissal_1c";
   const confidence = Number(analysis.outcome.confidence);
   const confidenceLabel = Number.isFinite(confidence)
     ? `${Math.round(Math.min(1, Math.max(0, confidence)) * 100)}%`
@@ -50,6 +51,8 @@ export default function NegotiationReport({
         </div>
       </section>
 
+      {isOneCReport && <OneCPriorityRisks risks={analysis.risks} laborLawRisks={analysis.laborLawRisks || []} />}
+
       <section className="personal-feedback">
         <span>ПЕРСОНАЛЬНАЯ ОБРАТНАЯ СВЯЗЬ</span><p>{analysis.personalFeedback}</p>
       </section>
@@ -68,10 +71,14 @@ export default function NegotiationReport({
           ))}</div>
         </section>
       )}
-      <div className="analysis-grid">
-        <AnalysisList title="СИЛЬНЫЕ ХОДЫ" items={analysis.strengths} tone="positive" />
-        <AnalysisList title="РИСКИ" items={analysis.risks} tone="negative" />
-      </div>
+      {isOneCReport ? (
+        <AnalysisList title="ЧТО БЫЛО ХОРОШО" items={analysis.strengths} tone="positive" />
+      ) : (
+        <div className="analysis-grid">
+          <AnalysisList title="СИЛЬНЫЕ ХОДЫ" items={analysis.strengths} tone="positive" />
+          <AnalysisList title="РИСКИ" items={analysis.risks} tone="negative" />
+        </div>
+      )}
 
       <TurningPointsSection items={analysis.turningPoints} />
 
@@ -129,10 +136,23 @@ export default function NegotiationReport({
       )}
 
       <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
-      <LaborLawRisksSection items={analysis.laborLawRisks || []} />
+      {!isOneCReport && <LaborLawRisksSection items={analysis.laborLawRisks || []} />}
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span>{methodology.visibility === "public" && <Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link>}</footer>
       {sessionId && methodology.visibility === "public" && <div data-report-export-ignore><ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} /></div>}
     </div>
+  );
+}
+
+export function OneCPriorityRisks({ risks, laborLawRisks }: { risks: string[]; laborLawRisks: LaborLawRisk[] }) {
+  if (!risks.length && !laborLawRisks.length) return null;
+  return (
+    <section className="one-c-priority-risks">
+      <span>ОБРАТИТЕ ВНИМАНИЕ В ПЕРВУЮ ОЧЕРЕДЬ</span>
+      <h3>РИСКИ И НЕСООТВЕТСТВИЯ</h3>
+      <p className="one-c-priority-note">Сначала проверьте ошибки руководителя и возможные трудовые риски. Положительная обратная связь приведена ниже.</p>
+      {risks.length > 0 && <AnalysisList title="НЕСООТВЕТСТВИЯ МЕТОДОЛОГИИ" items={risks} tone="negative" />}
+      <LaborLawRisksSection items={laborLawRisks} />
+    </section>
   );
 }
 

@@ -69,6 +69,14 @@ ${references}
   `.trim();
 }
 
+export function oneCAnalysisPriorityInstructions(caseCode: string) {
+  if (caseCode !== ONE_C_DISMISSAL_CASE_CODE) return "";
+  return `
+Для кейса 1С сначала и особенно внимательно сформируй risks: перечисли ошибки руководителя, несоответствия методологии и потенциальные риски по ТК РФ. Если руководитель предложил письменно зафиксировать договорённости первого разговора письмом, протоколом или иным подтверждением, обязательно включи это в risks как методическую ошибку. Не считай такой ошибкой обязательные кадровые документы, которые оформляются отдельно по установленной процедуре.
+Положительные наблюдения помещай в strengths и персональную обратную связь только после полного разбора рисков. Поле laborLawRisks заполняй отдельно только по правилам и эталонам ТК РФ ниже; само предложение письменной фиксации договорённостей не является автоматически риском по ТК РФ.
+  `.trim();
+}
+
 export function sanitizeLaborLawRisks(caseCode: string, risks: LaborLawRisk[] | undefined, managerTurns: string[]) {
   if (caseCode !== ONE_C_DISMISSAL_CASE_CODE || !risks?.length) return [];
   const normalizedTurns = managerTurns.map(normalizeQuote).filter(Boolean);
