@@ -17,6 +17,7 @@ describe("устные договорённости в кейсе и метод�
   });
 
   it("добавляет отдельный кандидатный критерий в методологию SRC-004", () => {
+    expect(migration).toMatch(/\$content\$\)\)\r?\ninsert into public\.document_chunks/);
     expect(migration).toContain("where source.code = 'SRC-004'");
     expect(migration).toContain("'evaluation_criterion'");
     expect(migration).toContain("'Не предлагать письменную фиксацию договорённостей'");
