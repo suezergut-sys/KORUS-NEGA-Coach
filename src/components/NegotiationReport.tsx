@@ -30,6 +30,9 @@ export default function NegotiationReport({
 }) {
   const methodology = getRegisteredMethodology(methodologyId);
   const isOneCReport = methodologyId === "dismissal_1c";
+  const usesOneCIndependentRubric = isOneCReport
+    && analysis.scoreBreakdown.length === 4
+    && ["structure", "tone", "legal", "next_step"].every((id) => analysis.scoreBreakdown.some((item) => item.id === id));
   const scoreBand = analysisScoreBand(analysis.overallScore);
   const confidence = Number(analysis.outcome.confidence);
   const confidenceLabel = Number.isFinite(confidence)
@@ -65,7 +68,11 @@ export default function NegotiationReport({
 
       {analysis.scoreBreakdown.length > 0 && (
         <section className="score-breakdown">
-          <h3>{isOneCReport ? "ОЦЕНКА ПО ЧЕТЫРЁМ НЕЗАВИСИМЫМ ШКАЛАМ" : "ОЦЕНКА ПО ЕДИНОЙ РУБРИКЕ"}</h3>
+          <h3>{usesOneCIndependentRubric
+            ? "ОЦЕНКА ПО ЧЕТЫРЁМ НЕЗАВИСИМЫМ ШКАЛАМ"
+            : isOneCReport
+              ? "ОЦЕНКА ПО РУБРИКЕ СОХРАНЁННОГО ОТЧЁТА"
+              : "ОЦЕНКА ПО ЕДИНОЙ РУБРИКЕ"}</h3>
           <div>{analysis.scoreBreakdown.map((item) => (
             <article key={`${item.id || item.criterion}-${item.criterion}`}>
               <header><strong>{item.criterion}</strong><span>{item.score} / {item.maxScore}</span></header>
