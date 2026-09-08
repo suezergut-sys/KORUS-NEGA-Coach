@@ -111,5 +111,8 @@ describe("стили Realtime-переговоров", () => {
     expect(prompt).toContain("ЕЁ ЗАЯВЛЕННАЯ ЦЕЛЬ");
     expect(prompt).toContain("не соглашайся и не вознаграждай это уступкой");
     expect(prompt).toContain("без немедленной подписи");
+    expect(prompt).toContain("не чек-лист одной реплики");
+    expect(prompt).toContain("одно возражение или одну границу");
+    expect(prompt).toContain("оставляй остальные темы для следующих ходов");
   });
 });

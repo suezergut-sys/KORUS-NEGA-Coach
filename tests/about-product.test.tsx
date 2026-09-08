@@ -52,7 +52,7 @@ describe("about product page", () => {
     expect(markup).toContain("минимум три разных содержательных возражения");
     expect(markup).toContain("ожидает два-три оклада");
     expect(markup).toContain("потери отсрочки от мобилизации");
-    expect(markup).toContain("постепенно меняющийся эмоциональный настрой");
+    expect(markup).toContain("одной эмоциональной метки");
     expect(markup).toContain("Единый контракт и описание кейса");
     expect(markup).toContain("Неизвестные факты без выхода из роли");
     expect(markup).toContain("Сложнее и эмоциональнее: увольнение 1С");
@@ -66,6 +66,8 @@ describe("about product page", () => {
     expect(markup).toContain("разворачивается в «КОРУС Консалтинг»");
     expect(markup).toContain("победитель не определяется: участник получает итоговый балл по цветовой шкале");
     expect(markup).toContain("четыре независимые оценки структуры, тона, юридической безопасности и следующего шага");
+    expect(markup).toContain("каждая короткая реплика сотрудника начинается с одной эмоциональной метки");
+    expect(markup).toContain("содержит одну главную реакцию и не более одного вопроса");
     expect(markup).toContain("Риски по ТК РФ в отчёте кейса 1С");
     expect(markup).toContain("На давление, угрозы, обесценивание или требование немедленной подписи сотрудник не отвечает уступкой");
     expect(markup).toContain("Антиприёмы в методологии увольнения 1С");
@@ -76,9 +78,9 @@ describe("about product page", () => {
   });
 
   it("contains every merged PR in newest-first order", () => {
-    expect(PRODUCT_HISTORY).toHaveLength(141);
+    expect(PRODUCT_HISTORY).toHaveLength(142);
     expect(PRODUCT_HISTORY.map((item) => item.pr)).toEqual(
-      [146, 145, 144, 143, 142, 141, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128, 127, 126, 125, 124, 123, 122, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
+      [147, 146, 145, 144, 143, 142, 141, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128, 127, 126, 125, 124, 123, 122, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
     );
     for (let index = 1; index < PRODUCT_HISTORY.length; index += 1) {
       expect(PRODUCT_HISTORY[index - 1].date >= PRODUCT_HISTORY[index].date).toBe(true);
