@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { textNegotiationInput, textNegotiationModeInstructions, validateTextNegotiationAudio } from "@/lib/text-negotiation";
+import { textNegotiationInput, textNegotiationMaxOutputTokens, textNegotiationModeInstructions, validateTextNegotiationAudio } from "@/lib/text-negotiation";
 
 describe("текстовый режим переговоров", () => {
   it("выделяет стенограмме увеличенную область и оставляет компактный ввод", () => {
@@ -32,6 +32,10 @@ describe("текстовый режим переговоров", () => {
 
     expect(dismissal).toContain("начинай КАЖДУЮ реплику сотрудника");
     expect(dismissal).toContain("эмоционального настроя в квадратных скобках");
+    expect(dismissal).toContain("ровно с ОДНОЙ краткой метки");
+    expect(dismissal).toContain("одним-двумя короткими предложениями");
+    expect(dismissal).toContain("только одну главную реакцию");
+    expect(dismissal).toContain("не более одного вопроса");
     expect(dismissal).toContain("не знает, что разговор посвящён увольнению");
     expect(dismissal).toContain("На приветствие, вопрос «как дела?»");
     expect(dismissal).toContain("с нейтральной эмоциональной меткой");
@@ -44,6 +48,14 @@ describe("текстовый режим переговоров", () => {
     expect(dismissal).toContain("Одна вежливость без содержательного ответа не улучшает настроение");
     expect(anotherCase).toBe("Это текстовый режим: верни только текст прямой реплики персонажа без озвучки и Markdown. Не добавляй сценические ремарки.");
     expect(anotherCase).not.toContain("квадратных скобках");
+  });
+
+  it("ограничивает бюджет длинной текстовой реплики только для кейса 1С", () => {
+    const route = readFileSync("src/app/api/text-negotiation/route.ts", "utf8");
+    expect(textNegotiationMaxOutputTokens("1c-dismissal")).toBe(300);
+    expect(textNegotiationMaxOutputTokens("release-risk")).toBe(500);
+    expect(route).toContain('text: { verbosity: "low" }');
+    expect(route).toContain("max_output_tokens: textNegotiationMaxOutputTokens(negotiationCase.slug)");
   });
 
   it("accepts audio and rejects non-audio files", () => {

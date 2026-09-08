@@ -52,7 +52,7 @@ describe("about product page", () => {
     expect(markup).toContain("минимум три разных содержательных возражения");
     expect(markup).toContain("ожидает два-три оклада");
     expect(markup).toContain("потери отсрочки от мобилизации");
-    expect(markup).toContain("постепенно меняющийся эмоциональный настрой");
+    expect(markup).toContain("одной эмоциональной метки");
     expect(markup).toContain("Единый контракт и описание кейса");
     expect(markup).toContain("Неизвестные факты без выхода из роли");
     expect(markup).toContain("Сложнее и эмоциональнее: увольнение 1С");
@@ -66,6 +66,8 @@ describe("about product page", () => {
     expect(markup).toContain("разворачивается в «КОРУС Консалтинг»");
     expect(markup).toContain("победитель не определяется: участник получает итоговый балл по цветовой шкале");
     expect(markup).toContain("четыре независимые оценки структуры, тона, юридической безопасности и следующего шага");
+    expect(markup).toContain("каждая короткая реплика сотрудника начинается с одной эмоциональной метки");
+    expect(markup).toContain("содержит одну главную реакцию и не более одного вопроса");
     expect(markup).toContain("Риски по ТК РФ в отчёте кейса 1С");
     expect(markup).toContain("На давление, угрозы, обесценивание или требование немедленной подписи сотрудник не отвечает уступкой");
     expect(markup).toContain("Антиприёмы в методологии увольнения 1С");

@@ -4,7 +4,7 @@ import { buildFirstOpponentTurnInstructions } from "@/lib/realtime-language";
 import { firstSpeakerForCase, matchesTrainingSessionStart } from "@/lib/negotiation-start";
 import { getOpenAI } from "@/lib/openai-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { TEXT_NEGOTIATION_MODEL, textNegotiationInput, textNegotiationModeInstructions } from "@/lib/text-negotiation";
+import { TEXT_NEGOTIATION_MODEL, textNegotiationInput, textNegotiationMaxOutputTokens, textNegotiationModeInstructions } from "@/lib/text-negotiation";
 import { normalizeAnalysisTurns } from "@/lib/transcript";
 import { getCurrentUserSession } from "@/lib/user-auth";
 
@@ -104,9 +104,10 @@ export async function POST(request: Request) {
     const response = await getOpenAI().responses.create({
       model: TEXT_NEGOTIATION_MODEL,
       reasoning: { effort: "low" },
+      text: { verbosity: "low" },
       instructions: `${baseInstructions}\n\n${textNegotiationModeInstructions(negotiationCase.slug)}${firstTurnInstructions}`,
       input: textNegotiationInput(turns, action === "start"),
-      max_output_tokens: 500,
+      max_output_tokens: textNegotiationMaxOutputTokens(negotiationCase.slug),
       store: false,
     });
     const reply = response.output_text.trim();
