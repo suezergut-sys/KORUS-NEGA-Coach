@@ -76,11 +76,22 @@ export function buildNegotiationReportHtml({
     .analysis-score { min-width: 105px; text-align: right; color: #1571c9; }
     .analysis-score strong { font-size: 44px; }
     .analysis-score small { font-size: 16px; }
+    .analysis-score em { display: block; font-size: 12px; font-style: normal; font-weight: 700; text-transform: uppercase; }
+    .analysis-score.score-band-red { color: #b42318; }
+    .analysis-score.score-band-yellow { color: #9a6700; }
+    .analysis-score.score-band-green { color: #067647; }
     .analysis-disclaimer { color: #617085; font-size: 13px; }
     section, .analysis-section, .analysis-list { margin: 20px 0; padding: 18px; border: 1px solid #d8e3ee; border-radius: 10px; break-inside: avoid; }
     .one-c-priority-risks { border: 2px solid #b9473f; background: #fff4f2; }
     .one-c-priority-risks > span, .one-c-priority-risks > h3 { color: #9b2f29; }
     .one-c-priority-note { color: #70423f; }
+    .one-c-score-scale header { display: flex; justify-content: space-between; gap: 18px; font-size: 12px; }
+    .score-scale-track { position: relative; display: grid; grid-template-columns: 30fr 30fr 41fr; height: 24px; margin: 12px 0 8px; border-radius: 6px; }
+    .score-scale-track i { display: grid; place-items: center; color: #17233a; font-size: 12px; font-style: normal; font-weight: 700; }
+    .score-scale-track .red { background: #f97066; border-radius: 6px 0 0 6px; }
+    .score-scale-track .yellow { background: #f5d06f; }
+    .score-scale-track .green { background: #6ce9a6; border-radius: 0 6px 6px 0; }
+    .score-scale-track b { position: absolute; top: -5px; width: 3px; height: 34px; transform: translateX(-1px); background: #17233a; }
     .duel-outcome { align-items: flex-start; background: #f5faff; }
     .outcome-symbol { color: #1571c9; font-size: 34px; }
     h3 { margin: 6px 0 10px; color: #17233a; }

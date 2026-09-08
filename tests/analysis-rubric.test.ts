@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyAntiPatternPenalty, applyServerRubric, NEGOTIATION_RUBRIC } from "../src/lib/analysis-rubric";
+import { analysisRubricForCase, applyAntiPatternPenalty, applyOneCDismissalSafetyPolicy, applyServerRubric, NEGOTIATION_RUBRIC, ONE_C_DISMISSAL_RUBRIC } from "../src/lib/analysis-rubric";
 import type { NegotiationAnalysis } from "../src/lib/analysis-types";
 
 function analysis(): NegotiationAnalysis {
@@ -56,5 +56,34 @@ describe("server-owned negotiation rubric", () => {
     expect(result.scoreBreakdown.find((item) => item.id === "control")?.score).toBe(0);
     expect(result.scoreBreakdown.find((item) => item.id === "control")?.explanation).toContain("штраф −7 из 20");
     expect(result.overallScore).toBe(42);
+  });
+
+  it("uses four independent 25-point scales for the 1C dismissal case", () => {
+    expect(analysisRubricForCase("1c-dismissal")).toEqual(ONE_C_DISMISSAL_RUBRIC);
+    const input = analysis();
+    input.scoreBreakdown = ONE_C_DISMISSAL_RUBRIC.map((item) => ({ ...item, score: 25, explanation: "E" }));
+    const result = applyServerRubric(input, ONE_C_DISMISSAL_RUBRIC);
+    expect(result.overallScore).toBe(100);
+    expect(result.scoreBreakdown.map((item) => item.id)).toEqual(["structure", "tone", "legal", "next_step"]);
+  });
+
+  it("does not let legal red flags be masked by a strong formal structure", () => {
+    const input = analysis();
+    input.scoreBreakdown = ONE_C_DISMISSAL_RUBRIC.map((item) => ({ ...item, score: 25, explanation: "E" }));
+    input.laborLawRisks = [{ referenceId: "worse-dismissal", turnQuote: "Если не подпишешь", dangerousPhrase: "Если не подпишешь соглашение, уволим хуже", risk: "Прямое давление", articles: "ст. 78" }];
+    const result = applyOneCDismissalSafetyPolicy(applyServerRubric(input, ONE_C_DISMISSAL_RUBRIC));
+    expect(result.overallScore).toBe(29);
+    expect(result.scoreBreakdown.reduce((sum, item) => sum + item.score, 0)).toBe(29);
+    expect(result.scoreBreakdown.some((item) => item.explanation.includes("политике безопасности кейса"))).toBe(true);
+  });
+
+  it("limits an unsafe management tone without reducing the independent legal scale", () => {
+    const input = analysis();
+    input.scoreBreakdown = ONE_C_DISMISSAL_RUBRIC.map((item) => ({ ...item, score: 25, explanation: "E" }));
+    input.antiPatterns = [{ methodologyAtomId: "a", name: "Обесценивание", turnQuote: "Компания не благотворительность", explanation: "Недопустимый тон" }];
+    const result = applyOneCDismissalSafetyPolicy(applyAntiPatternPenalty(applyServerRubric(input, ONE_C_DISMISSAL_RUBRIC)));
+    expect(result.overallScore).toBe(59);
+    expect(result.scoreBreakdown.find((item) => item.id === "legal")?.score).toBe(25);
+    expect(result.scoreBreakdown.find((item) => item.id === "tone")?.score).toBe(0);
   });
 });

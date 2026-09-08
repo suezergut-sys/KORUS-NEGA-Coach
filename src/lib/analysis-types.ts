@@ -41,7 +41,7 @@ export type NegotiationAnalysis = {
   };
   personalFeedback: string;
   scoreBreakdown: Array<{
-    id: "goal" | "interests" | "control" | "value" | "agreement";
+    id: "goal" | "interests" | "control" | "value" | "agreement" | "structure" | "tone" | "legal" | "next_step";
     criterion: string;
     score: number;
     maxScore: number;
@@ -250,7 +250,16 @@ export const negotiationAnalysisSchema = {
   },
 } as const;
 
-export function createNegotiationAnalysisSchema(atomIds: string[]) {
+export function createNegotiationAnalysisSchema(
+  atomIds: string[],
+  rubric: ReadonlyArray<{ id: string; maxScore: number }> = [
+    { id: "goal", maxScore: 20 },
+    { id: "interests", maxScore: 20 },
+    { id: "control", maxScore: 20 },
+    { id: "value", maxScore: 20 },
+    { id: "agreement", maxScore: 20 },
+  ],
+) {
   const schema = structuredClone(negotiationAnalysisSchema) as unknown as {
     properties: {
       techniqueReview: {
@@ -269,5 +278,16 @@ export function createNegotiationAnalysisSchema(atomIds: string[]) {
     type: "string",
     enum: atomIds.length ? atomIds : [""],
   };
+  const maxScores = [...new Set(rubric.map((item) => item.maxScore))];
+  const scoreBreakdown = (schema as unknown as { properties: { scoreBreakdown: {
+    minItems: number;
+    maxItems: number;
+    items: { properties: { id: Record<string, unknown>; score: Record<string, unknown>; maxScore: Record<string, unknown> } };
+  } } }).properties.scoreBreakdown;
+  scoreBreakdown.minItems = rubric.length;
+  scoreBreakdown.maxItems = rubric.length;
+  scoreBreakdown.items.properties.id = { type: "string", enum: rubric.map((item) => item.id) };
+  scoreBreakdown.items.properties.score = { type: "integer", minimum: 0, maximum: Math.max(...maxScores) };
+  scoreBreakdown.items.properties.maxScore = { type: "integer", enum: maxScores };
   return schema;
 }

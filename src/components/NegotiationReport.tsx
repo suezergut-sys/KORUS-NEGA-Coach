@@ -5,6 +5,7 @@ import type { DetectedAntiPattern, LaborLawRisk, NegotiationAnalysis, TurningPoi
 import { getRegisteredMethodology, type MethodologyId } from "@/lib/methodologies";
 import type { SpeechAnalytics } from "@/lib/speech-analytics";
 import type { ReportExportMeta } from "@/lib/report-html";
+import { analysisScoreBand } from "@/lib/analysis-score-band";
 
 export default function NegotiationReport({
   analysis,
@@ -29,6 +30,7 @@ export default function NegotiationReport({
 }) {
   const methodology = getRegisteredMethodology(methodologyId);
   const isOneCReport = methodologyId === "dismissal_1c";
+  const scoreBand = analysisScoreBand(analysis.overallScore);
   const confidence = Number(analysis.outcome.confidence);
   const confidenceLabel = Number.isFinite(confidence)
     ? `${Math.round(Math.min(1, Math.max(0, confidence)) * 100)}%`
@@ -37,11 +39,11 @@ export default function NegotiationReport({
     <div className="negotiation-report" data-negotiation-report>
       <header className="analysis-header">
         <div><span>ИТОГОВЫЙ ОТЧЁТ ПО ПОЕДИНКУ</span><h2>{analysis.summary}</h2></div>
-        <div className="analysis-score"><strong>{analysis.overallScore}</strong><small>/ 100</small></div>
+        <div className={`analysis-score ${isOneCReport ? `score-band-${scoreBand.id}` : ""}`}><strong>{analysis.overallScore}</strong><small>/ 100</small>{isOneCReport && <em>{scoreBand.label}</em>}</div>
       </header>
       <div className="report-download-action" data-report-export-ignore><ReportDownloadButton reportMeta={reportMeta} /></div>
       <p className="analysis-disclaimer">{analysis.disclaimer}</p>
-      <section className={`duel-outcome ${analysis.outcome.winner}`}>
+      {!isOneCReport && <section className={`duel-outcome ${analysis.outcome.winner}`}>
         <div className="outcome-symbol">{analysis.outcome.winner === "user" ? "★" : analysis.outcome.winner === "opponent" ? "◆" : "="}</div>
         <div>
           <span>РЕЗУЛЬТАТ ПОЕДИНКА · УВЕРЕННОСТЬ {confidenceLabel}</span>
@@ -49,7 +51,9 @@ export default function NegotiationReport({
           <p>{analysis.outcome.verdict}</p>
           <ul>{analysis.outcome.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>
         </div>
-      </section>
+      </section>}
+
+      {isOneCReport && <OneCScoreScale score={analysis.overallScore} />}
 
       {isOneCReport && <OneCPriorityRisks risks={analysis.risks} laborLawRisks={analysis.laborLawRisks || []} />}
 
@@ -61,7 +65,7 @@ export default function NegotiationReport({
 
       {analysis.scoreBreakdown.length > 0 && (
         <section className="score-breakdown">
-          <h3>ОЦЕНКА ПО ЕДИНОЙ РУБРИКЕ</h3>
+          <h3>{isOneCReport ? "ОЦЕНКА ПО ЧЕТЫРЁМ НЕЗАВИСИМЫМ ШКАЛАМ" : "ОЦЕНКА ПО ЕДИНОЙ РУБРИКЕ"}</h3>
           <div>{analysis.scoreBreakdown.map((item) => (
             <article key={`${item.id || item.criterion}-${item.criterion}`}>
               <header><strong>{item.criterion}</strong><span>{item.score} / {item.maxScore}</span></header>
@@ -140,6 +144,20 @@ export default function NegotiationReport({
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span>{methodology.visibility === "public" && <Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link>}</footer>
       {sessionId && methodology.visibility === "public" && <div data-report-export-ignore><ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} /></div>}
     </div>
+  );
+}
+
+export function OneCScoreScale({ score }: { score: number }) {
+  const bounded = Math.min(100, Math.max(0, Number(score) || 0));
+  return (
+    <section className="one-c-score-scale" aria-label={`Итоговый балл ${bounded} из 100`}>
+      <header><span>ИТОГОВЫЙ БАЛЛ БЕЗ ОПРЕДЕЛЕНИЯ ПОБЕДИТЕЛЯ</span><strong>{bounded} / 100</strong></header>
+      <div className="score-scale-track" aria-hidden="true">
+        <i className="red">0–29</i><i className="yellow">30–59</i><i className="green">60–100</i>
+        <b style={{ left: `${bounded}%` }} />
+      </div>
+      <p>Красная зона — критические риски; жёлтая — требуется доработка; зелёная — безопасная и результативная практика.</p>
+    </section>
   );
 }
 

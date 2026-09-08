@@ -52,5 +52,12 @@ describe("приоритет рисков в отчёте 1С", () => {
     expect(markup.indexOf("РИСКИ С ТОЧКИ ЗРЕНИЯ ТК РФ")).toBeGreaterThan(priorityIndex);
     expect(markup.indexOf("ПЕРСОНАЛЬНАЯ ОБРАТНАЯ СВЯЗЬ")).toBeGreaterThan(priorityIndex);
     expect(markup.indexOf("ЧТО БЫЛО ХОРОШО")).toBeGreaterThan(priorityIndex);
+    expect(markup).toContain("ИТОГОВЫЙ БАЛЛ БЕЗ ОПРЕДЕЛЕНИЯ ПОБЕДИТЕЛЯ");
+    expect(markup).toContain("Зелёная зона");
+    expect(markup).toContain("0–29");
+    expect(markup).toContain("30–59");
+    expect(markup).toContain("60–100");
+    expect(markup).not.toContain("РЕЗУЛЬТАТ ПОЕДИНКА");
+    expect(markup).not.toContain("Ничья — явного победителя нет");
   });
 });

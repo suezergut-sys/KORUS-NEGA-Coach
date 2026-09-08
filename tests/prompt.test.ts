@@ -79,4 +79,37 @@ describe("стили Realtime-переговоров", () => {
     expect(prompt).toContain("Меняй настроение постепенно и последовательно");
     expect(prompt).toContain("Не называй эмоцию или внутренние показатели вслух");
   });
+
+  it("согласует обращение с женским родом участницы и усиливает безопасную реакцию в кейсе 1С", () => {
+    const prompt = buildRealtimeInstructions({
+      ...baseInput,
+      caseCode: "1c-dismissal",
+      negotiationStyle: "collaborative",
+      addressForm: "informal",
+      userRole: {
+        name: "Мария Соколова",
+        position: "Руководитель практики 1С",
+        voiceGender: "female",
+        publicGoal: "Провести разговор",
+        interests: [],
+        constraints: [],
+      },
+      opponentRole: {
+        name: "Алексей Морозов",
+        position: "Консультант 1С",
+        voiceGender: "male",
+        publicGoal: "Защитить условия",
+        interests: [],
+        constraints: [],
+        hiddenMotives: [],
+        leverage: [],
+      },
+    });
+
+    expect(prompt).toContain("ГРАММАТИЧЕСКИЙ РОД УЧАСТНИКА: женский");
+    expect(prompt).toContain("«позвала», «сказала», «готова»");
+    expect(prompt).toContain("ЕЁ ЗАЯВЛЕННАЯ ЦЕЛЬ");
+    expect(prompt).toContain("не соглашайся и не вознаграждай это уступкой");
+    expect(prompt).toContain("без немедленной подписи");
+  });
 });

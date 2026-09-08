@@ -32,4 +32,17 @@ describe("карта навыков", () => {
       attempts: 2,
     }]);
   });
+
+  it("нормализует 25-балльные шкалы кейса 1С для общей карты навыков", () => {
+    expect(calculateSkillProgress([
+      { scoreBreakdown: [{ id: "legal", score: 25, maxScore: 25 }] },
+    ])).toEqual([{
+      id: "legal",
+      label: "Юридическая безопасность",
+      average: 20,
+      latest: 20,
+      delta: null,
+      attempts: 1,
+    }]);
+  });
 });
