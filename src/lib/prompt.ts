@@ -12,6 +12,7 @@ export type SessionInput = {
   userRole?: {
     name: string;
     position: string;
+    voiceGender?: "female" | "male";
     publicGoal: string;
     interests: string[];
     constraints: string[];
@@ -22,6 +23,7 @@ export type SessionInput = {
   opponentRole?: {
     name: string;
     position: string;
+    voiceGender?: "female" | "male";
     publicGoal: string;
     interests: string[];
     constraints: string[];
@@ -46,6 +48,7 @@ export type SessionInput = {
   successOutcome?: string;
   expectedNextSteps?: string[];
   methodologyNotes?: string;
+  caseCode?: string;
 };
 
 const MAX_CONTEXT_LENGTH = 8000;
@@ -84,6 +87,15 @@ export function buildRealtimeInstructions(input: SessionInput) {
     position: "Оппонент",
     publicGoal: "Защитить свою позицию.",
   };
+  const participantGender = input.userRole?.voiceGender === "female" ? "женский" : input.userRole?.voiceGender === "male" ? "мужской" : "не указан";
+  const opponentGender = input.opponentRole?.voiceGender === "female" ? "женский" : input.opponentRole?.voiceGender === "male" ? "мужской" : "не указан";
+  const participantPossessive = input.userRole?.voiceGender === "female" ? "ЕЁ" : "ЕГО";
+  const oneCDismissalSafety = input.caseCode === "1c-dismissal" ? `
+БЕЗОПАСНАЯ РЕАКЦИЯ СОТРУДНИКА В КЕЙСЕ 1С:
+- Если руководитель давит на немедленное решение, угрожает ухудшить увольнение, выплаты или рекомендации, обесценивает тебя либо снимает с себя ответственность фразой про HR, не соглашайся и не вознаграждай это уступкой.
+- Кратко назови, что именно неприемлемо, сохрани деловой тон, попроси время на обдумывание и безопасный следующий шаг без немедленной подписи.
+- Не давай юридических заключений и не выдумывай последствия. Говори только о том, как фраза звучит для тебя и какие условия ты готов обсуждать.
+` : "";
   const startContract = buildNegotiationStartContract({
     firstSpeaker,
     negotiationStyle: input.negotiationStyle,
@@ -100,8 +112,10 @@ ${RUSSIAN_LANGUAGE_CONTRACT}
 ${startContract}
 
 ТВОЯ РОЛЬ: ${opponentIdentity}.
+ГРАММАТИЧЕСКИЙ РОД ТВОЕГО ПЕРСОНАЖА: ${opponentGender}.
 ${addressInstructions}
 ${styleInstructions}
+${oneCDismissalSafety}
 ЭМОЦИОНАЛЬНАЯ ДИНАМИКА:
 - У персонажа есть меняющееся по ходу переговоров внутреннее состояние: доверие, напряжение, раздражение, стремление контролировать разговор и интерес к соглашению.
 - Реагируй на точный смысл слов, слышимую интонацию, уважение, конкретные предложения, уступки, давление, уход от ответа и перебивания.
@@ -119,10 +133,11 @@ ${styleInstructions}
 МЕТОДИЧЕСКАЯ ОСНОВА КЕЙСА: ${(input.methodologyBasis || []).map((item) => `${item.title}: ${item.application}`).join("; ") || "Не задано."}
 
 РОЛЬ УЧАСТНИКА: ${input.userRole ? `${input.userRole.name}, ${input.userRole.position}` : "Руководитель"}.
-ЕГО ЗАЯВЛЕННАЯ ЦЕЛЬ: ${input.userRole?.publicGoal || "Добиться управляемой договорённости."}
-ЕГО ИНТЕРЕСЫ: ${(input.userRole?.interests || []).join("; ") || "Не раскрыты полностью."}
-ЕГО ОГРАНИЧЕНИЯ: ${(input.userRole?.constraints || []).join("; ") || "Не указаны."}
-ЕГО ЗАДАЧА В ЭТОМ РАЗГОВОРЕ: ${input.userRole?.roleBrief || "Дополнительная задача не указана."}
+ГРАММАТИЧЕСКИЙ РОД УЧАСТНИКА: ${participantGender}. Если род указан, согласуй с ним все формы прошедшего времени, краткие прилагательные и причастия при обращении к участнику (например: «позвала», «сказала», «готова» для женщины; «позвал», «сказал», «готов» для мужчины).
+${participantPossessive} ЗАЯВЛЕННАЯ ЦЕЛЬ: ${input.userRole?.publicGoal || "Добиться управляемой договорённости."}
+${participantPossessive} ИНТЕРЕСЫ: ${(input.userRole?.interests || []).join("; ") || "Не раскрыты полностью."}
+${participantPossessive} ОГРАНИЧЕНИЯ: ${(input.userRole?.constraints || []).join("; ") || "Не указаны."}
+${participantPossessive} ЗАДАЧА В ЭТОМ РАЗГОВОРЕ: ${input.userRole?.roleBrief || "Дополнительная задача не указана."}
 ПРИМЕРЫ КОРРЕКТНЫХ ФОРМУЛИРОВОК УЧАСТНИКА: ${(input.userRole?.recommendedPhrases || []).join("; ") || "Не заданы."}
 ЗАПРЕЩЁННЫЕ ФОРМУЛИРОВКИ УЧАСТНИКА: ${(input.userRole?.forbiddenPhrases || []).join("; ") || "Не заданы."}
 

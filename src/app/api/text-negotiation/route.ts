@@ -75,6 +75,7 @@ export async function POST(request: Request) {
     }
 
     const baseInstructions = buildRealtimeInstructions({
+      caseCode: negotiationCase.slug,
       title: negotiationCase.title,
       summary: negotiationCase.summary,
       negotiationStyle,

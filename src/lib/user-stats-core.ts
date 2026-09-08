@@ -10,6 +10,10 @@ const SKILL_LABELS = new Map([
   ["control", "Управление позицией и ходом разговора"],
   ["value", "Аргументация, обмены и создание ценности"],
   ["agreement", "Конкретность и качество договорённостей"],
+  ["structure", "Переговорная структура"],
+  ["tone", "Управленческий тон"],
+  ["legal", "Юридическая безопасность"],
+  ["next_step", "Качество следующего шага"],
 ]);
 
 export type CalculatedSkillProgress = {
@@ -22,7 +26,7 @@ export type CalculatedSkillProgress = {
 };
 
 export function calculateSkillProgress(
-  evaluationsNewestFirst: Array<{ scoreBreakdown?: Array<{ id?: unknown; score?: unknown }> } | null>,
+  evaluationsNewestFirst: Array<{ scoreBreakdown?: Array<{ id?: unknown; score?: unknown; maxScore?: unknown }> } | null>,
 ): CalculatedSkillProgress[] {
   const values = new Map<string, number[]>();
   for (const evaluation of evaluationsNewestFirst) {
@@ -30,8 +34,10 @@ export function calculateSkillProgress(
       if (typeof item.id !== "string" || !SKILL_LABELS.has(item.id)) continue;
       const score = Number(item.score);
       if (!Number.isFinite(score)) continue;
+      const maxScore = Number(item.maxScore);
+      const normalizedScore = Number.isFinite(maxScore) && maxScore > 0 ? (score / maxScore) * 20 : score;
       const current = values.get(item.id) || [];
-      current.push(Math.min(20, Math.max(0, Math.round(score))));
+      current.push(Math.min(20, Math.max(0, Math.round(normalizedScore))));
       values.set(item.id, current);
     }
   }

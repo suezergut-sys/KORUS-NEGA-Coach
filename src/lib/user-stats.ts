@@ -50,7 +50,7 @@ export type DuelHistoryItem = {
   endedAt: string;
   caseName: string;
   participantRole: string;
-  result: "Победа" | "Поражение" | "Ничья" | "Не определён";
+  result: "Победа" | "Поражение" | "Ничья" | "Не определён" | null;
   score: number | null;
   ranked: boolean;
   status: string;
@@ -174,7 +174,8 @@ export async function getUserDashboard(userId: string) {
   const evaluationBySession = evaluationMap(evaluationRows);
   const orderedEvaluations = sessionRows.map((session) => evaluationRows.find((item) => item.session_id === session.id)).filter((item): item is EvaluationRow => Boolean(item));
   const rankedSessions = sessionRows.filter((item) => item.is_ranked && item.status === "analyzed");
-  const wins = rankedSessions.filter((item) => evaluationBySession.get(item.id)?.winner === "user").length;
+  const winnerEligibleSessions = rankedSessions.filter((item) => item.case_code !== "1c-dismissal");
+  const wins = winnerEligibleSessions.filter((item) => evaluationBySession.get(item.id)?.winner === "user").length;
   const casesById = new Map(cases.map((item) => [item.id, item]));
   const caseCounts = new Map<string, { name: string; count: number }>();
   for (const session of rankedSessions) {
@@ -189,7 +190,7 @@ export async function getUserDashboard(userId: string) {
       endedAt: item.ended_at,
       caseName: caseName(item, casesById),
       participantRole: participantRole(item, casesById),
-      result: resultLabel(evaluation?.winner || ""),
+      result: item.case_code === "1c-dismissal" ? null : resultLabel(evaluation?.winner || ""),
       score: evaluation?.score ?? null,
       ranked: item.is_ranked,
       status: item.status,
@@ -200,7 +201,7 @@ export async function getUserDashboard(userId: string) {
     loginCount: loginCount || 0,
     played: rankedSessions.length,
     wins,
-    winRate: rankedSessions.length ? Math.round((wins / rankedSessions.length) * 100) : 0,
+    winRate: winnerEligibleSessions.length ? Math.round((wins / winnerEligibleSessions.length) * 100) : 0,
     averageScore: averageLatestScores(rankedSessions.map((item) => evaluationBySession.get(item.id)?.score ?? null)),
     lastDuel: sessionRows[0]?.ended_at || null,
     topCases: [...caseCounts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ru")).slice(0, 3),
