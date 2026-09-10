@@ -89,7 +89,7 @@ describe("about product page", () => {
 
   it("groups versions by date without changing their order", () => {
     const groups = groupProductHistory();
-    expect(groups[0].date).toBe("2026-09-08");
+    expect(groups[0].date).toBe("2026-09-10");
     expect(groups.at(-1)?.date).toBe("2026-07-11");
     expect(groups.flatMap((group) => group.items)).toEqual(PRODUCT_HISTORY);
   });
