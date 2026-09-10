@@ -45,3 +45,33 @@ describe("detectReachedAgreement", () => {
     expect(detectReachedAgreement(dialogue)).toBeNull();
   });
 });
+
+
+describe("conversation closing regression", () => {
+  it("offers completion after a deferred discussion and mutual farewells", () => {
+    expect(detectReachedAgreement(turns(
+      ["Вы", "Давай вернемся к этому завтра."],
+      ["Оппонент", "[более спокойно] Завтра я вернусь к разговору, но сейчас мне важно спокойно всё обдумать."],
+      ["Вы", "Да, хорошо, Леш, спасибо. Хорошего тебе дня."],
+      ["Оппонент", "[более спокойно] Спасибо, Мария. До завтра."],
+    ))).toEqual({ key: "turn-3:turn-4", participantTurnId: "turn-3", opponentTurnId: "turn-4" });
+  });
+
+  it("recognizes emotion-prefixed acceptance", () => {
+    expect(detectReachedAgreement(turns(["Вы", "Предлагаю два оклада."], ["Оппонент", "[спокойно] Согласен."])) ).not.toBeNull();
+  });
+
+  it.each([
+    ["Хорошего дня.", "Мне нужно подумать."],
+    ["Хорошего дня.", "До завтра, но сначала обсудим выплаты."],
+    ["Ты сказал «до завтра»?", "До завтра."],
+    ["Если договоримся, скажу до свидания.", "До свидания."],
+    ["Спасибо.", "Спасибо, Мария."],
+  ])("does not close an unfinished discussion: %s / %s", (participant, opponent) => {
+    expect(detectReachedAgreement(turns(["Вы", participant], ["Оппонент", opponent]))).toBeNull();
+  });
+
+  it("does not reuse an old farewell after the discussion resumes", () => {
+    expect(detectReachedAgreement(turns(["Вы", "Хорошего дня."], ["Оппонент", "До завтра."], ["Вы", "Ещё вопрос про выплаты."]))).toBeNull();
+  });
+});

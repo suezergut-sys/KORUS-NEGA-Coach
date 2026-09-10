@@ -1715,7 +1715,7 @@ export default function VoiceArena({
     const completionMessage = reason === "timer"
       ? TIME_EXPIRED_MESSAGE
       : reason === "agreement"
-        ? "Переговоры завершены после достижения договорённости."
+        ? "Переговоры завершены по подтверждению участника."
         : "Переговоры завершены пользователем.";
     const completedLines = [
       ...linesRef.current,
@@ -2114,8 +2114,8 @@ export default function VoiceArena({
         {agreementPromptKey && (
           <div className="agreement-prompt-overlay" role="presentation">
             <section className="agreement-prompt-dialog" role="dialog" aria-modal="true" aria-labelledby="agreement-prompt-title" aria-describedby="agreement-prompt-description">
-              <span>ДОГОВОРЁННОСТЬ</span>
-              <h2 id="agreement-prompt-title">Похоже, договорённость достигнута</h2>
+              <span>ЗАВЕРШЕНИЕ РАЗГОВОРА</span>
+              <h2 id="agreement-prompt-title">Похоже, разговор завершён</h2>
               <p id="agreement-prompt-description">Завершить переговоры и запустить анализ?</p>
               <footer>
                 <button type="button" className="modal-secondary" onClick={continueAfterAgreementPrompt}>НЕТ, ПРОДОЛЖИТЬ</button>
