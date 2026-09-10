@@ -116,3 +116,11 @@ describe("стили Realtime-переговоров", () => {
     expect(prompt).toContain("оставляй остальные темы для следующих ходов");
   });
 });
+
+
+it("anchors female role grammar independently of the speaker voice", () => {
+  const prompt = buildRealtimeInstructions({ ...baseInput, negotiationStyle: "collaborative", addressForm: "informal", userRole: { name: "Мария Соколова", position: "Руководитель", voiceGender: "female", publicGoal: "Обсудить условия", interests: [], constraints: [] } });
+  expect(prompt).toContain("участник — Мария Соколова, грамматический род — женский");
+  expect(prompt).toContain("Род роли важнее тембра реального голоса");
+  expect(prompt).toContain("«ты позвала»");
+});

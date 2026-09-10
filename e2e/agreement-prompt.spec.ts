@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-async function openNegotiationWithAgreement(page: Page) {
+async function openNegotiationWithAgreement(page: Page, farewell = false) {
   let turn = 0;
   await page.route("**/api/cases", (route) => route.fulfill({ json: { cases: [] } }));
   await page.route("**/api/account/privacy", (route) => route.fulfill({ json: { consent: true } }));
@@ -22,7 +22,7 @@ async function openNegotiationWithAgreement(page: Page) {
     const replies = [
       "Назовите ваши приоритеты.",
       "Срок для меня важен.",
-      "Согласен, так и будем действовать.",
+      farewell ? "[более спокойно] Спасибо, Мария. До завтра." : "Согласен, так и будем действовать.",
     ];
     await route.fulfill({ json: { reply: replies[turn - 1] } });
   });
@@ -34,20 +34,20 @@ async function openNegotiationWithAgreement(page: Page) {
   for (const text of [
     "Мне важны сроки и качество.",
     "Готов обсудить конкретную дату.",
-    "Предлагаю зафиксировать срок 15 сентября.",
+    farewell ? "Да, хорошо, Леш, спасибо. Хорошего тебе дня." : "Предлагаю зафиксировать срок 15 сентября.",
   ]) {
     await page.getByLabel("Ваша реплика").fill(text);
     await page.getByRole("button", { name: "Отправить" }).click();
     await expect(page.getByText("Оппонент печатает ответ…")).toBeHidden();
   }
 
-  await expect(page.getByRole("dialog", { name: "Похоже, договорённость достигнута" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Похоже, разговор завершён" })).toBeVisible();
 }
 
 test("при двусторонней договорённости можно продолжить переговоры", async ({ page }) => {
   await openNegotiationWithAgreement(page);
   await page.getByRole("button", { name: "НЕТ, ПРОДОЛЖИТЬ" }).click();
-  await expect(page.getByRole("dialog", { name: "Похоже, договорённость достигнута" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Похоже, разговор завершён" })).toBeHidden();
   await expect(page.getByLabel("Ваша реплика")).toBeEnabled();
 });
 
@@ -59,5 +59,11 @@ test("подтверждение договорённости завершает
   const analysisRequest = page.waitForRequest((request) => request.url().endsWith("/api/analysis") && request.method() === "POST");
   await page.getByRole("button", { name: "ДА, ЗАВЕРШИТЬ" }).click();
   await analysisRequest;
-  await expect(page.getByText("Переговоры завершены после достижения договорённости.")).toBeVisible();
+  await expect(page.getByText("Переговоры завершены по подтверждению участника.")).toBeVisible();
+});
+
+test("взаимное прощание предлагает завершить беседу", async ({ page }) => {
+  await openNegotiationWithAgreement(page, true);
+  await page.getByRole("button", { name: "НЕТ, ПРОДОЛЖИТЬ" }).click();
+  await expect(page.getByLabel("Ваша реплика")).toBeEnabled();
 });

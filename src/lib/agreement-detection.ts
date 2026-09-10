@@ -31,11 +31,20 @@ const PROPOSAL_PATTERNS = [
 
 function normalize(text: string) {
   return text
+    .replace(/^\s*\[[^\]\n]{1,80}\]\s*/u, "")
     .toLocaleLowerCase("ru-RU")
     .replace(/ё/g, "е")
     .replace(/[^a-zа-я0-9\s]/giu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// A mutual farewell closes this conversation, even if the substantive decision
+// is deferred. Do not treat a question, quote, or an unfinished discussion as goodbye.
+function isFarewell(text: string) {
+  const normalized = normalize(text);
+  if (/[?«»"\n]/u.test(text) || /(?:^| )(?:не|но|если|скажу|сказать|сказал|сказала|подожди|подождите|обсудим|обсудить)(?: |$)/u.test(normalized)) return false;
+  return /(?:^| )(?:до завтра|до свидания|до встречи|всего доброго|всего хорошего|хорошего (?:тебе |вам )?(?:дня|вечера)|прощай(?:те)?)(?: |$)/u.test(normalized);
 }
 
 function isExplicitAcceptance(text: string) {
@@ -58,6 +67,16 @@ export function detectReachedAgreement(turns: readonly AgreementTurn[]): Reached
     .filter((turn) => turn.author === "Вы" || turn.author === "Оппонент")
     .filter((turn) => turn.text.trim())
     .slice(-8);
+
+  const last = recent.at(-1);
+  const previous = recent.at(-2);
+  if (last && previous && last.author !== previous.author && isFarewell(last.text) && isFarewell(previous.text)) {
+    return {
+      key: `${previous.id}:${last.id}`,
+      participantTurnId: last.author === "Вы" ? last.id : previous.id,
+      opponentTurnId: last.author === "Оппонент" ? last.id : previous.id,
+    };
+  }
 
   for (let laterIndex = recent.length - 1; laterIndex > 0; laterIndex -= 1) {
     const later = recent[laterIndex];
