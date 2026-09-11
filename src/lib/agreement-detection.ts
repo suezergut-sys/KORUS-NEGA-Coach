@@ -47,6 +47,11 @@ function isFarewell(text: string) {
   return /(?:^| )(?:до завтра|до свидания|до встречи|всего доброго|всего хорошего|хорошего (?:тебе |вам )?(?:дня|вечера)|прощай(?:те)?)(?: |$)/u.test(normalized);
 }
 
+function isReciprocalFarewell(text: string) {
+  if (/[?«»"]/u.test(text)) return false;
+  return /^(?:спасибо )?(?:(?:и )?(?:тебе|вам) тоже|и (?:тебе|вам)|взаимно)(?: спасибо)?$/u.test(normalize(text));
+}
+
 function isExplicitAcceptance(text: string) {
   if (/\?\s*$/u.test(text.trim())) return false;
   const normalized = normalize(text);
@@ -70,7 +75,8 @@ export function detectReachedAgreement(turns: readonly AgreementTurn[]): Reached
 
   const last = recent.at(-1);
   const previous = recent.at(-2);
-  if (last && previous && last.author !== previous.author && isFarewell(last.text) && isFarewell(previous.text)) {
+  if (last && previous && last.author !== previous.author && isFarewell(previous.text)
+    && (isFarewell(last.text) || isReciprocalFarewell(last.text))) {
     return {
       key: `${previous.id}:${last.id}`,
       participantTurnId: last.author === "Вы" ? last.id : previous.id,

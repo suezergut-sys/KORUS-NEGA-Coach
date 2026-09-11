@@ -22,7 +22,7 @@ async function openNegotiationWithAgreement(page: Page, farewell = false) {
     const replies = [
       "Назовите ваши приоритеты.",
       "Срок для меня важен.",
-      farewell ? "[более спокойно] Спасибо, Мария. До завтра." : "Согласен, так и будем действовать.",
+      farewell ? "[спокойно] Спасибо, тебе тоже." : "Согласен, так и будем действовать.",
     ];
     await route.fulfill({ json: { reply: replies[turn - 1] } });
   });
