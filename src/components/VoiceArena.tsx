@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { LiveConversation, waitForIceGathering, type LiveComparison } from "@/lib/live-conversation";
+import { percentile } from "@/lib/realtime-metrics";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import AppNavRail from "@/components/AppNavRail";
@@ -205,6 +207,8 @@ export default function VoiceArena({
     return () => window.clearTimeout(timer);
   }, []);
 
+  const liveConversationRef = useRef<LiveConversation | null>(null);
+  const [comparison, setComparison] = useState<{ samples: number[]; backend: number[]; delegations: number }>({ samples: [], backend: [], delegations: 0 });
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -406,6 +410,7 @@ export default function VoiceArena({
 
   const applyMediaPaused = useCallback((paused: boolean) => {
     pausedRef.current = paused;
+    liveConversationRef.current?.setPaused(paused);
     if (paused) {
       pushToTalkActiveRef.current = false;
       setPushToTalkActive(false);
@@ -424,6 +429,7 @@ export default function VoiceArena({
   }, [syncMicrophoneTrack]);
 
   const restoreRealtimeAfterPause = useCallback(() => {
+    if (inputModeRef.current === "duplex_live") return;
     const interrupted = pausedOpponentRef.current;
     continuationRequestedRef.current = Boolean(interrupted);
     continuationResponseIdRef.current = "";
@@ -762,6 +768,7 @@ export default function VoiceArena({
       lastOpponentSpeechEndedAtRef.current = 0;
       if (userSpeechStoppedAtRef.current > 0) {
         replyLatenciesMsRef.current.push(Math.max(0, at - userSpeechStoppedAtRef.current));
+        setComparison({ samples: [...replyLatenciesMsRef.current], backend: [], delegations: 0 });
         userSpeechStoppedAtRef.current = 0;
       }
       opponentSpeakingRef.current = true;
@@ -790,6 +797,8 @@ export default function VoiceArena({
   }, []);
 
   const closeSession = useCallback((resetLifecycle = true) => {
+    liveConversationRef.current?.dispose();
+    liveConversationRef.current = null;
     if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
     if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
     clearIncompleteTurnTimer();
@@ -1277,7 +1286,7 @@ export default function VoiceArena({
   }, [appendDelta, applyOpponentPlaybackEvent, clearIncompleteTurnTimer, clearInterruptionConfirmationTimer, linesRef, negotiationStyle, replaceLine, reportRealtimeDiagnostic, requestOpponentResponse, scheduleResponseRecovery, selectedCase.addressForm, setLines, voiceEvalMode, waitForUserTurnContinuation]);
 
   useEffect(() => {
-    if (!isLive || isPaused || isEnding) return;
+    if (!isLive || isPaused || isEnding || inputModeRef.current === "duplex_live") return;
     const timer = window.setInterval(() => {
       if (!shouldMonitorRealtimeResponseStall({
         responseInProgress: responseInProgressRef.current,
@@ -1302,6 +1311,12 @@ export default function VoiceArena({
       return;
     }
     if (pauseUsed) return;
+
+    if (inputModeRef.current === "duplex_live") {
+      if (!pauseTimer()) return;
+      lifecycleDispatch({ type: "PAUSE" });
+      return;
+    }
 
     if (inputModeRef.current === "text_only") {
       discardTextRecordingRef.current = true;
@@ -1455,12 +1470,14 @@ export default function VoiceArena({
     opponentSpeakingDurationsMsRef.current = [];
     userResponseTimesMsRef.current = [];
     const textOnly = inputModeRef.current === "text_only";
+    const liveMode = inputModeRef.current === "duplex_live";
+    setComparison({ samples: [], backend: [], delegations: 0 });
     const connectingLines: Line[] = [{ id: "connecting", author: "Система", text: textOnly ? "Запускаем текстовый поединок…" : "Устанавливаем защищённую голосовую связь…", time: clockTime() }];
     linesRef.current = connectingLines;
     setLines(connectingLines);
 
     try {
-      const realtimeEndpoint = voiceEvalMode ? "/e2e/voice-eval/realtime" : textOnly ? "/api/text-negotiation" : "/api/realtime/session";
+      const realtimeEndpoint = voiceEvalMode ? "/e2e/voice-eval/realtime" : textOnly ? "/api/text-negotiation" : liveMode ? "/api/live/session" : "/api/realtime/session";
       if (!voiceEvalMode) {
         const privacyResponse = await fetchWithTimeout("/api/account/privacy", { cache: "no-store" }, 10_000);
         const privacy = await privacyResponse.json().catch(() => ({})) as { consent?: boolean; error?: string };
@@ -1536,7 +1553,7 @@ export default function VoiceArena({
         if (pc.connectionState === "connected") {
           if (disconnectedTimerRef.current) window.clearTimeout(disconnectedTimerRef.current);
           disconnectedTimerRef.current = null;
-          if (channelRef.current?.readyState === "open") {
+          if (!liveMode && channelRef.current?.readyState === "open") {
             lifecycleDispatch({ type: "CONNECTED" });
             lifecycleDispatch({ type: "CONNECTION_DEGRADED", degraded: false });
           }
@@ -1561,6 +1578,7 @@ export default function VoiceArena({
       audioRef.current = audio;
       pc.ontrack = (event) => {
         audio.srcObject = event.streams[0];
+        if (liveMode) liveConversationRef.current?.monitor(event.streams[0], "opponent");
         void audio.play().catch(() => undefined);
         const track = event.track;
         track.addEventListener("mute", () => {
@@ -1620,8 +1638,8 @@ export default function VoiceArena({
 
       const channel = pc.createDataChannel("oai-events");
       channelRef.current = channel;
-      channel.addEventListener("message", handleEvent);
-      channel.addEventListener("open", () => {
+      if (!liveMode) channel.addEventListener("message", handleEvent);
+      const onSessionReady = () => {
         setupLatencyMsRef.current = Math.max(0, Date.now() - setupStartedAtRef.current);
         startTimer();
         syncMicrophoneTrack();
@@ -1639,13 +1657,45 @@ export default function VoiceArena({
         const readyLines: Line[] = [{ id: "ready", author: "Система", text: realtimeReadyMessage(firstSpeaker, opponent.name, selectedCase.slug), time: clockTime() }];
         linesRef.current = readyLines;
         setLines(readyLines);
-        if (firstSpeaker === "opponent") {
+        if (firstSpeaker === "opponent" && liveMode) {
+          liveConversationRef.current?.greet(buildFirstOpponentTurnInstructions({ participantRole, opponentRole: aiRole }));
+        } else if (firstSpeaker === "opponent") {
           requestRealtimeResponse(
             channel,
             `${buildFirstOpponentTurnInstructions({ participantRole, opponentRole: aiRole })}\n\n${buildOpponentEmotionInstructions(opponentEmotionRef.current, [], selectedCase.addressForm)}`,
           );
         }
-      });
+      };
+      if (liveMode) {
+        const live = new LiveConversation(channel, {
+          onCaption: (caption) => {
+            const existing = linesRef.current.findIndex((line) => line.id === caption.id);
+            const next = [...linesRef.current];
+            if (existing === -1) next.push({ id: caption.id, author: caption.author, text: caption.text, time: clockTime() });
+            else next[existing] = { ...next[existing], text: caption.text };
+            linesRef.current = next;
+            setLines(next);
+          },
+          onSpeaking: (speaker, speaking) => {
+            if (speaker === "user") { userSpeakingRef.current = speaking; setUserSpeaking(speaking); }
+            else { opponentSpeakingRef.current = speaking; setOpponentSpeaking(speaking); }
+          },
+          onMetrics: (metrics: LiveComparison) => {
+            replyLatenciesMsRef.current = [...metrics.replyLatenciesMs];
+            interruptionCountRef.current = metrics.interruptedCount;
+            setComparison({ samples: [...metrics.replyLatenciesMs], backend: [...metrics.backendDurationsMs], delegations: metrics.delegationCount });
+          },
+          onError: (message) => { connectionErrorCountRef.current += 1; setRealtimeNotice(message); },
+          onEvent: (event) => {
+            const nested = event.event as { type?: string; response?: { error?: { message?: string } } } | undefined;
+            const apiError = event.error as { code?: string; message?: string } | undefined;
+            recordVoiceEval(voiceEvalMode, "realtime", String(event.type), { delta: event.delta, nestedType: nested?.type, errorCode: apiError?.code, errorMessage: apiError?.message || nested?.response?.error?.message });
+          },
+        });
+        liveConversationRef.current = live;
+        live.monitor(media, "user");
+        void live.ready.then(onSessionReady).catch(() => undefined);
+      } else channel.addEventListener("open", onSessionReady);
       channel.addEventListener("close", () => {
         if (channelRef.current === channel && !endingRef.current) {
           connectionErrorCountRef.current += 1;
@@ -1664,10 +1714,12 @@ export default function VoiceArena({
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      if (liveMode) await waitForIceGathering(pc);
 
       const params = new URLSearchParams({
         negotiationStyle,
         firstSpeaker,
+        engine: liveMode ? "live" : "realtime",
         caseId: selectedCase.id,
         caseCode: selectedCase.slug,
         participantRoleIndex: String(selectedRoleIndex),
@@ -1678,7 +1730,7 @@ export default function VoiceArena({
       const response = await fetchWithTimeout(`${realtimeEndpoint}?${params.toString()}`, {
         method: "POST",
         headers: { "Content-Type": "application/sdp" },
-        body: offer.sdp,
+        body: liveMode ? pc.localDescription?.sdp : offer.sdp,
       });
 
       if (!response.ok) {
@@ -1688,6 +1740,7 @@ export default function VoiceArena({
 
       await pc.setRemoteDescription({ type: "answer", sdp: await response.text() });
       await waitForDataChannelOpen(channel);
+      if (liveMode) await liveConversationRef.current?.ready;
     } catch (caught) {
       closeSession();
       lifecycleDispatch({ type: "RESET" });
@@ -1717,6 +1770,11 @@ export default function VoiceArena({
       : reason === "agreement"
         ? "Переговоры завершены по подтверждению участника."
         : "Переговоры завершены пользователем.";
+    const liveMetrics = liveConversationRef.current?.metrics;
+    if (liveConversationRef.current) {
+      streamRef.current?.getAudioTracks().forEach((track) => { track.enabled = false; });
+      await liveConversationRef.current.finish();
+    }
     const completedLines = [
       ...linesRef.current,
       { id: crypto.randomUUID(), author: "Система" as const, text: completionMessage, time: clockTime() },
@@ -1739,6 +1797,7 @@ export default function VoiceArena({
         interruptionCount: interruptionCountRef.current,
         connectionErrorCount: connectionErrorCountRef.current,
         inputMode: inputModeRef.current,
+        liveComparison: liveMetrics,
         opponentTimingSource: opponentPlaybackTimingRef.current.authoritativeEventCount > 0
           ? "output_audio_buffer"
           : "unavailable",
@@ -2018,6 +2077,14 @@ export default function VoiceArena({
           </div>
         </header>
 
+        {(inputMode === "duplex_live" || inputMode === "duplex") && (
+          <div className="voice-comparison" role="status">
+            <strong>{inputMode === "duplex_live" ? "Дуплекс Live · эксперимент" : "Дуплекс"}</strong>
+            <span>До начала голоса: {comparison.samples.length ? `обычно ${(percentile(comparison.samples, 50) / 1000).toFixed(1)} с · p95 ${(percentile(comparison.samples, 95) / 1000).toFixed(1)} с · ответов ${comparison.samples.length}` : "собираем измерения"}</span>
+            {inputMode === "duplex_live" && <span>Обдумываний: {comparison.delegations}{comparison.backend.length ? ` · обычно ${(percentile(comparison.backend, 50) / 1000).toFixed(1)} с` : ""}</span>}
+            <small>{inputMode === "duplex_live" ? "Оценка по звуку в браузере; короткая реакция тоже считается началом ответа. Обдумывание измеряется отдельно. Речь во время паузы исключается из стенограммы." : "Измерение по событиям воспроизведения. Начало голоса не равно началу содержательного ответа."}</small>
+          </div>
+        )}
         <div className={inputMode === "text_only" ? "dialogue-surface text-only" : "dialogue-surface"}>
           {lines.length === 0 ? (
             <div className="empty-dialogue">

@@ -4,7 +4,7 @@ test("текстовый режим выбран первым и оставля�
   await page.goto("/e2e/text-mode");
 
   const modeButtons = page.getByRole("group", { name: "Голосовой режим" }).getByRole("button");
-  await expect(modeButtons).toHaveText(["Только текст", "Обычный", "Дуплекс"]);
+  await expect(modeButtons).toHaveText(["Только текст", "Обычный", "Дуплекс", "Дуплекс Live"]);
   await expect(page.getByRole("button", { name: "Только текст" })).toHaveAttribute("aria-pressed", "true");
 
   const dialogueHeight = await page.locator(".dialogue-surface.text-only").evaluate((element) => element.getBoundingClientRect().height);

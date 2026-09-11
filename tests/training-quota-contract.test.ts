@@ -20,7 +20,7 @@ describe("training quota contracts", () => {
 
     const route = readFileSync("src/app/api/realtime/session/route.ts", "utf8");
     expect(route).toContain('rpc("claim_training_realtime"');
-    expect(route.indexOf('rpc("claim_training_realtime"')).toBeLessThan(route.indexOf('fetch("https://api.openai.com/v1/realtime/calls"'));
+    expect(route.indexOf('rpc("claim_training_realtime"')).toBeLessThan(route.indexOf('const openaiResponse = await fetch('));
   });
 
   it("shows quota status in the requested user surfaces", () => {
