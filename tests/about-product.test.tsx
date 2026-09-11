@@ -23,7 +23,7 @@ describe("about product page", () => {
     expect(markup).not.toContain("НАЗНАЧЕНИЕ ПЛАТФОРМЫ");
     expect(markup).toContain("Возможности по разделам");
     expect(markup).toContain("Тренировки с AI-оппонентом");
-    expect(markup).toContain("Три режима общения расположены как «Только текст», «Обычный» и «Дуплекс»");
+    expect(markup).toContain("Четыре режима общения: «Только текст», «Обычный», «Дуплекс» и «Дуплекс Live»");
     expect(markup).toContain("Общие и кейсовые методологии");
     expect(markup).toContain("Релиз под давлением");
     expect(markup).toContain("постепенно меняет доверие, напряжение и эмоциональную окраску голоса");

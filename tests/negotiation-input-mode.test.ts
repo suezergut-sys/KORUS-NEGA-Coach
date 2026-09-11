@@ -15,14 +15,18 @@ describe("режим микрофона переговоров", () => {
       "text_only",
       "push_to_talk",
       "duplex",
+      "duplex_live",
     ]);
     expect(NEGOTIATION_INPUT_MODE_OPTIONS.map((option) => option.label)).toEqual([
       "Только текст",
       "Обычный",
       "Дуплекс",
+      "Дуплекс Live",
     ]);
   });
   it("держит микрофон включённым в дуплексе, кроме паузы", () => {
+    expect(shouldEnableMicrophone("duplex_live", true, false)).toBe(false);
+    expect(shouldEnableMicrophone("duplex_live", false, false)).toBe(true);
     expect(shouldEnableMicrophone("duplex", false, false)).toBe(true);
     expect(shouldEnableMicrophone("duplex", true, true)).toBe(false);
     expect(shouldEnableMicrophone("text_only", false, true)).toBe(false);

@@ -14,5 +14,5 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (process.env.E2E_TEST_MODE !== "1") return unavailable();
-  return createRealtimeSession(request, { skipTrainingSessionClaim: true });
+  return createRealtimeSession(request, { skipTrainingSessionClaim: true, engine: new URL(request.url).searchParams.get("engine") === "live" ? "live" : undefined });
 }

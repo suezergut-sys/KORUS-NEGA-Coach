@@ -1,4 +1,4 @@
-export type NegotiationInputMode = "duplex" | "push_to_talk" | "text_only";
+export type NegotiationInputMode = "duplex" | "duplex_live" | "push_to_talk" | "text_only";
 
 export const DEFAULT_NEGOTIATION_INPUT_MODE: NegotiationInputMode = "text_only";
 
@@ -25,6 +25,12 @@ export const NEGOTIATION_INPUT_MODE_OPTIONS = [
     infoLabel: "Описание режима Дуплекс",
     description: "Микрофон работает постоянно: можно говорить одновременно с оппонентом и перебивать его.",
   },
+  {
+    mode: "duplex_live",
+    label: "Дуплекс Live",
+    infoLabel: "Описание режима Дуплекс Live",
+    description: "Экспериментальный живой диалог: оппонент слушает одновременно с речью, а сложные решения обдумывает отдельно. Сравните с режимом Дуплекс.",
+  },
 ] as const satisfies ReadonlyArray<{
   mode: NegotiationInputMode;
   label: string;
@@ -34,5 +40,5 @@ export const NEGOTIATION_INPUT_MODE_OPTIONS = [
 
 export function shouldEnableMicrophone(mode: NegotiationInputMode, paused: boolean, pushToTalkActive: boolean) {
   if (paused) return false;
-  return mode === "duplex" || (mode === "push_to_talk" && pushToTalkActive);
+  return mode === "duplex" || mode === "duplex_live" || (mode === "push_to_talk" && pushToTalkActive);
 }

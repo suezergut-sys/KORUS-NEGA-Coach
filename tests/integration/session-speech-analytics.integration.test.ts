@@ -86,4 +86,18 @@ describe("session speech analytics API integration", () => {
       }),
     }));
   });
+  it("keeps Live mode and bounded backend metrics separate from Realtime speech analytics", async () => {
+    const { PATCH } = await import("../../src/app/api/sessions/[id]/route");
+    const id = "22222222-2222-4222-8222-222222222222";
+    const response = await PATCH(new Request(`http://localhost/api/sessions/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ durationSeconds: 30, turns: [{ author: "Вы", text: "Обсудим условия", time: "10:00" }], metrics: { inputMode: "duplex_live", replyLatenciesMs: [500, 1500], liveComparison: { backendDurationsMs: [800, 1200], delegationCount: 2 } } }),
+    }), { params: Promise.resolve({ id }) });
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith("finalize_training_session", expect.objectContaining({
+      p_reply_latency_p50_ms: 500,
+      p_metric_details: expect.objectContaining({ inputMode: "duplex_live", speechAnalytics: null, liveComparison: expect.objectContaining({ voiceModel: "gpt-live-1", backendP50Ms: 800, delegationCount: 2 }) }),
+    }));
+  });
+
 });

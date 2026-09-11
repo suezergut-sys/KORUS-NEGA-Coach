@@ -1,5 +1,6 @@
 import { buildRealtimeInstructions } from "@/lib/prompt";
 import { resolvePublishedCase, resolvePublishedCaseForAdmin, selectCaseRoles } from "@/lib/case-resolver";
+import { buildLiveSessionConfig } from "@/lib/live-session";
 import { buildRealtimeSessionConfig } from "@/lib/realtime-session";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
@@ -19,7 +20,7 @@ export async function GET() {
   );
 }
 
-export async function createRealtimeSession(request: Request, options: { adminCaseAccess?: boolean; skipTrainingSessionClaim?: boolean } = {}) {
+export async function createRealtimeSession(request: Request, options: { adminCaseAccess?: boolean; skipTrainingSessionClaim?: boolean; engine?: "live" } = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -116,7 +117,11 @@ export async function createRealtimeSession(request: Request, options: { adminCa
     }
   }
 
-  const sessionConfig = buildRealtimeSessionConfig({
+  const live = options.engine === "live";
+  const sessionConfig = live ? buildLiveSessionConfig({
+    instructions, negotiationCase, participantRole: userRole, opponentRole,
+    negotiationStyle, firstSpeaker, voice, backendModel: process.env.OPENAI_LIVE_BACKEND_MODEL,
+  }) : buildRealtimeSessionConfig({
     instructions,
     negotiationStyle,
     voice,
@@ -127,10 +132,11 @@ export async function createRealtimeSession(request: Request, options: { adminCa
   form.set("session", JSON.stringify(sessionConfig));
 
   try {
-    const openaiResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
+    const openaiResponse = await fetch(live ? "https://api.openai.com/v1/live/sessions" : "https://api.openai.com/v1/realtime/calls", {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form,
+      headers: { Authorization: `Bearer ${apiKey}`, ...(live ? { "Content-Type": "application/json" } : {}) },
+      body: live ? JSON.stringify({ session: sessionConfig, transport: { type: "webrtc", sdp } }) : form,
+      signal: AbortSignal.timeout(25_000),
     });
 
     const responseBody = await openaiResponse.text();
@@ -146,7 +152,9 @@ export async function createRealtimeSession(request: Request, options: { adminCa
       return Response.json({ error: message }, { status: openaiResponse.status });
     }
 
-    return new Response(responseBody, {
+    const answer = live ? (JSON.parse(responseBody) as { transport?: { sdp?: string } }).transport?.sdp : responseBody;
+    if (!answer?.startsWith("v=0")) throw new Error("Invalid SDP answer");
+    return new Response(answer, {
       status: 200,
       headers: { "Content-Type": "application/sdp" },
     });

@@ -1,3 +1,4 @@
+import { sanitizeLiveComparison } from "@/lib/live-metrics";
 import { summarizeRealtimeMetrics } from "@/lib/realtime-metrics";
 import { createSpeechTimingAudit, summarizeSpeechAnalytics } from "@/lib/speech-analytics";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
@@ -69,7 +70,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       p_connection_error_count: metrics.connectionErrorCount,
       p_metric_details: {
         replyLatenciesMs: metrics.replyLatenciesMs,
-        inputMode: metricsInput.inputMode === "duplex"
+        liveComparison: metricsInput.inputMode === "duplex_live" ? { ...sanitizeLiveComparison(metricsInput.liveComparison), backendModel: process.env.OPENAI_LIVE_BACKEND_MODEL || "gpt-5.4-mini" } : null,
+        inputMode: metricsInput.inputMode === "duplex_live" ? "duplex_live" : metricsInput.inputMode === "duplex"
           ? "duplex"
           : metricsInput.inputMode === "text_only" ? "text_only" : "push_to_talk",
         speechAnalytics,
