@@ -17,19 +17,19 @@ describe("speech analytics", () => {
     })).toBeNull();
   });
 
-  it("calculates tempo, pauses, talk share, questions and fillers", () => {
+  it.each(["duplex", "duplex_live"])("calculates and reloads %s tempo, pauses, talk share, questions and fillers", (inputMode) => {
     const result = summarizeSpeechAnalytics({
-      inputMode: "duplex",
+      inputMode,
       turns,
       userSpeakingDurationsMs: [4_000, 6_000],
       opponentSpeakingDurationsMs: [10_000],
       userResponseTimesMs: [1_000, 4_000],
-      opponentTimingSource: "output_audio_buffer",
+      opponentTimingSource: inputMode === "duplex_live" ? "live_transcript" : "output_audio_buffer",
       interruptionCount: 1,
     });
     expect(result).toMatchObject({
       available: true,
-      inputMode: "duplex",
+      inputMode,
       talkSharePercent: 50,
       pauseCount: 2,
       longPauseCount: 1,
@@ -44,6 +44,7 @@ describe("speech analytics", () => {
       timingUnavailableReason: "none",
       interruptionCount: 1,
     });
+    expect(readSpeechAnalytics(result)).toMatchObject({ inputMode, timingAvailable: true });
     expect(result?.tempoWpm).toBeGreaterThan(0);
     expect(result?.pressureReaction.level).toBe("hesitant");
   });

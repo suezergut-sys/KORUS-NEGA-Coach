@@ -64,8 +64,6 @@ export default function NegotiationReport({
         <span>ПЕРСОНАЛЬНАЯ ОБРАТНАЯ СВЯЗЬ</span><p>{analysis.personalFeedback}</p>
       </section>
 
-      {speechAnalytics && <SpeechAnalyticsPanel analytics={speechAnalytics} />}
-
       {analysis.scoreBreakdown.length > 0 && (
         <section className="score-breakdown">
           <h3>{usesOneCIndependentRubric
@@ -148,6 +146,7 @@ export default function NegotiationReport({
 
       <div className="analysis-section"><h3>АЛЬТЕРНАТИВНЫЕ ХОДЫ</h3><ol>{analysis.alternatives.map((item, index) => <li key={index}>{item}</li>)}</ol></div>
       {!isOneCReport && <LaborLawRisksSection items={analysis.laborLawRisks || []} />}
+      {speechAnalytics && <SpeechAnalyticsPanel analytics={speechAnalytics} />}
       <footer className="report-footer"><span>Версия методологии: {analysis.methodologyVersion}</span>{methodology.visibility === "public" && <Link href={`/methodology/${methodologyId}`}>Открыть методическую базу →</Link>}</footer>
       {sessionId && methodology.visibility === "public" && <div data-report-export-ignore><ReportMethodologySwitcher sessionId={sessionId} methodologyId={reanalysisMethodologyId || methodologyId} onGenerated={onReanalyzed} preserveInitialReport={preserveInitialReport} /></div>}
     </div>
@@ -256,8 +255,8 @@ export function SpeechAnalyticsPanel({ analytics }: { analytics: SpeechAnalytics
   return (
     <section className="speech-analytics-card">
       <header>
-        <div><span>РЕЧЕВАЯ АНАЛИТИКА · ДУПЛЕКС</span><h3>Как вы говорили и реагировали</h3></div>
-        <p>Рассчитано по временным событиям голоса и финальной стенограмме. Аудиозапись не сохраняется.</p>
+        <div><span>РЕЧЕВАЯ АНАЛИТИКА · {analytics.inputMode === "duplex_live" ? "ДУПЛЕКС LIVE" : "ДУПЛЕКС"}</span><h3>Как вы говорили и реагировали</h3></div>
+        <p>{analytics.inputMode === "duplex_live" ? "Оценка по временным отметкам распознанных реплик; наложение реплик считается перебиванием." : "Рассчитано по временным событиям голоса и финальной стенограмме."} Аудиозапись не сохраняется.</p>
       </header>
       <div className="speech-analytics-grid">
         <article><span>ТЕМП</span><strong>{analytics.tempoWpm || "—"}<small>{analytics.tempoWpm ? " сл/мин" : ""}</small></strong><p>{analytics.words} слов в {analytics.userTurns} репликах</p></article>
@@ -266,11 +265,7 @@ export function SpeechAnalyticsPanel({ analytics }: { analytics: SpeechAnalytics
         <article><span>ПЕРЕБИВАНИЯ</span><strong>{analytics.timingAvailable ? analytics.interruptionCount : "—"}</strong><p>{unavailableTiming || "раз начали говорить, пока оппонент ещё говорил"}</p></article>
         <article><span>ВОПРОСЫ</span><strong>{analytics.questionCount}</strong><p>вопросительных формулировок</p></article>
         <article><span>СЛОВА-ПАРАЗИТЫ</span><strong>{fillerPercent}</strong><p>{analytics.fillerWordCount} из {analytics.words} слов · {fillerSummary}</p></article>
-        <article className={`pressure-reaction ${analytics.pressureReaction.level}`}>
-          <span>РЕАКЦИЯ НА ДАВЛЕНИЕ</span>
-          <strong>{analytics.pressureReaction.label}</strong>
-          <p>{analytics.pressureReaction.explanation}</p>
-        </article>
+
       </div>
     </section>
   );

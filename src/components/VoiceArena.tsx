@@ -1,5 +1,7 @@
 "use client";
 
+import { liveSpeechTiming } from "@/lib/live-speech-timing";
+
 import Image from "next/image";
 import { LiveConversation, waitForIceGathering, type LiveComparison } from "@/lib/live-conversation";
 import { percentile } from "@/lib/realtime-metrics";
@@ -1804,6 +1806,7 @@ export default function VoiceArena({
         userSpeakingDurationsMs: userSpeakingDurationsMsRef.current,
         opponentSpeakingDurationsMs: opponentSpeakingDurationsMsRef.current,
         userResponseTimesMs: userResponseTimesMsRef.current,
+        ...(liveConversationRef.current ? liveSpeechTiming(liveConversationRef.current.captions) : {}),
       },
     };
     closeSession(false);
@@ -2033,7 +2036,7 @@ export default function VoiceArena({
             ))}
           </div>
           <p className="speech-analytics-availability">
-            Речевая аналитика темпа, пауз, доли говорения и реакции на давление формируется только в режиме «Дуплекс».
+            Речевая аналитика темпа, пауз, перебиваний и слов-паразитов формируется в режимах «Дуплекс» и «Дуплекс Live» в конце отчёта.
           </p>
         </section>
 

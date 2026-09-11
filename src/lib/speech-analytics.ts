@@ -3,7 +3,7 @@ import { percentile } from "./realtime-metrics";
 
 export type SpeechAnalytics = {
   available: true;
-  inputMode: "duplex";
+  inputMode: "duplex" | "duplex_live";
   words: number;
   userTurns: number;
   userSpeakingMs: number;
@@ -142,7 +142,7 @@ export function summarizeSpeechAnalytics(input: {
   opponentTimingSource?: unknown;
   interruptionCount?: unknown;
 }): SpeechAnalytics | null {
-  if (input.inputMode !== "duplex") return null;
+  if (input.inputMode !== "duplex" && input.inputMode !== "duplex_live") return null;
   const userTurns = input.turns.filter((turn) => turn.author === "Вы");
   const opponentTurns = input.turns.filter((turn) => turn.author === "Оппонент");
   const userText = userTurns.map((turn) => turn.text).join(" ");
@@ -155,7 +155,8 @@ export function summarizeSpeechAnalytics(input: {
   const userSpeakingMs = userDurations.reduce((total, value) => total + value, 0);
   const opponentSpeakingMs = opponentDurations.reduce((total, value) => total + value, 0);
   const totalSpeakingMs = userSpeakingMs + opponentSpeakingMs;
-  const authoritativeOpponentTiming = input.opponentTimingSource === "output_audio_buffer";
+  const authoritativeOpponentTiming = input.opponentTimingSource === "output_audio_buffer"
+    || (input.inputMode === "duplex_live" && input.opponentTimingSource === "live_transcript");
   const hasTimingSamples = userDurations.length > 0 && opponentTurns.length > 0 && opponentDurations.length > 0;
   const plausibleTiming = hasTimingSamples
     && plausibleSpeechRate(wordCount, userSpeakingMs)
@@ -179,7 +180,7 @@ export function summarizeSpeechAnalytics(input: {
   const interruptionCount = bounded(input.interruptionCount, 10_000);
   return {
     available: true,
-    inputMode: "duplex",
+    inputMode: input.inputMode,
     words: wordCount,
     userTurns: userTurns.length,
     userSpeakingMs,
@@ -210,7 +211,7 @@ export function summarizeSpeechAnalytics(input: {
 export function readSpeechAnalytics(value: unknown): SpeechAnalytics | null {
   if (!value || typeof value !== "object") return null;
   const analytics = value as Partial<SpeechAnalytics>;
-  if (analytics.available !== true || analytics.inputMode !== "duplex") return null;
+  if (analytics.available !== true || (analytics.inputMode !== "duplex" && analytics.inputMode !== "duplex_live")) return null;
   if (!analytics.pressureReaction || !Array.isArray(analytics.fillers)) return null;
   const wordCount = bounded(analytics.words, 1_000_000);
   const fillerWordCount = typeof analytics.fillerWordCount === "number"
@@ -258,7 +259,7 @@ export function createSpeechTimingAudit(input: {
     version: 3 as const,
     opponentTimingSource: input.opponentTimingSource === "output_audio_buffer"
       ? "output_audio_buffer" as const
-      : "unavailable" as const,
+      : input.opponentTimingSource === "live_transcript" ? "live_transcript" as const : "unavailable" as const,
     userSpeakingDurationsMs: durations(input.userSpeakingDurationsMs),
     opponentSpeakingDurationsMs: durations(input.opponentSpeakingDurationsMs),
     userResponseTimesMs: durations(input.userResponseTimesMs),

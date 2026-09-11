@@ -2,6 +2,12 @@
 export type LiveCaption = { id: string; author: "Вы" | "Оппонент"; text: string; startMs: number; endMs: number };
 export class LiveCaptions {
   rows: LiveCaption[] = [];
+  private segmentStart = 0;
+  readonly segmentStarts: number[] = [0];
+  breakTurn() {
+    this.segmentStart = this.rows.length;
+    this.segmentStarts.push(this.segmentStart);
+  }
   private seen = new Set<string>();
   append(event: Record<string, unknown>) {
     const author = event.type === "session.input_transcript.delta" ? "Вы"
@@ -13,7 +19,7 @@ export class LiveCaptions {
     }
     const start = Number(event.start_ms), end = Number(event.end_ms);
     if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start) return null;
-    let row = this.rows.findLast((r) => r.author === author);
+    let row = this.rows.slice(this.segmentStart).findLast((r) => r.author === author);
     const other = this.rows.findLast((r) => r.author !== author);
     // A gap is only a display heuristic. It never triggers speech or backend work.
     if (!row || start - row.endMs > 900 || (other && other.endMs >= row.endMs && start >= other.endMs && start > row.endMs)) {
@@ -177,6 +183,7 @@ export class LiveConversation {
   setPaused(paused: boolean) {
     if (paused === this.paused || !this.started || this.closing) return;
     this.paused = paused;
+    this.captions.breakTurn();
     this.pendingReplyAt = 0;
     this.speaking = { user: false, opponent: false };
     this.callbacks.onSpeaking("user", false);
