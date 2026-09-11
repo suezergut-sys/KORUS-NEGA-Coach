@@ -21,7 +21,7 @@ export default function P2E2EHarness() {
     userSpeakingDurationsMs: [4_000],
     opponentSpeakingDurationsMs: [6_000],
     userResponseTimesMs: [1_500],
-    opponentTimingSource: "output_audio_buffer",
+    opponentTimingSource: inputMode === "duplex_live" ? "live_transcript" : "output_audio_buffer",
     interruptionCount: 0,
   });
 
@@ -68,6 +68,7 @@ export default function P2E2EHarness() {
       </section>
       <section>
         <button data-testid="duplex-mode" onClick={() => setInputMode("duplex")}>Дуплекс</button>
+        <button data-testid="live-mode" onClick={() => setInputMode("duplex_live")}>Дуплекс Live</button>
         <button data-testid="ordinary-mode" onClick={() => setInputMode("push_to_talk")}>Обычный</button>
         {speechAnalytics && <SpeechAnalyticsPanel analytics={speechAnalytics} />}
       </section>

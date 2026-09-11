@@ -34,7 +34,7 @@ describe("session speech analytics API integration", () => {
     rpc.mockResolvedValue({ data: "22222222-2222-4222-8222-222222222222", error: null });
   });
 
-  it("calculates and persists duplex analytics during atomic finalization", async () => {
+  it.each(["duplex", "duplex_live"])("calculates and persists %s analytics during atomic finalization", async (inputMode) => {
     const { PATCH } = await import("../../src/app/api/sessions/[id]/route");
     const response = await PATCH(new Request("http://localhost/api/sessions/22222222-2222-4222-8222-222222222222", {
       method: "PATCH",
@@ -46,11 +46,11 @@ describe("session speech analytics API integration", () => {
           { id: "2", author: "Оппонент", text: "Не хватило ресурсов.", time: "10:01" },
         ],
         metrics: {
-          inputMode: "duplex",
+          inputMode,
           userSpeakingDurationsMs: [4_000],
           opponentSpeakingDurationsMs: [6_000],
           userResponseTimesMs: [1_500],
-          opponentTimingSource: "output_audio_buffer",
+          opponentTimingSource: inputMode === "duplex_live" ? "live_transcript" : "output_audio_buffer",
           interruptionCount: 1,
         },
       }),
@@ -61,7 +61,7 @@ describe("session speech analytics API integration", () => {
       status: "analysis_pending",
       metrics: {
         speechAnalytics: {
-          inputMode: "duplex",
+          inputMode,
           talkSharePercent: 40,
           responseTimeP50Ms: 1_500,
           questionCount: 1,
@@ -74,11 +74,11 @@ describe("session speech analytics API integration", () => {
     });
     expect(rpc).toHaveBeenCalledWith("finalize_training_session", expect.objectContaining({
       p_metric_details: expect.objectContaining({
-        inputMode: "duplex",
+        inputMode,
         speechAnalytics: expect.objectContaining({ talkSharePercent: 40 }),
         speechTiming: {
           version: 3,
-          opponentTimingSource: "output_audio_buffer",
+          opponentTimingSource: inputMode === "duplex_live" ? "live_transcript" : "output_audio_buffer",
           userSpeakingDurationsMs: [4_000],
           opponentSpeakingDurationsMs: [6_000],
           userResponseTimesMs: [1_500],
@@ -96,7 +96,7 @@ describe("session speech analytics API integration", () => {
     expect(response.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith("finalize_training_session", expect.objectContaining({
       p_reply_latency_p50_ms: 500,
-      p_metric_details: expect.objectContaining({ inputMode: "duplex_live", speechAnalytics: null, liveComparison: expect.objectContaining({ voiceModel: "gpt-live-1", backendP50Ms: 800, delegationCount: 2 }) }),
+      p_metric_details: expect.objectContaining({ inputMode: "duplex_live", speechAnalytics: expect.objectContaining({ inputMode: "duplex_live", timingAvailable: false }), liveComparison: expect.objectContaining({ voiceModel: "gpt-live-1", backendP50Ms: 800, delegationCount: 2 }) }),
     }));
   });
 

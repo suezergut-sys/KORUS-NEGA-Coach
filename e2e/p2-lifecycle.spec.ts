@@ -38,9 +38,13 @@ test("название приватного кейса скрыто от дру�
   await expect(page.getByTestId("private-case")).toHaveText("Секретное сокращение штата");
 });
 
-test("речевая аналитика доступна только в дуплексном режиме", async ({ page }) => {
+test("речевая аналитика доступна в обоих дуплексных режимах", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Как вы говорили и реагировали" })).toBeVisible();
   await expect(page.getByText("40%", { exact: true })).toBeVisible();
+  await page.getByTestId("live-mode").click();
+  await expect(page.getByText("РЕЧЕВАЯ АНАЛИТИКА · ДУПЛЕКС LIVE", { exact: true })).toBeVisible();
+  await expect(page.getByText("40%", { exact: true })).toBeVisible();
+  await expect(page.getByText("РЕАКЦИЯ НА ДАВЛЕНИЕ", { exact: true })).toHaveCount(0);
   await page.getByTestId("ordinary-mode").click();
   await expect(page.getByRole("heading", { name: "Как вы говорили и реагировали" })).toHaveCount(0);
   await page.getByTestId("duplex-mode").click();

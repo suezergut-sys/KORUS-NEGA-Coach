@@ -1,3 +1,5 @@
+import { summarizeSpeechAnalytics } from "../src/lib/speech-analytics";
+import { buildNegotiationReportHtml } from "../src/lib/report-html";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import NegotiationReport from "../src/components/NegotiationReport";
@@ -94,5 +96,24 @@ describe("приоритет рисков в отчёте 1С", () => {
 
     expect(markup).toContain("ОЦЕНКА ПО РУБРИКЕ СОХРАНЁННОГО ОТЧЁТА");
     expect(markup).not.toContain("ОЦЕНКА ПО ЧЕТЫРЁМ НЕЗАВИСИМЫМ ШКАЛАМ");
+  });
+});
+
+
+describe("речевая аналитика в конце отчёта 1С", () => {
+  it.each(["duplex", "duplex_live"])("показывает цифры без советов в %s и HTML-экспорте", (inputMode) => {
+    const speechAnalytics = summarizeSpeechAnalytics({ inputMode,
+      turns: [{ id: "u", author: "Вы", text: "Ну, какие у вас вопросы?", time: "10:00" }, { id: "o", author: "Оппонент", text: "Каковы ваши условия?", time: "10:01" }],
+      userSpeakingDurationsMs: [4000], opponentSpeakingDurationsMs: [3000], userResponseTimesMs: [7000], interruptionCount: 1,
+      opponentTimingSource: inputMode === "duplex_live" ? "live_transcript" : "output_audio_buffer",
+    });
+    const meta = { occurredAt: "2026-09-11T10:00:00Z", caseTitle: "1С Увольнение", userFullName: "Участник", participantRole: "Мария Соколова" };
+    const markup = renderToStaticMarkup(<NegotiationReport analysis={analysis} methodologyId="dismissal_1c" opponentName="Алексей" speechAnalytics={speechAnalytics} reportMeta={meta} />);
+    expect(markup.indexOf("РЕЧЕВАЯ АНАЛИТИКА")).toBeGreaterThan(markup.indexOf("АЛЬТЕРНАТИВНЫЕ ХОДЫ"));
+    const block = markup.slice(markup.indexOf('class="speech-analytics-card"'), markup.indexOf('class="report-footer"'));
+    for (const label of ["ТЕМП", "СРЕДНЯЯ ПАУЗА", "ДОЛЯ ГОВОРЕНИЯ", "ПЕРЕБИВАНИЯ", "ВОПРОСЫ", "СЛОВА-ПАРАЗИТЫ", "20%", "7 с"]) expect(block).toContain(label);
+    expect(block).not.toContain("Полезно");
+    expect(block).not.toContain("РЕАКЦИЯ НА ДАВЛЕНИЕ");
+    expect(buildNegotiationReportHtml({ contentHtml: markup, meta })).toContain(block);
   });
 });
