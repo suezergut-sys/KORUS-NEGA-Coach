@@ -48,6 +48,10 @@ describe("detectReachedAgreement", () => {
 
 
 describe("conversation closing regression", () => {
+  it.each(["[спокойно] Спасибо, тебе тоже.", "И вам спасибо.", "Спасибо, взаимно.", "И тебе!"])("recognizes reciprocal farewell: %s", (reply) => {
+    expect(detectReachedAgreement(turns(["Вы", "Да, хорошо, Леш, спасибо. Хорошего тебе дня."], ["Оппонент", reply]))).not.toBeNull();
+    expect(detectReachedAgreement(turns(["Вы", "Мне важно сохранить работу."], ["Оппонент", reply]))).toBeNull();
+  });
   it("offers completion after a deferred discussion and mutual farewells", () => {
     expect(detectReachedAgreement(turns(
       ["Вы", "Давай вернемся к этому завтра."],
