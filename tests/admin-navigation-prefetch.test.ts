@@ -7,7 +7,7 @@ describe("admin navigation prefetch", () => {
     const appNavRail = readFileSync("src/components/AppNavRail.tsx", "utf8");
 
     expect(layout).toContain("<AppNavRail isAdministrator prefetch={false} />");
-    expect(layout.match(/<Link href="\/admin[^>]*prefetch=\{false\}/g)).toHaveLength(8);
+    expect(layout.match(/<Link href="\/admin[^>]*prefetch=\{false\}/g)).toHaveLength(9);
     expect(appNavRail).toContain("prefetch={prefetch}");
   });
 

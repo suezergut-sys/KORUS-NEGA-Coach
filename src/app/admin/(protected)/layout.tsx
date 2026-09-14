@@ -13,6 +13,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
         <nav className="admin-section-nav" aria-label="Разделы админ-панели">
           <Link href="/admin" prefetch={false}>Обзор</Link>
           <Link href="/admin/users" prefetch={false}>Пользователи</Link>
+          <Link href="/admin/one-c-dashboard" prefetch={false}>Дашборд 1С</Link>
           <Link href="/admin/logs" prefetch={false}>Логи</Link>
           <Link href="/admin/methodology" prefetch={false}>Методология</Link>
           <Link href="/admin/cases" prefetch={false}>База кейсов</Link>
