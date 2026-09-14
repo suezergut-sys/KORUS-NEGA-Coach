@@ -18,7 +18,7 @@ export async function recordUserActivity(input: RecordUserActivityInput) {
     const db = getSupabaseAdmin();
     const { data: profile, error: profileError } = await db
       .from("user_profiles")
-      .select("first_name,last_name")
+      .select("first_name,last_name,department_id")
       .eq("id", input.userId)
       .single();
     if (profileError || !profile) throw new Error(profileError?.message || "Профиль пользователя не найден.");
@@ -41,7 +41,23 @@ export async function recordUserActivity(input: RecordUserActivityInput) {
 
     const chatId = process.env.TELEGRAM_MONITOR_USER_CHAT_ID?.trim();
     if (!chatId) throw new Error("TELEGRAM_MONITOR_USER_CHAT_ID не настроен.");
-    await sendTelegramMessage(chatId, formatActivityMessage(userName, input.type, input.subjectTitle));
+    const message = formatActivityMessage(userName, input.type, input.subjectTitle);
+    const departmentChatId = process.env.TELEGRAM_1C_MONITOR_CHAT_ID?.trim();
+    const deliveries = await Promise.allSettled([
+      sendTelegramMessage(chatId, message),
+      (async () => {
+        if (input.type !== "case_played" || !profile.department_id || !departmentChatId || departmentChatId === chatId) return;
+        const { data: department, error } = await db
+          .from("departments")
+          .select("code")
+          .eq("id", profile.department_id)
+          .single();
+        if (error || !department) throw new Error(error?.message || "Департамент пользователя не найден.");
+        if (department.code === "1c") await sendTelegramMessage(departmentChatId, message);
+      })(),
+    ]);
+    const failedDelivery = deliveries.find((delivery) => delivery.status === "rejected");
+    if (failedDelivery?.status === "rejected") throw failedDelivery.reason;
     const { error: updateError } = await db
       .from("user_activity_events")
       .update({ telegram_sent_at: new Date().toISOString() })
