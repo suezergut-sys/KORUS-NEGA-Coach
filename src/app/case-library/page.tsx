@@ -6,6 +6,7 @@ import { canAccessCase } from "@/lib/case-visibility";
 import { getCaseAccessContext } from "@/lib/case-access-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getCurrentUserSession } from "@/lib/user-auth";
+import { getOneCCaseCreatorAccess } from "@/lib/one-c-case-access";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function CaseLibraryPage() {
   const session = await getCurrentUserSession();
   if (!session) return null;
   const db = getSupabaseAdmin();
-  const access = await getCaseAccessContext(session);
+  const [access, oneCCreatorAccess] = await Promise.all([getCaseAccessContext(session), getOneCCaseCreatorAccess(session)]);
   const [{ data: caseRows, error }, { data: sessions }, { data: jobs }] = await Promise.all([
     db.from("negotiation_cases").select("*").eq("status", "published").limit(500),
     db.from("training_sessions").select("case_id").not("case_id", "is", null).limit(10000),
@@ -55,7 +56,7 @@ export default async function CaseLibraryPage() {
     <>
       <header className="admin-page-header case-library-header">
         <div><span className="admin-eyebrow">БИБЛИОТЕКА ТРЕНАЖЁРА</span><h1>База кейсов</h1><p>Выберите управленческую ситуацию, изучите роли и начните тренировку.</p></div>
-        <div className="case-library-top-actions"><Link href="/?quickUpload=1">↑ Загрузить кейс</Link><Link href="/cases">＋ Создать кейс</Link></div>
+        <div className="case-library-top-actions"><Link href="/?quickUpload=1">↑ Загрузить кейс</Link><Link href="/cases">＋ Создать кейс</Link>{oneCCreatorAccess.allowed && <Link className="one-c-create-link" href="/cases/one-c">＋ Создать кейс 1С</Link>}</div>
       </header>
       <div className="case-library-count"><strong>{items.length}</strong><span>кейсов · сначала самые популярные</span></div>
       <CaseLibrary cases={items} />

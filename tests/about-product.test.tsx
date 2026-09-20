@@ -75,6 +75,7 @@ describe("about product page", () => {
     expect(markup).toContain("Завершение после достижения договорённости");
     expect(markup).toContain("Приоритет рисков и устные договорённости в кейсе 1С");
     expect(markup).toContain("Договорённости первого разговора остаются устными");
+    expect(markup).toContain("Сотрудники 1С создают личные кейсы увольнения");
   });
 
   it("contains every merged PR in newest-first order", () => {

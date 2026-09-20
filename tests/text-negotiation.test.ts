@@ -40,7 +40,7 @@ describe("текстовый режим переговоров", () => {
     expect(dismissal).toContain("На приветствие, вопрос «как дела?»");
     expect(dismissal).toContain("с нейтральной эмоциональной меткой");
     expect(dismissal).toContain("дела нормально");
-    expect(dismissal).toContain("зачем ты меня позвала?");
+    expect(dismissal).toContain("зачем он пригласил сотрудника");
     expect(dismissal).not.toContain("руководитель вызвал");
     expect(dismissal).toContain("не упоминай обстоятельства кейса и не начинай возражения");
     expect(dismissal).toContain("После того как руководитель явно назвал увольнение");
@@ -56,8 +56,10 @@ describe("текстовый режим переговоров", () => {
     const route = readFileSync("src/app/api/text-negotiation/route.ts", "utf8");
     expect(textNegotiationMaxOutputTokens("1c-dismissal")).toBe(300);
     expect(textNegotiationMaxOutputTokens("release-risk")).toBe(500);
+    expect(textNegotiationMaxOutputTokens("1c-private-case", true)).toBe(300);
+    expect(textNegotiationModeInstructions("1c-private-case", true)).toContain("только возражения и обстоятельства из текущего кейса");
     expect(route).toContain('text: { verbosity: "low" }');
-    expect(route).toContain("max_output_tokens: textNegotiationMaxOutputTokens(negotiationCase.slug)");
+    expect(route).toContain('max_output_tokens: textNegotiationMaxOutputTokens(negotiationCase.slug, negotiationCase.requiredMethodologyId === "dismissal_1c")');
   });
 
   it("accepts audio and rejects non-audio files", () => {
