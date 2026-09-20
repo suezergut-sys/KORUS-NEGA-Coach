@@ -75,12 +75,13 @@ describe("about product page", () => {
     expect(markup).toContain("Завершение после достижения договорённости");
     expect(markup).toContain("Приоритет рисков и устные договорённости в кейсе 1С");
     expect(markup).toContain("Договорённости первого разговора остаются устными");
+    expect(markup).toContain("Сотрудники 1С создают личные кейсы увольнения");
   });
 
   it("contains every merged PR in newest-first order", () => {
-    expect(PRODUCT_HISTORY).toHaveLength(148);
+    expect(PRODUCT_HISTORY).toHaveLength(149);
     expect(PRODUCT_HISTORY.map((item) => item.pr)).toEqual(
-      [153, 152, 151, 150, 149, 148, 147, 146, 145, 144, 143, 142, 141, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128, 127, 126, 125, 124, 123, 122, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
+      [154, 153, 152, 151, 150, 149, 148, 147, 146, 145, 144, 143, 142, 141, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128, 127, 126, 125, 124, 123, 122, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, ...Array.from({ length: 61 }, (_, index) => 61 - index)],
     );
     for (let index = 1; index < PRODUCT_HISTORY.length; index += 1) {
       expect(PRODUCT_HISTORY[index - 1].date >= PRODUCT_HISTORY[index].date).toBe(true);
@@ -89,7 +90,7 @@ describe("about product page", () => {
 
   it("groups versions by date without changing their order", () => {
     const groups = groupProductHistory();
-    expect(groups[0].date).toBe("2026-09-14");
+    expect(groups[0].date).toBe("2026-09-20");
     expect(groups.at(-1)?.date).toBe("2026-07-11");
     expect(groups.flatMap((group) => group.items)).toEqual(PRODUCT_HISTORY);
   });

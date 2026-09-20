@@ -1636,6 +1636,43 @@ button { color: inherit; }
 .case-library-context article, .case-library-role { padding: 17px; border: 1px solid #174467; border-radius: 11px; background: rgba(5, 25, 46, .78); }
 .case-library-context span, .case-library-role > span { color: #50b7ff; font-size: 12px; font-weight: 900; letter-spacing: .09em; }
 .case-library-context p, .case-library-context ul { margin: 8px 0 0; color: #b1c3d2; font-size: 13px; line-height: 1.65; }
+
+.case-library-top-actions .one-c-create-link { border-color: #f0ad38; color: #fff1c5; background: linear-gradient(135deg, #6f4d16, #35270f); }
+.one-c-builder { display: grid; gap: 18px; }
+.one-c-builder .builder-input-card { display: grid; gap: 18px; }
+.one-c-step { display: flex; align-items: center; gap: 12px; }
+.one-c-step > b { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; border: 1px solid #f0ad38; border-radius: 50%; color: #fff1c5; background: #5f4215; }
+.one-c-step h2 { margin: 0; color: #eef7ff; font-size: 20px; }
+.one-c-step p { margin: 5px 0 0; color: #8fa8be; font-size: 13px; }
+.one-c-voice { min-height: 40px; padding: 0 13px; border: 1px solid #2774aa; border-radius: 7px; color: #9fd6ff; background: #0a2c4b; font-weight: 800; cursor: pointer; }
+.one-c-voice.recording { border-color: #ff625a; color: #fff; background: #74262b; }
+.one-c-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.one-c-choice { min-width: 0; padding: 0; border: 0; }
+.one-c-choice legend, .one-c-edit-grid label > span, .one-c-role-editor label > span { margin-bottom: 7px; color: #75a1c6; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.one-c-choice details { position: relative; }
+.one-c-choice summary { min-height: 44px; display: flex; align-items: center; padding: 0 12px; border: 1px solid #245177; border-radius: 8px; color: #c3d6e8; background: #071b31; cursor: pointer; }
+.one-c-choice details > div { position: absolute; z-index: 5; width: 100%; display: grid; gap: 8px; padding: 12px; border: 1px solid #2b638d; border-radius: 8px; color: #c3d6e8; background: #071a2e; box-shadow: 0 18px 35px rgba(0,0,0,.35); }
+.one-c-choice details label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.one-c-choice .one-c-other { display: grid; align-items: stretch; }
+.one-c-choice input[type="text"], .one-c-choice input:not([type]) { width: 100%; }
+.one-c-primary { min-height: 46px; justify-self: start; padding: 0 20px; border: 1px solid #f0ad38; border-radius: 8px; color: #fff6db; background: linear-gradient(135deg, #95671a, #5a3d12); font-weight: 900; letter-spacing: .05em; cursor: pointer; }
+.one-c-primary:disabled { cursor: wait; opacity: .65; }
+.one-c-edit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.one-c-edit-grid label { display: grid; gap: 6px; }
+.one-c-edit-grid input, .one-c-edit-grid select, .one-c-edit-grid textarea, .one-c-choice input { width: 100%; padding: 10px 11px; border: 1px solid #204c71; border-radius: 7px; color: #d8e8f6; background: #06172a; font: inherit; }
+.one-c-edit-grid textarea { min-height: 92px; resize: vertical; }
+.one-c-role-editor { padding-top: 18px; border-top: 1px solid #1a3e5f; }
+.one-c-role-editor h3 { margin: 0 0 14px; color: #9fd6ff; }
+.one-c-publish { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px; border: 1px solid #2b6f5b; border-radius: 10px; background: rgba(15, 83, 62, .18); }
+.one-c-publish div { display: grid; gap: 4px; color: #a9c8ba; }
+.one-c-publish strong { color: #72ddb0; }
+
+@media (max-width: 820px) {
+  .one-c-choice-grid, .one-c-edit-grid { grid-template-columns: 1fr; }
+  .one-c-choice details > div { position: static; }
+  .one-c-publish { align-items: stretch; flex-direction: column; }
+  .one-c-publish .one-c-primary { justify-self: stretch; }
+}
 .case-library-context ul { padding-left: 17px; }
 .case-library-roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
 .case-library-role h3 { margin: 8px 0 2px; color: #eef8ff; font-size: 15px; }

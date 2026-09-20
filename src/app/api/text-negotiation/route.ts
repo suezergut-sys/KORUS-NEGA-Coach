@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     const baseInstructions = buildRealtimeInstructions({
-      caseCode: negotiationCase.slug,
+      caseCode: negotiationCase.requiredMethodologyId === "dismissal_1c" ? "1c-dismissal" : negotiationCase.slug,
       title: negotiationCase.title,
       summary: negotiationCase.summary,
       negotiationStyle,
@@ -105,9 +105,9 @@ export async function POST(request: Request) {
       model: TEXT_NEGOTIATION_MODEL,
       reasoning: { effort: "low" },
       text: { verbosity: "low" },
-      instructions: `${baseInstructions}\n\n${textNegotiationModeInstructions(negotiationCase.slug)}${firstTurnInstructions}`,
+      instructions: `${baseInstructions}\n\n${textNegotiationModeInstructions(negotiationCase.slug, negotiationCase.requiredMethodologyId === "dismissal_1c")}${firstTurnInstructions}`,
       input: textNegotiationInput(turns, action === "start"),
-      max_output_tokens: textNegotiationMaxOutputTokens(negotiationCase.slug),
+      max_output_tokens: textNegotiationMaxOutputTokens(negotiationCase.slug, negotiationCase.requiredMethodologyId === "dismissal_1c"),
       store: false,
     });
     const reply = response.output_text.trim();

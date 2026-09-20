@@ -49,7 +49,7 @@ export async function createRealtimeSession(request: Request, options: { adminCa
   const userRole = selected.participantRole;
   const opponentRole = selected.opponentRole;
   const instructions = buildRealtimeInstructions({
-    caseCode: negotiationCase.slug,
+    caseCode: negotiationCase.requiredMethodologyId === "dismissal_1c" ? "1c-dismissal" : negotiationCase.slug,
     title: negotiationCase.title,
     summary: negotiationCase.summary,
     negotiationStyle,
