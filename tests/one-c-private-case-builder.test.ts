@@ -41,4 +41,10 @@ describe("private 1C dismissal case builder", () => {
     expect(analysis).toContain('if (methodologyId === "dismissal_1c") analysis = applyOneCDismissalSafetyPolicy(analysis)');
     expect(analysis).not.toContain('if (session.case_code === "1c-dismissal") analysis = applyOneCDismissalSafetyPolicy(analysis)');
   });
+
+  it("keeps scenario checkboxes compact inside dropdown menus", () => {
+    const styles = source("src/app/globals.css");
+    expect(styles).toContain('.one-c-choice input:not([type="checkbox"])');
+    expect(styles).toMatch(/\.one-c-choice input\[type="checkbox"\][^{]*\{[^}]*width:\s*16px/);
+  });
 });
