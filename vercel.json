@@ -3,14 +3,6 @@
     {
       "path": "/api/cron/case-media",
       "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/weekly-activity",
-      "schedule": "0 6 * * 1"
-    },
-    {
-      "path": "/api/cron/weekly-activity-fallback",
-      "schedule": "0 9 * * *"
     }
   ]
 }

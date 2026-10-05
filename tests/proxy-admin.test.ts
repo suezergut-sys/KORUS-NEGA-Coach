@@ -43,13 +43,15 @@ describe("admin gateway", () => {
     expect(response.status).toBe(200);
   });
 
-  it("lets the weekly activity worker reach its own Bearer-protected route", () => {
+  it("does not expose the disabled weekly activity route", async () => {
     const response = proxy(new NextRequest("https://example.test/api/cron/weekly-activity"));
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Требуется авторизация." });
   });
 
-  it("lets the weekly fallback worker reach the same Bearer-protected report", () => {
+  it("does not expose the disabled weekly fallback route", async () => {
     const response = proxy(new NextRequest("https://example.test/api/cron/weekly-activity-fallback"));
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Требуется авторизация." });
   });
 });
